@@ -69,7 +69,9 @@ If you have Antigravity installed and logged in, the proxy will automatically ex
 
 **Option B: Add Google Accounts via OAuth (Recommended for Multi-Account)**
 
-Add one or more Google accounts for load balancing:
+Add one or more Google accounts for load balancing.
+
+#### Desktop/Laptop (with browser)
 
 ```bash
 # If installed via npm
@@ -84,22 +86,22 @@ npm run accounts:add
 
 This opens your browser for Google OAuth. Sign in and authorize access. Repeat for multiple accounts.
 
-**Headless Servers (Docker, SSH, no desktop):**
+#### Headless Server (Docker, SSH, no desktop)
 
 ```bash
-# Use --no-browser mode for servers without a browser
+# If installed via npm
 antigravity-claude-proxy accounts add --no-browser
 
-# Or with npx
+# If using npx
 npx antigravity-claude-proxy accounts add -- --no-browser
 
-# Or if cloned locally
+# If cloned locally
 npm run accounts:add -- --no-browser
 ```
 
 This displays an OAuth URL you can open on another device (phone/laptop). After signing in, copy the redirect URL or authorization code and paste it back into the terminal.
 
-Manage accounts:
+#### Manage accounts
 
 ```bash
 # List all accounts

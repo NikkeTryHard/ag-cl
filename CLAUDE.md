@@ -6,6 +6,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Antigravity Claude Proxy is a Node.js proxy server that exposes an Anthropic-compatible API backed by Antigravity's Cloud Code service. It enables using Claude and Gemini models with Claude Code CLI.
 
+## Related Projects
+
+### Claude Code Proxies
+
+| Project                                                                             | Description                                   |
+| ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| [antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy) | Original JavaScript implementation (upstream) |
+| [claude-code-proxy](https://github.com/1rgs/claude-code-proxy)                      | Anthropic API proxy using LiteLLM             |
+| [claude-code-router](https://github.com/musistudio/claude-code-router)              | Claude Code router implementation             |
+| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)                         | CLI proxy API implementation                  |
+| [CLIProxyAPIPlus](https://github.com/router-for-me/CLIProxyAPIPlus)                 | Extended CLI proxy API                        |
+| [Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager)                | Exposes endpoint with fallbacks               |
+
+### Authentication
+
+| Project                                                                             | Description                          |
+| ----------------------------------------------------------------------------------- | ------------------------------------ |
+| [opencode-antigravity-auth](https://github.com/NoeFabris/opencode-antigravity-auth) | OpenCode plugin for Antigravity auth |
+
+## OAuth Reference
+
+### Gemini CLI OAuth
+
+| Item           | Value                                 |
+| -------------- | ------------------------------------- |
+| Token location | `~/.gemini/oauth_creds.json`          |
+| Endpoint       | `https://cloudcode-pa.googleapis.com` |
+
+### Claude Code OAuth (different system)
+
+| Item           | Value                                   |
+| -------------- | --------------------------------------- |
+| Token location | `~/.claude/.credentials.json`           |
+| Access tokens  | `sk-ant-oat01-*` (8 hour expiry)        |
+| Refresh tokens | `sk-ant-ort01-*`                        |
+| API endpoint   | `https://api.anthropic.com/v1/messages` |
+
+### Token Formats
+
+- **Refresh tokens**: Start with `1//`, long-lived
+- **Access tokens**: Start with `ya29.`, ~1 hour expiry
+
+### Where to Find Refresh Tokens
+
+| Source                    | Location                                             |
+| ------------------------- | ---------------------------------------------------- |
+| Gemini CLI                | `~/.gemini/oauth_creds.json` (`refresh_token` field) |
+| opencode-antigravity-auth | `~/.config/opencode/`                                |
+
+### OAuth Error Reference
+
+| Error                | Cause                 | Solution                |
+| -------------------- | --------------------- | ----------------------- |
+| `invalid_grant`      | Token revoked/expired | Re-authenticate         |
+| `invalid_client`     | Wrong OAuth client    | Use correct credentials |
+| `RESOURCE_EXHAUSTED` | Rate limit            | Wait or switch accounts |
+| `401 Unauthorized`   | Access token expired  | Auto-refreshed          |
+
+---
+
 ## CLI Commands Reference
 
 **IMPORTANT**: Always use these npm scripts instead of raw commands. They ensure correct paths and configuration.
@@ -151,47 +211,3 @@ tests/
 ├── snapshots/        # Snapshot files
 └── helpers/          # Test utilities
 ```
-
-## Refresh Token Authentication
-
-Add accounts using only a refresh token (no OAuth flow needed).
-
-### Where to Find Refresh Tokens
-
-| Source                    | Location                                             |
-| ------------------------- | ---------------------------------------------------- |
-| Gemini CLI                | `~/.gemini/oauth_creds.json` (`refresh_token` field) |
-| opencode-antigravity-auth | `~/.config/opencode/`                                |
-
-### Token Format
-
-- **Refresh tokens**: Start with `1//`, long-lived
-- **Access tokens**: Start with `ya29.`, ~1 hour expiry
-
-## OAuth Error Reference
-
-| Error                | Cause                 | Solution                |
-| -------------------- | --------------------- | ----------------------- |
-| `invalid_grant`      | Token revoked/expired | Re-authenticate         |
-| `invalid_client`     | Wrong OAuth client    | Use correct credentials |
-| `RESOURCE_EXHAUSTED` | Rate limit            | Wait or switch accounts |
-| `401 Unauthorized`   | Access token expired  | Auto-refreshed          |
-
-## Related Projects
-
-- **opencode-antigravity-auth** - https://github.com/NoeFabris/opencode-antigravity-auth
-- **Antigravity-Manager** - https://github.com/lbjlaq/Antigravity-Manager
-- **CLIProxyAPI** - https://github.com/router-for-me/CLIProxyAPI
-
-### Gemini CLI OAuth
-
-Token location: `~/.gemini/oauth_creds.json`
-Endpoint: `https://cloudcode-pa.googleapis.com`
-
-### Claude Code OAuth (different system)
-
-Token location: `~/.claude/.credentials.json`
-
-- Access tokens: `sk-ant-oat01-*` (8 hour expiry)
-- Refresh tokens: `sk-ant-ort01-*`
-- API endpoint: `https://api.anthropic.com/v1/messages`

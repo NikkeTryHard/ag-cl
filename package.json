@@ -1,6 +1,6 @@
 {
   "name": "ag-cl",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Proxy server to use Antigravity's Claude models with Claude Code CLI",
   "main": "dist/index.js",
   "type": "module",

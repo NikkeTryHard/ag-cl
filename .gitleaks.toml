@@ -1,0 +1,30 @@
+# Gitleaks configuration
+# See: https://github.com/gitleaks/gitleaks
+
+title = "Antigravity Claude Proxy Gitleaks Config"
+
+[allowlist]
+  description = "Allowlist for public OAuth credentials and test data"
+
+  # Public Gemini CLI OAuth credentials (from official google/gemini-cli source)
+  # These are intentionally public and required for the proxy to work
+  regexTarget = "match"
+  regexes = [
+    # Gemini CLI OAuth client secret (public)
+    '''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''',
+    '''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''',
+    # Gemini CLI OAuth client ID (public)
+    '''681255809395-gp49vf0d4pj3clah4a1afke29b8m3fed\.apps\.googleusercontent\.com''',
+    '''681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j\.apps\.googleusercontent\.com''',
+    # Test API keys (fake values for tests)
+    '''test-api-key-12345''',
+    # Model names that look like secrets
+    '''claude-opus-4-5-thinking''',
+    '''claude-sonnet-4-5-thinking''',
+  ]
+
+  paths = [
+    # Test files may contain fake credentials
+    '''tests/.*\.test\.ts''',
+    '''tests/.*\.cjs''',
+  ]

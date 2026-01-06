@@ -1,0 +1,21 @@
+services:
+  antigravity-proxy:
+    build: .
+    container_name: antigravity-proxy
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount accounts config (persists across rebuilds)
+      - ./data/accounts.json:/root/.config/antigravity-proxy/accounts.json
+    environment:
+      - PORT=8080
+      - DEBUG=false
+      # Enable model fallback when quota exhausted
+      - FALLBACK=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

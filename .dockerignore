@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+*.tsbuildinfo
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.*
+
+# Sensitive data (use mounted volume instead)
+data/accounts.json
+!data/claude/
+
+# Test files (not needed in production)
+tests/
+*.test.ts
+*.spec.ts
+vitest.config.ts
+eslint.config.mjs
+
+# Documentation
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# Misc
+antigravity_accounts*.json

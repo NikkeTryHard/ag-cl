@@ -12,14 +12,14 @@ A proxy server exposing an **Anthropic-compatible API** backed by **Google Cloud
 ### Option 1: npx (No Install)
 
 ```bash
-npx antigravity-claude-proxy start
+npx ag-cl start
 ```
 
 ### Option 2: Global Install
 
 ```bash
-npm install -g antigravity-claude-proxy
-antigravity-claude-proxy start
+npm install -g ag-cl
+ag-cl start
 ```
 
 ### Option 3: Clone Repository
@@ -43,10 +43,10 @@ If you have Antigravity installed and logged in, the proxy automatically extract
 
 ```bash
 # Desktop/laptop (opens browser)
-antigravity-claude-proxy accounts add
+ag-cl accounts add
 
 # Headless server (Docker, SSH, no desktop)
-antigravity-claude-proxy accounts add --no-browser
+ag-cl accounts add --no-browser
 ```
 
 The `--no-browser` option displays an OAuth URL you can open on another device. After signing in, paste the redirect URL or authorization code back into the terminal.
@@ -114,7 +114,7 @@ Add-Content $PROFILE "`$env:ANTHROPIC_API_KEY = 'test'"
 
 ```bash
 # Start proxy
-antigravity-claude-proxy start
+ag-cl start
 
 # In another terminal
 claude
@@ -187,7 +187,7 @@ Gemini models include full thinking support with `thoughtSignature` handling for
 ### Logging Options
 
 ```bash
-antigravity-claude-proxy start \
+ag-cl start \
   --log-level debug \    # silent|error|warn|info|debug|trace
   --log-file proxy.log \ # Log to file
   --json-logs \          # JSON output for parsing
@@ -229,7 +229,7 @@ If using single-account mode with Antigravity:
 1. Make sure Antigravity app is installed and running
 2. Ensure you're logged in to Antigravity
 
-Or add accounts via OAuth: `antigravity-claude-proxy accounts add`
+Or add accounts via OAuth: `ag-cl accounts add`
 
 ### 401 Authentication Errors
 
@@ -237,7 +237,7 @@ Or add accounts via OAuth: `antigravity-claude-proxy accounts add`
 curl -X POST http://localhost:8080/refresh-token
 ```
 
-Or re-authenticate: `antigravity-claude-proxy accounts`
+Or re-authenticate: `ag-cl accounts`
 
 ### Rate Limiting (429)
 
@@ -248,7 +248,7 @@ With multiple accounts, the proxy auto-switches. Single account must wait for re
 Re-authenticate the account:
 
 ```bash
-antigravity-claude-proxy accounts
+ag-cl accounts
 # Choose "Re-authenticate" for the invalid account
 ```
 

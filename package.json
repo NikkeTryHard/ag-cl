@@ -1,11 +1,11 @@
 {
-  "name": "antigravity-claude-proxy",
-  "version": "1.0.2",
+  "name": "ag-cl",
+  "version": "1.0.0",
   "description": "Proxy server to use Antigravity's Claude models with Claude Code CLI",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "antigravity-claude-proxy": "bin/cli.js"
+    "ag-cl": "bin/cli.js"
   },
   "files": [
     "dist",
@@ -49,15 +49,15 @@
     "proxy",
     "vertex-ai"
   ],
-  "author": "Badri Narayanan",
+  "author": "NikkeTryHard",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/badri-s2001/antigravity-claude-proxy.git"
+    "url": "git+https://github.com/NikkeTryHard/ag-cl.git"
   },
-  "homepage": "https://github.com/badri-s2001/antigravity-claude-proxy#readme",
+  "homepage": "https://github.com/NikkeTryHard/ag-cl#readme",
   "bugs": {
-    "url": "https://github.com/badri-s2001/antigravity-claude-proxy/issues"
+    "url": "https://github.com/NikkeTryHard/ag-cl/issues"
   },
   "engines": {
     "node": ">=18.0.0"

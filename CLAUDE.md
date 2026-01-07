@@ -68,6 +68,15 @@ Antigravity Claude Proxy is a Node.js proxy server that exposes an Anthropic-com
 | `RESOURCE_EXHAUSTED` | Rate limit            | Wait or switch accounts |
 | `401 Unauthorized`   | Access token expired  | Auto-refreshed          |
 
+### Data Storage Locations
+
+| Data                | Location                                      |
+| ------------------- | --------------------------------------------- |
+| Account credentials | `~/.config/ag-cl/accounts.json`               |
+| Quota snapshots     | `~/.config/ag-cl/quota-snapshots.db` (SQLite) |
+
+Note: On macOS uses `~/Library/Application Support/ag-cl/`, on Windows uses `%APPDATA%/ag-cl/`.
+
 ---
 
 ## CLI Commands Reference
@@ -106,7 +115,8 @@ npm run accounts           # Interactive account menu
 npm run accounts:add       # Add account (OAuth or refresh token)
 npm run accounts:add -- --no-browser      # Headless OAuth (manual URL)
 npm run accounts:add -- --refresh-token   # Use refresh token directly
-npm run accounts:list      # List all accounts
+npm run accounts:list      # List accounts with capacity info
+npm run accounts:list -- --json  # Output as JSON for scripting
 npm run accounts:remove    # Remove account interactively
 npm run accounts:verify    # Verify all account tokens
 npm run accounts:clear     # Remove all accounts
@@ -207,9 +217,13 @@ tests/integration/*.cjs               # Integration tests
 ```
 src/
 ├── cli/              # Commander CLI commands
+│   └── capacity-renderer.ts  # Colored quota display
 ├── auth/             # OAuth, token extraction
 ├── account-manager/  # Multi-account management
 ├── cloudcode/        # Google Cloud Code API
+│   ├── quota-api.ts      # Tier and quota fetching
+│   ├── quota-storage.ts  # SQLite snapshot storage
+│   └── burn-rate.ts      # Burn rate calculation
 ├── format/           # Anthropic <-> Google converters
 ├── utils/            # Helpers, logging
 ├── server.ts         # Express server

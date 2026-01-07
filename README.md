@@ -179,7 +179,8 @@ Gemini models include full thinking support with `thoughtSignature` handling for
 | `accounts add`                 | Add account via OAuth                     |
 | `accounts add --no-browser`    | Headless OAuth (manual URL)               |
 | `accounts add --refresh-token` | Use refresh token directly                |
-| `accounts list`                | List all accounts                         |
+| `accounts list`                | List accounts with capacity info          |
+| `accounts list --json`         | Output capacity as JSON (for scripting)   |
 | `accounts verify`              | Verify account tokens                     |
 | `accounts remove`              | Remove accounts interactively             |
 | `accounts clear`               | Remove all accounts                       |
@@ -209,6 +210,34 @@ Check status:
 ```bash
 curl "http://localhost:8080/account-limits?format=table"
 ```
+
+### Account Capacity Display
+
+The `accounts list` command shows detailed capacity information:
+
+```
+[1] user@example.com
+    Tier: PRO
+
+    Claude Pool
+    -----------
+    claude-sonnet-4-5-thinking  [=========>          ] 45%  Resets: 2h 15m
+    Burn Rate: 15%/hr | Exhausted in: ~3h
+
+    Gemini Pool
+    -----------
+    gemini-3-pro-high           [=================>  ] 85%  Resets: 4h 30m
+    Burn Rate: 5%/hr | Exhausted in: ~12h
+```
+
+Features:
+
+- **Tier detection** - Shows FREE, PRO, or ULTRA tier
+- **Quota per model family** - Separate Claude and Gemini pools
+- **Progress bars** - Color-coded (green ≥50%, yellow 20-49%, red <20%)
+- **Reset times** - When quota resets (from API)
+- **Burn rate** - Consumption rate and time to exhaustion
+- **JSON output** - Use `--json` for scripting
 
 ## API Endpoints
 

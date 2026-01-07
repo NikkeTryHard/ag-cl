@@ -38,13 +38,13 @@ export interface AggregatedCapacity {
 
 /** UI modal state */
 export interface ModalState {
-  type: "none" | "command-palette" | "accounts" | "add-account" | "remove-account" | "logs" | "settings";
+  type: "none" | "command-palette" | "accounts" | "add-account" | "logs" | "change-port";
 }
 
 /** Command for command palette */
 export interface Command {
   id: string;
   label: string;
-  category: "server" | "accounts" | "view" | "settings";
+  category: "server" | "accounts" | "view";
   action: () => void | Promise<void>;
 }

@@ -6,11 +6,12 @@
 
 import React from "react";
 import { Box, Text } from "ink";
+import type { BurnRateStatus } from "../../cloudcode/burn-rate.js";
 
 interface CapacityBarProps {
   family: "claude" | "gemini";
   percentage: number;
-  status: "burning" | "stable" | "recovering" | "exhausted" | "calculating";
+  status: BurnRateStatus;
   hoursToExhaustion: number | null;
 }
 
@@ -28,14 +29,14 @@ function formatExhaustionTime(hours: number): string {
   return `~${Math.round(hours * 60)}m`;
 }
 
-function getStatusText(status: string, hoursToExhaustion: number | null): string {
+function getStatusText(status: BurnRateStatus, hoursToExhaustion: number | null): string {
   if (status === "burning" && hoursToExhaustion !== null) {
     return formatExhaustionTime(hoursToExhaustion);
   }
   return status;
 }
 
-function getStatusColor(status: string, percentage: number): string {
+function getStatusColor(status: BurnRateStatus, percentage: number): string {
   if (status === "exhausted" || percentage < 20) return "red";
   if (status === "burning" || percentage < 50) return "yellow";
   return "green";

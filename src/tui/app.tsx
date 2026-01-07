@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from "react";
-import { render, useApp, useInput, Box, Text } from "ink";
+import { render, useApp, useInput, Box, Text, useStdout } from "ink";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -28,7 +28,12 @@ const VERSION = packageJson.version;
 
 function App(): React.ReactElement {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
+
+  // Get terminal dimensions
+  const terminalHeight = stdout.rows;
+  const terminalWidth = stdout.columns;
 
   // Hooks
   const serverState = useServerState(DEFAULT_PORT);
@@ -115,20 +120,20 @@ function App(): React.ReactElement {
   }
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
       {/* Dashboard is always visible */}
       <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} />
 
       {/* Command palette overlay */}
       {modal.type === "command-palette" && (
-        <Box position="absolute" marginTop={2} marginLeft={2}>
+        <Box position="absolute" marginTop={1} marginLeft={1}>
           <CommandPalette commands={commands} onSelect={handleSelectCommand} onClose={modalControls.close} />
         </Box>
       )}
 
-      {/* Account list modal */}
+      {/* Account list modal - fullscreen overlay */}
       {modal.type === "accounts" && (
-        <Box position="absolute" marginTop={2} marginLeft={2}>
+        <Box position="absolute" marginTop={0} marginLeft={0}>
           <AccountListModal
             accounts={accounts}
             onClose={modalControls.close}
@@ -151,9 +156,9 @@ function App(): React.ReactElement {
         </Box>
       )}
 
-      {/* Server logs modal */}
+      {/* Server logs modal - fullscreen overlay */}
       {modal.type === "logs" && (
-        <Box position="absolute" marginTop={2} marginLeft={2}>
+        <Box position="absolute" marginTop={0} marginLeft={0}>
           <ServerLogsModal onClose={modalControls.close} />
         </Box>
       )}

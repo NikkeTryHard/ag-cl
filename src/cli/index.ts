@@ -101,10 +101,11 @@ function createProgram(): Command {
   accountsCmd
     .command("list")
     .alias("ls")
-    .description("List all configured accounts")
-    .action(async () => {
+    .description("List all configured accounts with capacity information")
+    .option("--json", "output as JSON for scripting")
+    .action(async (options: { json?: boolean }) => {
       const { accountsListCommand } = await import("./commands/accounts-list.js");
-      accountsListCommand();
+      await accountsListCommand(options);
     });
 
   accountsCmd
@@ -129,7 +130,7 @@ function createProgram(): Command {
     .description("Remove all accounts")
     .action(async () => {
       const { accountsClearCommand } = await import("./commands/accounts-clear.js");
-      accountsClearCommand();
+      await accountsClearCommand();
     });
 
   // Init command

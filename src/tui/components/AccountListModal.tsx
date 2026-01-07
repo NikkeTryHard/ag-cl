@@ -1,13 +1,13 @@
 /**
  * AccountListModal Component
  *
- * Displays per-account capacity details with reset times.
+ * Displays per-account capacity details with per-model quotas.
  * Dynamically adjusts to terminal size.
  */
 
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import type { AccountCapacityInfo, AggregatedCapacity } from "../types.js";
+import type { AccountCapacityInfo, AggregatedCapacity, ModelQuotaDisplay } from "../types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 
 interface AccountListModalProps {
@@ -19,28 +19,8 @@ interface AccountListModalProps {
   onRefresh: () => void;
 }
 
-// Reserve lines for: header(2) + table header(1) + totals(3) + footer hints(2) + scroll indicator(2) + borders/padding(4)
+// Reserve lines for: header(2) + totals(4) + footer hints(2) + scroll indicator(2) + borders/padding(4)
 const RESERVED_LINES = 14;
-
-/**
- * Format reset time as relative duration (e.g., "in 2h 15m")
- */
-function formatResetTime(isoTimestamp: string | null): string {
-  if (!isoTimestamp) return "-";
-  const resetDate = new Date(isoTimestamp);
-  const now = new Date();
-  const diffMs = resetDate.getTime() - now.getTime();
-
-  if (diffMs <= 0) return "now";
-
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 60) return `${String(diffMins)}m`;
-
-  const hours = Math.floor(diffMins / 60);
-  const mins = diffMins % 60;
-  if (mins > 0) return `${String(hours)}h ${String(mins)}m`;
-  return `${String(hours)}h`;
-}
 
 /**
  * Format hours to exhaustion
@@ -58,10 +38,50 @@ function formatExhaustionTime(hours: number | null): string {
   return `~${String(Math.round(hours * 60))}m`;
 }
 
+/**
+ * Format burn rate
+ */
+function formatBurnRate(ratePerHour: number | null): string {
+  if (ratePerHour === null) return "";
+  return `-${ratePerHour.toFixed(1)}%/h`;
+}
+
 function getPercentageColor(percentage: number): string {
   if (percentage === 0) return "red";
   if (percentage < 30) return "yellow";
   return "green";
+}
+
+/**
+ * Format models as compact string (e.g., "opus:85% sonnet:92%")
+ */
+function formatModels(models: ModelQuotaDisplay[], maxWidth: number): string {
+  if (models.length === 0) return "-";
+
+  // For each model, create "name:pct%"
+  const parts = models.map((m) => `${m.name}:${m.percentage}%`);
+  const full = parts.join(" ");
+
+  if (full.length <= maxWidth) return full;
+
+  // Truncate if too long
+  let result = "";
+  for (const part of parts) {
+    if (result.length + part.length + 1 > maxWidth - 3) {
+      return result + "...";
+    }
+    result += (result ? " " : "") + part;
+  }
+  return result;
+}
+
+/**
+ * Get average percentage from models
+ */
+function getAveragePercentage(models: ModelQuotaDisplay[]): number {
+  if (models.length === 0) return 0;
+  const sum = models.reduce((acc, m) => acc + m.percentage, 0);
+  return Math.round(sum / models.length);
 }
 
 export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onClose, onAddAccount, onRefresh }: AccountListModalProps): React.ReactElement {
@@ -73,12 +93,10 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
   const maxVisible = Math.max(3, height - RESERVED_LINES);
 
   // Calculate column widths based on terminal width
-  // Layout: prefix(3) + email(25) + tier(8) + claude(8) + reset(10) + gemini(8) + reset(10) = 72
-  const availableWidth = Math.max(80, width - 6);
-  const emailWidth = Math.min(30, Math.max(20, availableWidth - 55));
-  const tierWidth = 8;
-  const pctWidth = 8;
-  const resetWidth = 10;
+  const availableWidth = Math.max(100, width - 6);
+  const emailWidth = Math.min(25, Math.max(15, Math.floor(availableWidth * 0.2)));
+  const tierWidth = 6;
+  const modelColWidth = Math.floor((availableWidth - emailWidth - tierWidth - 6) / 2);
 
   useInput((input, key) => {
     if (key.escape) {
@@ -139,12 +157,8 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
 
   const visibleAccounts = accounts.slice(scrollOffset, scrollOffset + maxVisible);
 
-  // Calculate normalized total percentages (average per account, capped at 100)
-  const claudeTotalPct = accounts.length > 0 ? Math.min(100, Math.round(claudeCapacity.totalPercentage / accounts.length)) : 0;
-  const geminiTotalPct = accounts.length > 0 ? Math.min(100, Math.round(geminiCapacity.totalPercentage / accounts.length)) : 0;
-
   return (
-    <Box flexDirection="column" borderStyle="round" padding={1} width={Math.min(availableWidth, width - 4)}>
+    <Box flexDirection="column" borderStyle="round" padding={1} width={Math.min(availableWidth, width - 4)} height={height - 2}>
       <Box marginBottom={1} justifyContent="space-between">
         <Text bold color="cyan">
           Accounts ({accounts.length})
@@ -159,10 +173,8 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
         <Text dimColor>{"   "}</Text>
         <Text dimColor>{"Email".padEnd(emailWidth)}</Text>
         <Text dimColor>{"Tier".padEnd(tierWidth)}</Text>
-        <Text dimColor>{"Claude".padEnd(pctWidth)}</Text>
-        <Text dimColor>{"Reset".padEnd(resetWidth)}</Text>
-        <Text dimColor>{"Gemini".padEnd(pctWidth)}</Text>
-        <Text dimColor>{"Reset"}</Text>
+        <Text dimColor>{"Claude Models".padEnd(modelColWidth)}</Text>
+        <Text dimColor>{"Gemini Models"}</Text>
       </Box>
 
       {/* Account rows */}
@@ -179,13 +191,13 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
                 {prefix}
               </Text>
               <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
-              <Text color="red">Error: {account.error.substring(0, 30)}</Text>
+              <Text color="red">Error: {account.error.substring(0, 40)}</Text>
             </Box>
           );
         }
 
-        const claudeColor = getPercentageColor(account.claudePercentage);
-        const geminiColor = getPercentageColor(account.geminiPercentage);
+        const claudeAvg = getAveragePercentage(account.claudeModels);
+        const geminiAvg = getAveragePercentage(account.geminiModels);
 
         return (
           <Box key={account.email}>
@@ -194,14 +206,8 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
             </Text>
             <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
             <Text dimColor>{account.tier.substring(0, tierWidth - 1).padEnd(tierWidth)}</Text>
-            <Text color={claudeColor}>
-              {String(account.claudePercentage).padStart(4)}%{"   "}
-            </Text>
-            <Text dimColor>{formatResetTime(account.claudeReset).padEnd(resetWidth)}</Text>
-            <Text color={geminiColor}>
-              {String(account.geminiPercentage).padStart(4)}%{"   "}
-            </Text>
-            <Text dimColor>{formatResetTime(account.geminiReset)}</Text>
+            <Text color={getPercentageColor(claudeAvg)}>{formatModels(account.claudeModels, modelColWidth - 1).padEnd(modelColWidth)}</Text>
+            <Text color={getPercentageColor(geminiAvg)}>{formatModels(account.geminiModels, modelColWidth)}</Text>
           </Box>
         );
       })}
@@ -212,22 +218,24 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
       {accounts.length > maxVisible && (
         <Box marginTop={1}>
           <Text dimColor>
-            Showing {scrollOffset + 1}-{Math.min(scrollOffset + maxVisible, accounts.length)} of {accounts.length} (PgUp/PgDn to scroll)
+            Showing {scrollOffset + 1}-{Math.min(scrollOffset + maxVisible, accounts.length)} of {accounts.length} (PgUp/PgDn)
           </Text>
         </Box>
       )}
 
       {/* Totals footer */}
-      <Box marginTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingTop={1}>
-        <Box flexDirection="column">
-          <Box>
-            <Text bold>Totals: </Text>
-            <Text color={getPercentageColor(claudeTotalPct)}>Claude {claudeTotalPct}%</Text>
-            {claudeCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(claudeCapacity.hoursToExhaustion)} left)</Text>}
-            <Text>{"  "}</Text>
-            <Text color={getPercentageColor(geminiTotalPct)}>Gemini {geminiTotalPct}%</Text>
-            {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
-          </Box>
+      <Box marginTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingTop={1} flexDirection="column">
+        <Box>
+          <Text bold>Totals: </Text>
+          <Text color={getPercentageColor(claudeCapacity.totalPercentage > 0 ? 100 : 0)}>Claude {claudeCapacity.totalPercentage}%</Text>
+          {claudeCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(claudeCapacity.ratePerHour)}</Text>}
+          {claudeCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(claudeCapacity.hoursToExhaustion)} left)</Text>}
+        </Box>
+        <Box>
+          <Text>{"        "}</Text>
+          <Text color={getPercentageColor(geminiCapacity.totalPercentage > 0 ? 100 : 0)}>Gemini {geminiCapacity.totalPercentage}%</Text>
+          {geminiCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(geminiCapacity.ratePerHour)}</Text>}
+          {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
         </Box>
       </Box>
 

@@ -119,9 +119,35 @@ function App(): React.ReactElement {
     );
   }
 
+  // Full-screen views (replace dashboard entirely)
+  if (modal.type === "accounts") {
+    return (
+      <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
+        <AccountListModal
+          accounts={accounts}
+          claudeCapacity={claudeCapacity}
+          geminiCapacity={geminiCapacity}
+          onClose={modalControls.close}
+          onAddAccount={() => {
+            setModal({ type: "add-account" });
+          }}
+          onRefresh={refresh}
+        />
+      </Box>
+    );
+  }
+
+  if (modal.type === "logs") {
+    return (
+      <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
+        <ServerLogsModal onClose={modalControls.close} />
+      </Box>
+    );
+  }
+
+  // Dashboard view with overlay modals
   return (
     <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
-      {/* Dashboard is always visible */}
       <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} />
 
       {/* Command palette overlay */}
@@ -131,23 +157,7 @@ function App(): React.ReactElement {
         </Box>
       )}
 
-      {/* Account list modal - fullscreen overlay */}
-      {modal.type === "accounts" && (
-        <Box position="absolute" marginTop={0} marginLeft={0}>
-          <AccountListModal
-            accounts={accounts}
-            claudeCapacity={claudeCapacity}
-            geminiCapacity={geminiCapacity}
-            onClose={modalControls.close}
-            onAddAccount={() => {
-              setModal({ type: "add-account" });
-            }}
-            onRefresh={refresh}
-          />
-        </Box>
-      )}
-
-      {/* Add account modal */}
+      {/* Add account modal overlay */}
       {modal.type === "add-account" && (
         <Box position="absolute" marginTop={2} marginLeft={2}>
           <AddAccountModal
@@ -156,13 +166,6 @@ function App(): React.ReactElement {
               void refresh();
             }}
           />
-        </Box>
-      )}
-
-      {/* Server logs modal - fullscreen overlay */}
-      {modal.type === "logs" && (
-        <Box position="absolute" marginTop={0} marginLeft={0}>
-          <ServerLogsModal onClose={modalControls.close} />
         </Box>
       )}
     </Box>

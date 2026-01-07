@@ -9,18 +9,31 @@ import { ACCOUNT_CONFIG_PATH } from "../../constants.js";
 import { loadAccounts } from "../../account-manager/storage.js";
 import type { Account } from "../../account-manager/types.js";
 import { refreshAccessToken } from "../../auth/oauth.js";
-import { fetchAccountCapacity, type AccountCapacity } from "../../cloudcode/quota-api.js";
+import { fetchAccountCapacity, type AccountCapacity, type ModelQuotaInfo } from "../../cloudcode/quota-api.js";
 import { initQuotaStorage, recordSnapshot } from "../../cloudcode/quota-storage.js";
 import { calculateBurnRate, type BurnRateInfo } from "../../cloudcode/burn-rate.js";
-import type { AggregatedCapacity, AccountCapacityInfo } from "../types.js";
+import type { AggregatedCapacity, AccountCapacityInfo, ModelQuotaDisplay } from "../types.js";
 
 /**
- * Calculate normalized percentage for a pool (average across models, capped at 100)
+ * Shorten model name for display (e.g., "gemini-2.5-pro" -> "2.5-pro")
  */
-function getNormalizedPercentage(aggregatedPercentage: number, modelCount: number): number {
-  if (modelCount === 0) return 0;
-  // Average percentage across models, capped at 100
-  return Math.min(100, Math.round(aggregatedPercentage / modelCount));
+function shortenModelName(name: string): string {
+  // Remove common prefixes
+  return name
+    .replace(/^gemini-/, "")
+    .replace(/^claude-/, "")
+    .replace(/^models\//, "");
+}
+
+/**
+ * Convert API model quota to display format
+ */
+function toModelQuotaDisplay(model: ModelQuotaInfo): ModelQuotaDisplay {
+  return {
+    name: shortenModelName(model.name),
+    percentage: model.percentage,
+    resetTime: model.resetTime,
+  };
 }
 
 /**
@@ -49,6 +62,15 @@ function getHoursToExhaustion(rates: BurnRateInfo[], totalPct: number): number |
   return totalPct / totalRate;
 }
 
+/**
+ * Get total burn rate from all burning accounts
+ */
+function getTotalBurnRate(rates: BurnRateInfo[]): number | null {
+  const burningRates = rates.filter((r) => r.status === "burning" && r.ratePerHour && r.ratePerHour > 0);
+  if (burningRates.length === 0) return null;
+  return burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0);
+}
+
 interface CapacityFetchResult {
   account: Account;
   capacity: AccountCapacity;
@@ -70,6 +92,7 @@ const defaultCapacity: AggregatedCapacity = {
   accountCount: 0,
   status: "calculating",
   hoursToExhaustion: null,
+  ratePerHour: null,
 };
 
 export function useCapacity(): UseCapacityResult {
@@ -150,16 +173,13 @@ export function useCapacity(): UseCapacityResult {
           claudeBurnRates.push(claudeBurn);
           geminiBurnRates.push(geminiBurn);
 
-          // Build per-account info with normalized percentages
-          const claudeNormalized = getNormalizedPercentage(capacity.claudePool.aggregatedPercentage, capacity.claudePool.models.length);
-          const geminiNormalized = getNormalizedPercentage(capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.models.length);
-
+          // Build per-account info with per-model quotas
           accountInfos.push({
             email: account.email,
             tier: capacity.tier,
-            claudePercentage: claudeNormalized,
+            claudeModels: capacity.claudePool.models.map(toModelQuotaDisplay),
+            geminiModels: capacity.geminiPool.models.map(toModelQuotaDisplay),
             claudeReset: capacity.claudePool.earliestReset,
-            geminiPercentage: geminiNormalized,
             geminiReset: capacity.geminiPool.earliestReset,
             error: null,
           });
@@ -170,9 +190,9 @@ export function useCapacity(): UseCapacityResult {
           accountInfos.push({
             email: accountEmail,
             tier: "UNKNOWN",
-            claudePercentage: 0,
+            claudeModels: [],
+            geminiModels: [],
             claudeReset: null,
-            geminiPercentage: 0,
             geminiReset: null,
             error: (result.reason as Error).message,
           });
@@ -187,6 +207,7 @@ export function useCapacity(): UseCapacityResult {
         accountCount: oauthAccounts.length,
         status: getOverallStatus(claudeBurnRates, totalClaude),
         hoursToExhaustion: getHoursToExhaustion(claudeBurnRates, totalClaude),
+        ratePerHour: getTotalBurnRate(claudeBurnRates),
       });
 
       setGeminiCapacity({
@@ -195,6 +216,7 @@ export function useCapacity(): UseCapacityResult {
         accountCount: oauthAccounts.length,
         status: getOverallStatus(geminiBurnRates, totalGemini),
         hoursToExhaustion: getHoursToExhaustion(geminiBurnRates, totalGemini),
+        ratePerHour: getTotalBurnRate(geminiBurnRates),
       });
     } catch (err) {
       setError((err as Error).message);

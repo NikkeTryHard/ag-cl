@@ -8,24 +8,32 @@ export interface ServerState {
   port: number;
 }
 
+/** Per-model quota info for display */
+export interface ModelQuotaDisplay {
+  name: string; // Short display name (e.g., "2.5-pro", "opus")
+  percentage: number; // 0-100
+  resetTime: string | null; // ISO timestamp
+}
+
 /** Per-account capacity info for display */
 export interface AccountCapacityInfo {
   email: string;
   tier: string;
-  claudePercentage: number; // 0-100, capped
-  claudeReset: string | null; // ISO timestamp of next reset
-  geminiPercentage: number; // 0-100, capped
-  geminiReset: string | null; // ISO timestamp of next reset
+  claudeModels: ModelQuotaDisplay[]; // Per-model quotas
+  geminiModels: ModelQuotaDisplay[]; // Per-model quotas
+  claudeReset: string | null; // Earliest reset (for summary)
+  geminiReset: string | null; // Earliest reset (for summary)
   error: string | null;
 }
 
 /** Aggregated capacity for a model family */
 export interface AggregatedCapacity {
   family: "claude" | "gemini";
-  totalPercentage: number;
+  totalPercentage: number; // Sum across all accounts (can exceed 100%)
   accountCount: number;
   status: "burning" | "stable" | "recovering" | "exhausted" | "calculating";
   hoursToExhaustion: number | null;
+  ratePerHour: number | null; // Burn rate
 }
 
 /** UI modal state */

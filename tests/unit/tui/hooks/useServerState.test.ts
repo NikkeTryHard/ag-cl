@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useServerState } from "../../../../src/tui/hooks/useServerState.js";
 
 describe("useServerState", () => {
@@ -35,6 +35,22 @@ describe("useServerState", () => {
 
   it("uses provided initial port", () => {
     const { result } = renderHook(() => useServerState(3000));
+    expect(result.current.port).toBe(3000);
+  });
+
+  it("exposes setPort function", () => {
+    const { result } = renderHook(() => useServerState(8080));
+    expect(typeof result.current.setPort).toBe("function");
+  });
+
+  it("updates port when setPort is called", () => {
+    const { result } = renderHook(() => useServerState(8080));
+    expect(result.current.port).toBe(8080);
+
+    act(() => {
+      result.current.setPort(3000);
+    });
+
     expect(result.current.port).toBe(3000);
   });
 });

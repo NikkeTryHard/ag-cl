@@ -27,19 +27,19 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
       {
         id: "start-server",
         label: "Start Server",
-        category: "server" as const,
+        category: "server",
         action: serverControls.start,
       },
       {
         id: "stop-server",
         label: "Stop Server",
-        category: "server" as const,
+        category: "server",
         action: serverControls.stop,
       },
       {
         id: "restart-server",
         label: "Restart Server",
-        category: "server" as const,
+        category: "server",
         action: serverControls.restart,
       },
 
@@ -47,19 +47,23 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
       {
         id: "add-account-oauth",
         label: "Add Account (OAuth)",
-        category: "accounts" as const,
-        action: () => { modalControls.open("add-account"); },
+        category: "accounts",
+        action: () => {
+          modalControls.open("add-account");
+        },
       },
       {
         id: "remove-account",
         label: "Remove Account",
-        category: "accounts" as const,
-        action: () => { modalControls.open("remove-account"); },
+        category: "accounts",
+        action: () => {
+          modalControls.open("remove-account");
+        },
       },
       {
         id: "refresh-capacity",
         label: "Refresh Capacity",
-        category: "accounts" as const,
+        category: "accounts",
         action: refreshCapacity,
       },
 
@@ -67,16 +71,20 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
       {
         id: "view-logs",
         label: "Server Logs",
-        category: "view" as const,
-        action: () => { modalControls.open("logs"); },
+        category: "view",
+        action: () => {
+          modalControls.open("logs");
+        },
       },
 
       // Settings commands
       {
         id: "settings",
         label: "Settings",
-        category: "settings" as const,
-        action: () => { modalControls.open("settings"); },
+        category: "settings",
+        action: () => {
+          modalControls.open("settings");
+        },
       },
     ],
     [serverControls, modalControls, refreshCapacity],

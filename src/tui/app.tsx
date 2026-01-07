@@ -2,7 +2,7 @@
  * TUI Application Entry Point
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { render, useApp, useInput, Box, Text } from "ink";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -32,10 +32,17 @@ function App(): React.ReactElement {
   const { loading, claudeCapacity, geminiCapacity, accountCount, refresh } = useCapacity();
 
   // Modal controls
-  const modalControls = {
-    open: useCallback((type: ModalState["type"]) => { setModal({ type }); }, []),
-    close: useCallback(() => { setModal({ type: "none" }); }, []),
-  };
+  const modalControls = useMemo(
+    () => ({
+      open: (type: ModalState["type"]) => {
+        setModal({ type });
+      },
+      close: () => {
+        setModal({ type: "none" });
+      },
+    }),
+    [],
+  );
 
   // Commands
   const commands = useCommands({
@@ -61,7 +68,13 @@ function App(): React.ReactElement {
   useInput((input, key) => {
     // Ctrl+P opens command palette
     if (input === "p" && key.ctrl) {
-      setModal({ type: "command-palette" });
+      modalControls.open("command-palette");
+      return;
+    }
+
+    // ESC closes placeholder modals (CommandPalette handles its own ESC)
+    if (key.escape && modal.type !== "none" && modal.type !== "command-palette") {
+      modalControls.close();
       return;
     }
 

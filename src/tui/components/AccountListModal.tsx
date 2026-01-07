@@ -1,24 +1,50 @@
 /**
  * AccountListModal Component
  *
- * Displays per-account capacity details with burn rates.
+ * Displays per-account capacity details with reset times.
  * Dynamically adjusts to terminal size.
  */
 
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import type { AccountCapacityInfo } from "../types.js";
+import type { AccountCapacityInfo, AggregatedCapacity } from "../types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 
 interface AccountListModalProps {
   accounts: AccountCapacityInfo[];
+  claudeCapacity: AggregatedCapacity;
+  geminiCapacity: AggregatedCapacity;
   onClose: () => void;
   onAddAccount: () => void;
+  onRefresh: () => void;
 }
 
-// Reserve lines for: header(2) + table header(1) + footer hints(2) + scroll indicator(2) + borders/padding(4)
-const RESERVED_LINES = 11;
+// Reserve lines for: header(2) + table header(1) + totals(3) + footer hints(2) + scroll indicator(2) + borders/padding(4)
+const RESERVED_LINES = 14;
 
+/**
+ * Format reset time as relative duration (e.g., "in 2h 15m")
+ */
+function formatResetTime(isoTimestamp: string | null): string {
+  if (!isoTimestamp) return "-";
+  const resetDate = new Date(isoTimestamp);
+  const now = new Date();
+  const diffMs = resetDate.getTime() - now.getTime();
+
+  if (diffMs <= 0) return "now";
+
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${String(diffMins)}m`;
+
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  if (mins > 0) return `${String(hours)}h ${String(mins)}m`;
+  return `${String(hours)}h`;
+}
+
+/**
+ * Format hours to exhaustion
+ */
 function formatExhaustionTime(hours: number | null): string {
   if (hours === null) return "-";
   if (hours >= 1) {
@@ -32,28 +58,13 @@ function formatExhaustionTime(hours: number | null): string {
   return `~${String(Math.round(hours * 60))}m`;
 }
 
-function getStatusColor(status: string, percentage: number): string {
-  if (status === "exhausted" || percentage === 0) return "red";
-  if (status === "burning" || percentage < 50) return "yellow";
+function getPercentageColor(percentage: number): string {
+  if (percentage === 0) return "red";
+  if (percentage < 30) return "yellow";
   return "green";
 }
 
-function getStatusIndicator(status: string): string {
-  switch (status) {
-    case "burning":
-      return "↓";
-    case "recovering":
-      return "↑";
-    case "exhausted":
-      return "✗";
-    case "stable":
-      return "•";
-    default:
-      return "?";
-  }
-}
-
-export function AccountListModal({ accounts, onClose, onAddAccount }: AccountListModalProps): React.ReactElement {
+export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onClose, onAddAccount, onRefresh }: AccountListModalProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -62,12 +73,12 @@ export function AccountListModal({ accounts, onClose, onAddAccount }: AccountLis
   const maxVisible = Math.max(3, height - RESERVED_LINES);
 
   // Calculate column widths based on terminal width
-  // Minimum layout: prefix(3) + email(20) + tier(8) + claude(10) + ttx(10) + gemini(10) + ttx(10) = 71
-  const availableWidth = Math.max(80, width - 6); // Account for borders/padding
-  const emailWidth = Math.min(35, Math.max(20, availableWidth - 60));
+  // Layout: prefix(3) + email(25) + tier(8) + claude(8) + reset(10) + gemini(8) + reset(10) = 72
+  const availableWidth = Math.max(80, width - 6);
+  const emailWidth = Math.min(30, Math.max(20, availableWidth - 55));
   const tierWidth = 8;
-  const statWidth = 8;
-  const ttxWidth = 10;
+  const pctWidth = 8;
+  const resetWidth = 10;
 
   useInput((input, key) => {
     if (key.escape) {
@@ -119,9 +130,18 @@ export function AccountListModal({ accounts, onClose, onAddAccount }: AccountLis
       onAddAccount();
       return;
     }
+
+    if (input === "r") {
+      onRefresh();
+      return;
+    }
   });
 
   const visibleAccounts = accounts.slice(scrollOffset, scrollOffset + maxVisible);
+
+  // Calculate normalized total percentages (average per account, capped at 100)
+  const claudeTotalPct = accounts.length > 0 ? Math.min(100, Math.round(claudeCapacity.totalPercentage / accounts.length)) : 0;
+  const geminiTotalPct = accounts.length > 0 ? Math.min(100, Math.round(geminiCapacity.totalPercentage / accounts.length)) : 0;
 
   return (
     <Box flexDirection="column" borderStyle="round" padding={1} width={Math.min(availableWidth, width - 4)}>
@@ -139,10 +159,10 @@ export function AccountListModal({ accounts, onClose, onAddAccount }: AccountLis
         <Text dimColor>{"   "}</Text>
         <Text dimColor>{"Email".padEnd(emailWidth)}</Text>
         <Text dimColor>{"Tier".padEnd(tierWidth)}</Text>
-        <Text dimColor>{"Claude".padEnd(statWidth)}</Text>
-        <Text dimColor>{"TTX".padEnd(ttxWidth)}</Text>
-        <Text dimColor>{"Gemini".padEnd(statWidth)}</Text>
-        <Text dimColor>{"TTX"}</Text>
+        <Text dimColor>{"Claude".padEnd(pctWidth)}</Text>
+        <Text dimColor>{"Reset".padEnd(resetWidth)}</Text>
+        <Text dimColor>{"Gemini".padEnd(pctWidth)}</Text>
+        <Text dimColor>{"Reset"}</Text>
       </Box>
 
       {/* Account rows */}
@@ -164,8 +184,8 @@ export function AccountListModal({ accounts, onClose, onAddAccount }: AccountLis
           );
         }
 
-        const claudeColor = getStatusColor(account.claudeStatus, account.claudePercentage);
-        const geminiColor = getStatusColor(account.geminiStatus, account.geminiPercentage);
+        const claudeColor = getPercentageColor(account.claudePercentage);
+        const geminiColor = getPercentageColor(account.geminiPercentage);
 
         return (
           <Box key={account.email}>
@@ -175,15 +195,13 @@ export function AccountListModal({ accounts, onClose, onAddAccount }: AccountLis
             <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
             <Text dimColor>{account.tier.substring(0, tierWidth - 1).padEnd(tierWidth)}</Text>
             <Text color={claudeColor}>
-              {getStatusIndicator(account.claudeStatus)}
-              {String(account.claudePercentage).padStart(4)}%{" "}
+              {String(account.claudePercentage).padStart(4)}%{"   "}
             </Text>
-            <Text dimColor>{formatExhaustionTime(account.claudeHoursToExhaustion).padEnd(ttxWidth)}</Text>
+            <Text dimColor>{formatResetTime(account.claudeReset).padEnd(resetWidth)}</Text>
             <Text color={geminiColor}>
-              {getStatusIndicator(account.geminiStatus)}
-              {String(account.geminiPercentage).padStart(4)}%{" "}
+              {String(account.geminiPercentage).padStart(4)}%{"   "}
             </Text>
-            <Text dimColor>{formatExhaustionTime(account.geminiHoursToExhaustion)}</Text>
+            <Text dimColor>{formatResetTime(account.geminiReset)}</Text>
           </Box>
         );
       })}
@@ -199,11 +217,27 @@ export function AccountListModal({ accounts, onClose, onAddAccount }: AccountLis
         </Box>
       )}
 
+      {/* Totals footer */}
+      <Box marginTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingTop={1}>
+        <Box flexDirection="column">
+          <Box>
+            <Text bold>Totals: </Text>
+            <Text color={getPercentageColor(claudeTotalPct)}>Claude {claudeTotalPct}%</Text>
+            {claudeCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(claudeCapacity.hoursToExhaustion)} left)</Text>}
+            <Text>{"  "}</Text>
+            <Text color={getPercentageColor(geminiTotalPct)}>Gemini {geminiTotalPct}%</Text>
+            {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
+          </Box>
+        </Box>
+      </Box>
+
       <Text> </Text>
       <Box>
         <Text dimColor>Up/Down navigate </Text>
         <Text color="cyan">[a]</Text>
-        <Text dimColor>dd account </Text>
+        <Text dimColor>dd </Text>
+        <Text color="cyan">[r]</Text>
+        <Text dimColor>efresh </Text>
         <Text color="cyan">ESC</Text>
         <Text dimColor> close</Text>
       </Box>

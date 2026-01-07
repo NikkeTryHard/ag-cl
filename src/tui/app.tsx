@@ -136,10 +136,13 @@ function App(): React.ReactElement {
         <Box position="absolute" marginTop={0} marginLeft={0}>
           <AccountListModal
             accounts={accounts}
+            claudeCapacity={claudeCapacity}
+            geminiCapacity={geminiCapacity}
             onClose={modalControls.close}
             onAddAccount={() => {
               setModal({ type: "add-account" });
             }}
+            onRefresh={refresh}
           />
         </Box>
       )}

@@ -2,8 +2,6 @@
  * TUI Type Definitions
  */
 
-import type { BurnRateStatus } from "../cloudcode/burn-rate.js";
-
 /** Server running state */
 export interface ServerState {
   running: boolean;
@@ -14,12 +12,10 @@ export interface ServerState {
 export interface AccountCapacityInfo {
   email: string;
   tier: string;
-  claudePercentage: number;
-  claudeStatus: BurnRateStatus;
-  claudeHoursToExhaustion: number | null;
-  geminiPercentage: number;
-  geminiStatus: BurnRateStatus;
-  geminiHoursToExhaustion: number | null;
+  claudePercentage: number; // 0-100, capped
+  claudeReset: string | null; // ISO timestamp of next reset
+  geminiPercentage: number; // 0-100, capped
+  geminiReset: string | null; // ISO timestamp of next reset
   error: string | null;
 }
 

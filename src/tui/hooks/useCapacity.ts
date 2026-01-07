@@ -15,6 +15,15 @@ import { calculateBurnRate, type BurnRateInfo } from "../../cloudcode/burn-rate.
 import type { AggregatedCapacity, AccountCapacityInfo } from "../types.js";
 
 /**
+ * Calculate normalized percentage for a pool (average across models, capped at 100)
+ */
+function getNormalizedPercentage(aggregatedPercentage: number, modelCount: number): number {
+  if (modelCount === 0) return 0;
+  // Average percentage across models, capped at 100
+  return Math.min(100, Math.round(aggregatedPercentage / modelCount));
+}
+
+/**
  * Determine overall status from burn rates and total percentage.
  * Only "exhausted" if total percentage is 0 (all accounts exhausted).
  */
@@ -141,16 +150,17 @@ export function useCapacity(): UseCapacityResult {
           claudeBurnRates.push(claudeBurn);
           geminiBurnRates.push(geminiBurn);
 
-          // Build per-account info
+          // Build per-account info with normalized percentages
+          const claudeNormalized = getNormalizedPercentage(capacity.claudePool.aggregatedPercentage, capacity.claudePool.models.length);
+          const geminiNormalized = getNormalizedPercentage(capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.models.length);
+
           accountInfos.push({
             email: account.email,
             tier: capacity.tier,
-            claudePercentage: capacity.claudePool.aggregatedPercentage,
-            claudeStatus: claudeBurn.status,
-            claudeHoursToExhaustion: claudeBurn.hoursToExhaustion,
-            geminiPercentage: capacity.geminiPool.aggregatedPercentage,
-            geminiStatus: geminiBurn.status,
-            geminiHoursToExhaustion: geminiBurn.hoursToExhaustion,
+            claudePercentage: claudeNormalized,
+            claudeReset: capacity.claudePool.earliestReset,
+            geminiPercentage: geminiNormalized,
+            geminiReset: capacity.geminiPool.earliestReset,
             error: null,
           });
         } else {
@@ -161,11 +171,9 @@ export function useCapacity(): UseCapacityResult {
             email: accountEmail,
             tier: "UNKNOWN",
             claudePercentage: 0,
-            claudeStatus: "calculating",
-            claudeHoursToExhaustion: null,
+            claudeReset: null,
             geminiPercentage: 0,
-            geminiStatus: "calculating",
-            geminiHoursToExhaustion: null,
+            geminiReset: null,
             error: (result.reason as Error).message,
           });
         }

@@ -202,12 +202,16 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
     // Human-readable output
     console.log();
 
+    // Collect burn rates from successful results (parallel to capacities)
+    const successBurnRates: PoolBurnRates[] = [];
+
     // Render each account's capacity
     for (const result of results) {
       if (result.capacity && result.burnRates) {
         const rendered = renderAccountCapacity(result.capacity, result.burnRates);
         console.log(rendered);
         console.log();
+        successBurnRates.push(result.burnRates);
       } else if (result.error) {
         console.log(pc.bold(result.email));
         console.log(`    ${pc.red(result.error)}`);
@@ -215,8 +219,8 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
       }
     }
 
-    // Render summary
-    const summary = renderCapacitySummary(capacities);
+    // Render summary with burn rates
+    const summary = renderCapacitySummary(capacities, successBurnRates);
     console.log(summary);
     console.log();
 

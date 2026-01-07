@@ -417,6 +417,94 @@ export function renderAccountCapacity(capacity: AccountCapacity, burnRates: Pool
   return lines.join("\n");
 }
 
+/**
+ * Overall burn rate info for a model family across all accounts
+ */
+export interface OverallBurnRateInfo {
+  /** Weighted average burn rate per hour */
+  ratePerHour: number | null;
+  /** Hours until combined capacity reaches 0% */
+  hoursToExhaustion: number | null;
+  /** Combined current capacity percentage */
+  currentCapacity: number;
+  /** Number of accounts actively burning */
+  burningAccountCount: number;
+}
+
+/**
+ * Calculate overall burn rate across all accounts for a model family.
+ *
+ * @param burnRates - Array of burn rate info from each account
+ * @param capacities - Array of account capacities
+ * @param family - 'claude' or 'gemini'
+ * @returns Overall burn rate info
+ */
+export function calculateOverallBurnRate(burnRates: PoolBurnRates[], capacities: AccountCapacity[], family: "claude" | "gemini"): OverallBurnRateInfo {
+  // Calculate combined capacity
+  const currentCapacity = capacities.reduce((sum, cap) => {
+    const pool = family === "claude" ? cap.claudePool : cap.geminiPool;
+    return sum + pool.aggregatedPercentage;
+  }, 0);
+
+  // Collect all burning accounts with their rates
+  const burningAccounts: { rate: number; capacity: number }[] = [];
+
+  for (let i = 0; i < burnRates.length; i++) {
+    const br = family === "claude" ? burnRates[i].claude : burnRates[i].gemini;
+    const cap = family === "claude" ? capacities[i].claudePool.aggregatedPercentage : capacities[i].geminiPool.aggregatedPercentage;
+
+    if (br.status === "burning" && br.ratePerHour !== null && br.ratePerHour > 0) {
+      burningAccounts.push({ rate: br.ratePerHour, capacity: cap });
+    }
+  }
+
+  if (burningAccounts.length === 0) {
+    return {
+      ratePerHour: null,
+      hoursToExhaustion: null,
+      currentCapacity,
+      burningAccountCount: 0,
+    };
+  }
+
+  // Sum of all burn rates (since we're consuming from multiple accounts)
+  const totalBurnRate = burningAccounts.reduce((sum, b) => sum + b.rate, 0);
+
+  // Time to exhaustion: combined capacity / total burn rate
+  const hoursToExhaustion = currentCapacity / totalBurnRate;
+
+  return {
+    ratePerHour: totalBurnRate,
+    hoursToExhaustion,
+    currentCapacity,
+    burningAccountCount: burningAccounts.length,
+  };
+}
+
+/**
+ * Format overall burn rate for display.
+ *
+ * @param info - Overall burn rate info
+ * @param familyName - Display name like "Claude" or "Gemini"
+ * @returns Formatted string
+ */
+export function formatOverallBurnRate(info: OverallBurnRateInfo, familyName: string): string {
+  if (info.ratePerHour === null || info.burningAccountCount === 0) {
+    return `${familyName}: ${info.currentCapacity}% capacity (Stable)`;
+  }
+
+  const rate = Math.round(info.ratePerHour);
+  let result = `${familyName}: ${info.currentCapacity}% capacity | Burn Rate: ${rate}%/hr`;
+
+  if (info.hoursToExhaustion !== null) {
+    result += ` | Exhausted in: ${formatExhaustionTime(info.hoursToExhaustion)}`;
+  }
+
+  result += ` (${info.burningAccountCount} account${info.burningAccountCount > 1 ? "s" : ""} active)`;
+
+  return result;
+}
+
 // ============================================================================
 // Summary Rendering
 // ============================================================================
@@ -495,15 +583,16 @@ function findSoonestReset(capacities: AccountCapacity[]): { resetTime: string; e
  *
  * Creates formatted output showing:
  * - Total account count with tier breakdown
- * - Combined Claude capacity (sum of all accounts)
- * - Combined Gemini capacity (sum of all accounts)
+ * - Combined Claude capacity with overall burn rate
+ * - Combined Gemini capacity with overall burn rate
  * - Soonest reset time across all accounts
  *
  * @param capacities - Array of account capacity data
+ * @param burnRates - Optional array of burn rates for each account (parallel to capacities)
  * @param options - Render options
  * @returns Formatted multi-line string for terminal display
  */
-export function renderCapacitySummary(capacities: AccountCapacity[], options?: RenderOptions): string {
+export function renderCapacitySummary(capacities: AccountCapacity[], burnRates?: PoolBurnRates[], options?: RenderOptions): string {
   const lines: string[] = [];
 
   // Summary header
@@ -524,13 +613,23 @@ export function renderCapacitySummary(capacities: AccountCapacity[], options?: R
   const tierBreakdown = formatTierBreakdown(tierCounts);
   lines.push(`Total Accounts: ${capacities.length} (${tierBreakdown})`);
 
-  // Combined Claude capacity
-  const combinedClaude = capacities.reduce((sum, cap) => sum + cap.claudePool.aggregatedPercentage, 0);
-  lines.push(`Combined Claude Capacity: ${combinedClaude}%`);
+  // If burn rates are provided, calculate and show overall burn rates
+  if (burnRates?.length === capacities.length) {
+    // Overall Claude burn rate
+    const claudeOverall = calculateOverallBurnRate(burnRates, capacities, "claude");
+    lines.push(formatOverallBurnRate(claudeOverall, "Claude"));
 
-  // Combined Gemini capacity
-  const combinedGemini = capacities.reduce((sum, cap) => sum + cap.geminiPool.aggregatedPercentage, 0);
-  lines.push(`Combined Gemini Capacity: ${combinedGemini}%`);
+    // Overall Gemini burn rate
+    const geminiOverall = calculateOverallBurnRate(burnRates, capacities, "gemini");
+    lines.push(formatOverallBurnRate(geminiOverall, "Gemini"));
+  } else {
+    // Fallback to simple capacity sums without burn rate
+    const combinedClaude = capacities.reduce((sum, cap) => sum + cap.claudePool.aggregatedPercentage, 0);
+    lines.push(`Combined Claude Capacity: ${combinedClaude}%`);
+
+    const combinedGemini = capacities.reduce((sum, cap) => sum + cap.geminiPool.aggregatedPercentage, 0);
+    lines.push(`Combined Gemini Capacity: ${combinedGemini}%`);
+  }
 
   // Soonest reset
   const soonest = findSoonestReset(capacities);

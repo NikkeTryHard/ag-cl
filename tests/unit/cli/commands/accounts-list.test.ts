@@ -684,7 +684,16 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand();
 
-      expect(mocks.renderCapacitySummary).toHaveBeenCalledWith([mockCapacity]);
+      // renderCapacitySummary now takes both capacities and burn rates
+      expect(mocks.renderCapacitySummary).toHaveBeenCalledWith(
+        [mockCapacity],
+        expect.arrayContaining([
+          expect.objectContaining({
+            claude: expect.any(Object),
+            gemini: expect.any(Object),
+          }),
+        ]),
+      );
     });
 
     it("should display success count in footer", async () => {

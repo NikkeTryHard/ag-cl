@@ -3,3 +3,4 @@
  */
 
 export { CapacityBar } from "./CapacityBar.js";
+export { StatusIndicator } from "./StatusIndicator.js";

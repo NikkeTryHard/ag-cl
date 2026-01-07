@@ -13,6 +13,7 @@ import { CommandPalette } from "./components/CommandPalette.js";
 import { AccountListModal } from "./components/AccountListModal.js";
 import { AddAccountModal } from "./components/AddAccountModal.js";
 import { ServerLogsModal } from "./components/ServerLogsModal.js";
+import { PortInputModal } from "./components/PortInputModal.js";
 import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
 import { useCommands } from "./hooks/useCommands.js";
@@ -72,28 +73,22 @@ function App(): React.ReactElement {
     [modalControls],
   );
 
-  // Global keyboard shortcuts
-  useInput((input, key) => {
-    // Ctrl+P opens command palette
-    if (input === "p" && key.ctrl) {
-      modalControls.open("command-palette");
-      return;
-    }
+  // Global keyboard shortcuts - only active when no modal is open
+  useInput(
+    (input) => {
+      // : opens command palette (vim-style)
+      if (input === ":") {
+        modalControls.open("command-palette");
+        return;
+      }
 
-    // ESC closes placeholder modals (CommandPalette handles its own ESC)
-    if (key.escape && modal.type !== "none" && modal.type !== "command-palette") {
-      modalControls.close();
-      return;
-    }
+      // q quits
+      if (input === "q") {
+        exit();
+        return;
+      }
 
-    // q quits (when no modal open)
-    if (input === "q" && modal.type === "none") {
-      exit();
-      return;
-    }
-
-    // Quick shortcuts when no modal open
-    if (modal.type === "none") {
+      // Quick shortcuts
       if (input === "a") {
         setModal({ type: "accounts" });
       } else if (input === "s") {
@@ -106,71 +101,78 @@ function App(): React.ReactElement {
         setModal({ type: "logs" });
       } else if (input === "r") {
         void refresh();
+      } else if (input === "p") {
+        setModal({ type: "change-port" });
       }
-    }
-  });
+    },
+    { isActive: modal.type === "none" },
+  );
 
   // Loading state
   if (loading) {
     return (
-      <Box padding={1}>
+      <Box flexDirection="column" alignItems="center" justifyContent="center" width={terminalWidth} height={terminalHeight}>
         <Text>Loading...</Text>
       </Box>
     );
   }
 
-  // Full-screen views (replace dashboard entirely)
+  // Full-screen modal views (replace dashboard entirely)
   if (modal.type === "accounts") {
     return (
-      <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
-        <AccountListModal
-          accounts={accounts}
-          claudeCapacity={claudeCapacity}
-          geminiCapacity={geminiCapacity}
-          onClose={modalControls.close}
-          onAddAccount={() => {
-            setModal({ type: "add-account" });
-          }}
-          onRefresh={refresh}
-        />
-      </Box>
+      <AccountListModal
+        accounts={accounts}
+        claudeCapacity={claudeCapacity}
+        geminiCapacity={geminiCapacity}
+        onClose={modalControls.close}
+        onAddAccount={() => {
+          setModal({ type: "add-account" });
+        }}
+        onRefresh={() => {
+          void refresh();
+        }}
+      />
     );
   }
 
   if (modal.type === "logs") {
-    return (
-      <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
-        <ServerLogsModal onClose={modalControls.close} />
-      </Box>
-    );
+    return <ServerLogsModal onClose={modalControls.close} />;
   }
 
   if (modal.type === "add-account") {
     return (
-      <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
-        <AddAccountModal
-          onClose={modalControls.close}
-          onAccountAdded={() => {
-            void refresh();
-          }}
-        />
-      </Box>
+      <AddAccountModal
+        onClose={modalControls.close}
+        onAccountAdded={() => {
+          void refresh();
+        }}
+      />
     );
   }
 
-  // Dashboard view with overlay modals
-  return (
-    <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
-      <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} />
+  if (modal.type === "change-port") {
+    return (
+      <PortInputModal
+        currentPort={serverState.port}
+        serverRunning={serverState.running}
+        onConfirm={(newPort, shouldRestart) => {
+          serverState.setPort(newPort);
+          if (shouldRestart) {
+            void serverState.restart();
+          }
+          modalControls.close();
+        }}
+        onClose={modalControls.close}
+      />
+    );
+  }
 
-      {/* Command palette overlay */}
-      {modal.type === "command-palette" && (
-        <Box position="absolute" marginTop={1} marginLeft={1}>
-          <CommandPalette commands={commands} onSelect={handleSelectCommand} onClose={modalControls.close} />
-        </Box>
-      )}
-    </Box>
-  );
+  if (modal.type === "command-palette") {
+    return <CommandPalette commands={commands} onSelect={handleSelectCommand} onClose={modalControls.close} />;
+  }
+
+  // Dashboard view
+  return <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} />;
 }
 
 export function startTUI(): void {

@@ -7,10 +7,37 @@
 import { useState, useEffect, useCallback } from "react";
 import { ACCOUNT_CONFIG_PATH } from "../../constants.js";
 import { loadAccounts } from "../../account-manager/storage.js";
+import type { Account } from "../../account-manager/types.js";
 import { refreshAccessToken } from "../../auth/oauth.js";
-import { fetchAccountCapacity } from "../../cloudcode/quota-api.js";
+import { fetchAccountCapacity, type AccountCapacity } from "../../cloudcode/quota-api.js";
 import { calculateBurnRate, type BurnRateInfo } from "../../cloudcode/burn-rate.js";
 import type { AggregatedCapacity } from "../types.js";
+
+/**
+ * Determine overall status from burn rates.
+ */
+function getOverallStatus(rates: BurnRateInfo[]): AggregatedCapacity["status"] {
+  if (rates.some((r) => r.status === "exhausted")) return "exhausted";
+  if (rates.some((r) => r.status === "burning")) return "burning";
+  if (rates.some((r) => r.status === "recovering")) return "recovering";
+  if (rates.every((r) => r.status === "stable")) return "stable";
+  return "calculating";
+}
+
+/**
+ * Calculate combined hours to exhaustion based on burning rates.
+ */
+function getHoursToExhaustion(rates: BurnRateInfo[], totalPct: number): number | null {
+  const burningRates = rates.filter((r) => r.status === "burning" && r.ratePerHour && r.ratePerHour > 0);
+  if (burningRates.length === 0) return null;
+  const totalRate = burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0);
+  return totalPct / totalRate;
+}
+
+interface CapacityFetchResult {
+  account: Account;
+  capacity: AccountCapacity;
+}
 
 interface UseCapacityResult {
   loading: boolean;
@@ -53,42 +80,36 @@ export function useCapacity(): UseCapacityResult {
         return;
       }
 
+      // Fetch capacity for all accounts in parallel
+      const fetchPromises = oauthAccounts.map(async (account): Promise<CapacityFetchResult> => {
+        const { accessToken } = await refreshAccessToken(account.refreshToken!);
+        const capacity = await fetchAccountCapacity(accessToken, account.email);
+        return { account, capacity };
+      });
+
+      const results = await Promise.allSettled(fetchPromises);
+
       let totalClaude = 0;
       let totalGemini = 0;
       const claudeBurnRates: BurnRateInfo[] = [];
       const geminiBurnRates: BurnRateInfo[] = [];
 
-      for (const account of oauthAccounts) {
-        try {
-          const { accessToken } = await refreshAccessToken(account.refreshToken!);
-          const capacity = await fetchAccountCapacity(accessToken, account.email);
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === "fulfilled") {
+          const { account, capacity } = result.value;
 
           totalClaude += capacity.claudePool.aggregatedPercentage;
           totalGemini += capacity.geminiPool.aggregatedPercentage;
 
           claudeBurnRates.push(calculateBurnRate(account.email, "claude", capacity.claudePool.aggregatedPercentage, capacity.claudePool.earliestReset));
           geminiBurnRates.push(calculateBurnRate(account.email, "gemini", capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.earliestReset));
-        } catch {
-          // Skip failed accounts
+        } else {
+          // Log failed account for debugging
+          const failedAccount = oauthAccounts[i];
+          console.debug(`Failed to fetch capacity for ${failedAccount.email}:`, (result.reason as Error).message);
         }
       }
-
-      // Determine overall status from burn rates
-      const getOverallStatus = (rates: BurnRateInfo[]): AggregatedCapacity["status"] => {
-        if (rates.some((r) => r.status === "exhausted")) return "exhausted";
-        if (rates.some((r) => r.status === "burning")) return "burning";
-        if (rates.some((r) => r.status === "recovering")) return "recovering";
-        if (rates.every((r) => r.status === "stable")) return "stable";
-        return "calculating";
-      };
-
-      // Calculate combined hours to exhaustion
-      const getHoursToExhaustion = (rates: BurnRateInfo[], totalPct: number): number | null => {
-        const burningRates = rates.filter((r) => r.status === "burning" && r.ratePerHour && r.ratePerHour > 0);
-        if (burningRates.length === 0) return null;
-        const totalRate = burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0);
-        return totalPct / totalRate;
-      };
 
       setClaudeCapacity({
         family: "claude",

@@ -116,30 +116,6 @@ function formatGeminiModels(models: ModelQuotaDisplay[], maxWidth: number): { te
   return { text: result, hiddenCount };
 }
 
-/**
- * Find next account to reset (earliest reset time)
- */
-function findNextReset(accounts: AccountCapacityInfo[]): { email: string; resetTime: string; family: "claude" | "gemini" } | null {
-  let earliest: { email: string; resetTime: string; family: "claude" | "gemini" } | null = null;
-
-  for (const account of accounts) {
-    if (account.error) continue;
-
-    if (account.claudeReset) {
-      if (!earliest || new Date(account.claudeReset) < new Date(earliest.resetTime)) {
-        earliest = { email: account.email, resetTime: account.claudeReset, family: "claude" };
-      }
-    }
-    if (account.geminiReset) {
-      if (!earliest || new Date(account.geminiReset) < new Date(earliest.resetTime)) {
-        earliest = { email: account.email, resetTime: account.geminiReset, family: "gemini" };
-      }
-    }
-  }
-
-  return earliest;
-}
-
 export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onClose, onAddAccount, onRefresh }: AccountListModalProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -150,13 +126,11 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
 
   // Calculate column widths based on terminal width
   const availableWidth = Math.max(90, width - 6);
-  const emailWidth = Math.min(28, Math.max(18, Math.floor(availableWidth * 0.25)));
+  const emailWidth = Math.min(28, Math.max(18, Math.floor(availableWidth * 0.22)));
   const tierWidth = 6;
   const claudeWidth = 10; // Just "XX%" for Claude
-  const geminiWidth = availableWidth - emailWidth - tierWidth - claudeWidth - 6;
-
-  // Find next reset
-  const nextReset = useMemo(() => findNextReset(accounts), [accounts]);
+  const resetWidth = 12; // Reset time column
+  const geminiWidth = availableWidth - emailWidth - tierWidth - claudeWidth - resetWidth - 6;
 
   // Check if any Gemini models are hidden (at 100%)
   const hasHiddenGemini = useMemo(() => {
@@ -237,6 +211,7 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
         <Text dimColor>{"Email".padEnd(emailWidth)}</Text>
         <Text dimColor>{"Tier".padEnd(tierWidth)}</Text>
         <Text dimColor>{"Claude".padEnd(claudeWidth)}</Text>
+        <Text dimColor>{"Reset".padEnd(resetWidth)}</Text>
         <Text dimColor>{"Gemini (models below 100%)"}</Text>
       </Box>
 
@@ -266,6 +241,9 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
         const geminiBelow100 = account.geminiModels.filter((m) => m.percentage < 100);
         const geminiLowest = geminiBelow100.length > 0 ? Math.min(...geminiBelow100.map((m) => m.percentage)) : 100;
 
+        // Get earliest reset time for this account
+        const resetTime = account.claudeReset || account.geminiReset;
+
         return (
           <Box key={account.email}>
             <Text color={isSelected ? "cyan" : undefined} inverse={isSelected}>
@@ -274,6 +252,7 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
             <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
             <Text dimColor>{account.tier.substring(0, tierWidth - 1).padEnd(tierWidth)}</Text>
             <Text color={getPercentageColor(claudePct)}>{`${claudePct}%`.padEnd(claudeWidth)}</Text>
+            <Text dimColor>{formatResetTime(resetTime).padEnd(resetWidth)}</Text>
             <Text color={getPercentageColor(geminiLowest)}>{geminiText}</Text>
           </Box>
         );
@@ -304,14 +283,6 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
           {geminiCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(geminiCapacity.ratePerHour)}</Text>}
           {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
         </Box>
-        {nextReset && (
-          <Box marginTop={1}>
-            <Text dimColor>Next reset: </Text>
-            <Text color="yellow">{nextReset.email.split("@")[0]}</Text>
-            <Text dimColor> ({nextReset.family}) in </Text>
-            <Text color="cyan">{formatResetTime(nextReset.resetTime)}</Text>
-          </Box>
-        )}
       </Box>
 
       <Text> </Text>

@@ -16,6 +16,7 @@ import { initQuotaStorage, recordSnapshot, closeQuotaStorage } from "../../cloud
 import { calculateBurnRate } from "../../cloudcode/burn-rate.js";
 import { renderAccountCapacity, renderCapacitySummary, type PoolBurnRates } from "../capacity-renderer.js";
 import { symbols, sectionHeader } from "../ui.js";
+import { setLogLevel } from "../../utils/logger.js";
 
 /**
  * Options for the accounts list command
@@ -56,6 +57,9 @@ interface JsonOutput {
  */
 export async function accountsListCommand(options: AccountsListOptions = {}): Promise<void> {
   const isJson = options.json ?? false;
+
+  // Suppress logger output to avoid interfering with spinner/output
+  setLogLevel("silent");
 
   // Don't use prompts/spinners in JSON mode
   if (!isJson) {

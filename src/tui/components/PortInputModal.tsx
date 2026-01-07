@@ -44,7 +44,7 @@ export function PortInputModal({ currentPort, serverRunning, onConfirm, onClose 
           onClose();
         }
       }
-    } else if (modalState === "confirm-restart") {
+    } else {
       if (input === "y" || input === "Y") {
         onConfirm(newPort, true);
       } else if (input === "n" || input === "N") {

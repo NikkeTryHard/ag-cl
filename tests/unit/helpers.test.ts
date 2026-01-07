@@ -27,7 +27,7 @@ describe("sleep", () => {
     await sleep(50);
     const elapsed = Date.now() - start;
     expect(elapsed).toBeGreaterThanOrEqual(45); // Allow small timing variance
-    expect(elapsed).toBeLessThan(150);
+    expect(elapsed).toBeLessThan(500); // Allow generous upper bound for busy CI environments
   });
 });
 

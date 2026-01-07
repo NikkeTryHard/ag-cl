@@ -2,6 +2,55 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Superpowers Skills
+
+This project uses the [superpowers](https://github.com/jessepollak/superpowers-marketplace) plugin for Claude Code. Available skills:
+
+### Development Workflow
+
+| Skill                                        | When to Use                                                                                          |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `superpowers:brainstorming`                  | Before creating features, components, or modifying behavior. Explores requirements and design first. |
+| `superpowers:writing-plans`                  | When you have specs/requirements for a multi-step task, before touching code.                        |
+| `superpowers:executing-plans`                | When you have a written plan to execute in a separate session with review checkpoints.               |
+| `superpowers:subagent-driven-development`    | When executing plans with independent tasks in the current session.                                  |
+| `superpowers:using-git-worktrees`            | Before starting feature work that needs isolation from current workspace.                            |
+| `superpowers:finishing-a-development-branch` | When implementation is complete and you need to merge, PR, or cleanup.                               |
+
+### Quality Assurance
+
+| Skill                                        | When to Use                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `superpowers:test-driven-development`        | Before implementing any feature or bugfix. Write tests first.               |
+| `superpowers:systematic-debugging`           | When encountering bugs, test failures, or unexpected behavior.              |
+| `superpowers:verification-before-completion` | Before claiming work is complete. Run verification commands first.          |
+| `superpowers:requesting-code-review`         | After completing tasks or before merging to verify work meets requirements. |
+| `superpowers:receiving-code-review`          | When receiving feedback, before implementing suggestions.                   |
+
+### Utilities
+
+| Skill                                     | When to Use                                                    |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `superpowers:dispatching-parallel-agents` | When facing 2+ independent tasks that can run in parallel.     |
+| `superpowers:writing-skills`              | When creating, editing, or verifying skills before deployment. |
+
+### Invoking Skills
+
+Skills are invoked automatically when relevant, or manually with:
+
+```
+/superpowers:skill-name
+```
+
+Example workflow:
+
+1. `/superpowers:brainstorming` - Discuss requirements
+2. `/superpowers:writing-plans` - Create implementation plan
+3. `/superpowers:using-git-worktrees` - Set up isolated workspace
+4. `/superpowers:test-driven-development` - Implement with TDD
+5. `/superpowers:requesting-code-review` - Get feedback
+6. `/superpowers:finishing-a-development-branch` - Merge or create PR
+
 ## Rules
 
 - **No temporary documentation files.** Do not create standalone markdown files for notes, specs, or tracking. All persistent documentation belongs in `docs/` or in this file.

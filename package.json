@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "tui": "tsx src/cli/index.ts tui",
     "start": "tsx src/cli/index.ts start",
     "start:prod": "node dist/cli/index.js start",
     "dev": "tsx --watch src/cli/index.ts start",

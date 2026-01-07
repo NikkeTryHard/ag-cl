@@ -158,3 +158,9 @@ export const program = createProgram();
 export async function run(argv?: string[]): Promise<void> {
   await program.parseAsync(argv ?? process.argv);
 }
+
+// Auto-execute when run directly
+run().catch((error: Error) => {
+  console.error("Fatal error:", error.message);
+  process.exit(1);
+});

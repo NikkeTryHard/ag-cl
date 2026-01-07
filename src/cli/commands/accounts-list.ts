@@ -5,8 +5,8 @@
  * Displays tier, quota usage, burn rates, and reset times.
  */
 
-import * as p from "@clack/prompts";
 import pc from "picocolors";
+import ora from "ora";
 
 import { ACCOUNT_CONFIG_PATH } from "../../constants.js";
 import { loadAccounts } from "../../account-manager/storage.js";
@@ -15,7 +15,7 @@ import { fetchAccountCapacity, type AccountCapacity } from "../../cloudcode/quot
 import { initQuotaStorage, recordSnapshot, closeQuotaStorage } from "../../cloudcode/quota-storage.js";
 import { calculateBurnRate } from "../../cloudcode/burn-rate.js";
 import { renderAccountCapacity, renderCapacitySummary, type PoolBurnRates } from "../capacity-renderer.js";
-import { symbols } from "../ui.js";
+import { symbols, sectionHeader } from "../ui.js";
 
 /**
  * Options for the accounts list command
@@ -59,7 +59,9 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
 
   // Don't use prompts/spinners in JSON mode
   if (!isJson) {
-    p.intro("Account Capacity");
+    console.log();
+    console.log(sectionHeader("Account Capacity"));
+    console.log();
   }
 
   // Initialize quota storage for snapshot recording and burn rate calculation
@@ -68,7 +70,7 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
   } catch (error) {
     const err = error as Error;
     if (!isJson) {
-      p.log.error(`${symbols.error} Failed to initialize quota storage: ${err.message}`);
+      console.error(`${symbols.error} Failed to initialize quota storage: ${err.message}`);
     }
     // Continue anyway - we just won't be able to calculate burn rates
   }
@@ -91,20 +93,22 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
         } satisfies JsonOutput),
       );
     } else {
-      p.log.warn(`${symbols.warning} No accounts configured. Run 'accounts add' to add an account.`);
-      p.outro("Nothing to display");
+      console.log(`${symbols.warning} No accounts configured. Run 'accounts add' to add an account.`);
+      console.log();
+      console.log(pc.dim("Nothing to display"));
     }
     closeQuotaStorage();
     return;
   }
 
   if (!isJson) {
-    p.log.info(`Found ${accounts.length} account(s)`);
+    console.log(`${symbols.info} Found ${accounts.length} account(s)`);
+    console.log();
   }
 
   const results: AccountCapacityResult[] = [];
   const capacities: AccountCapacity[] = [];
-  const spinner = isJson ? null : p.spinner();
+  const spinner = isJson ? null : ora();
 
   // Process each account
   for (const account of accounts) {
@@ -156,7 +160,7 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
       capacities.push(capacity);
 
       if (spinner) {
-        spinner.stop(`${symbols.success} ${account.email}`);
+        spinner.succeed(account.email);
       }
     } catch (error) {
       const err = error as Error;
@@ -175,7 +179,7 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
       });
 
       if (spinner) {
-        spinner.stop(`${symbols.error} ${account.email} - ${errorMessage}`);
+        spinner.fail(`${account.email} - ${errorMessage}`);
       }
     }
   }
@@ -221,10 +225,11 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
     const errorCount = results.filter((r) => r.error !== null).length;
 
     if (errorCount > 0) {
-      p.log.warn(`${symbols.warning} ${errorCount} account(s) had errors. Run 'accounts verify' to check token status.`);
+      console.log(`${symbols.warning} ${errorCount} account(s) had errors. Run 'accounts verify' to check token status.`);
     }
 
-    p.outro(`${successCount}/${accounts.length} accounts fetched successfully`);
+    console.log(pc.dim(`${successCount}/${accounts.length} accounts fetched successfully`));
+    console.log();
   }
 
   // Clean up

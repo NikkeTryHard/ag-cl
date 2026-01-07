@@ -15,16 +15,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Use vi.hoisted to create mocks that can be used in vi.mock factories
 const mocks = vi.hoisted(() => ({
-  // @clack/prompts mocks
-  intro: vi.fn(),
-  outro: vi.fn(),
-  logInfo: vi.fn(),
-  logWarn: vi.fn(),
-  logError: vi.fn(),
+  // ora spinner mocks
   spinnerStart: vi.fn(),
-  spinnerStop: vi.fn(),
-  spinnerMessage: vi.fn(),
-  spinner: vi.fn(),
+  spinnerSucceed: vi.fn(),
+  spinnerFail: vi.fn(),
+  ora: vi.fn(),
 
   // Storage mocks
   loadAccounts: vi.fn(),
@@ -46,26 +41,20 @@ const mocks = vi.hoisted(() => ({
   // Renderer mocks
   renderAccountCapacity: vi.fn(),
   renderCapacitySummary: vi.fn(),
+
+  // UI mocks
+  sectionHeader: vi.fn(),
 }));
 
-// Set up spinner mock
-mocks.spinner.mockReturnValue({
-  start: mocks.spinnerStart,
-  stop: mocks.spinnerStop,
-  message: mocks.spinnerMessage,
+// Set up ora mock - returns a spinner instance
+mocks.ora.mockReturnValue({
+  start: mocks.spinnerStart.mockReturnThis(),
+  succeed: mocks.spinnerSucceed.mockReturnThis(),
+  fail: mocks.spinnerFail.mockReturnThis(),
 });
 
-vi.mock("@clack/prompts", () => ({
-  intro: mocks.intro,
-  outro: mocks.outro,
-  log: {
-    info: mocks.logInfo,
-    warn: mocks.logWarn,
-    error: mocks.logError,
-    success: vi.fn(),
-    message: vi.fn(),
-  },
-  spinner: mocks.spinner,
+vi.mock("ora", () => ({
+  default: mocks.ora,
 }));
 
 vi.mock("picocolors", () => ({
@@ -118,6 +107,7 @@ vi.mock("../../../../src/cli/ui.js", () => ({
     warning: "[W]",
     info: "[I]",
   },
+  sectionHeader: mocks.sectionHeader,
 }));
 
 // Mock console.log for output capture
@@ -132,14 +122,15 @@ describe("accountsListCommand", () => {
     vi.clearAllMocks();
     console.log = mockConsoleLog;
 
-    // Reset spinner mock
-    mocks.spinner.mockReturnValue({
-      start: mocks.spinnerStart,
-      stop: mocks.spinnerStop,
-      message: mocks.spinnerMessage,
+    // Reset ora mock
+    mocks.ora.mockReturnValue({
+      start: mocks.spinnerStart.mockReturnThis(),
+      succeed: mocks.spinnerSucceed.mockReturnThis(),
+      fail: mocks.spinnerFail.mockReturnThis(),
     });
 
     // Default mock implementations
+    mocks.sectionHeader.mockReturnValue("=== Account Capacity ===");
     mocks.renderAccountCapacity.mockReturnValue("RENDERED_ACCOUNT");
     mocks.renderCapacitySummary.mockReturnValue("RENDERED_SUMMARY");
     mocks.calculateBurnRate.mockReturnValue({
@@ -163,9 +154,9 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand();
 
-      expect(mocks.intro).toHaveBeenCalledWith("Account Capacity");
-      expect(mocks.logWarn).toHaveBeenCalledWith("[W] No accounts configured. Run 'accounts add' to add an account.");
-      expect(mocks.outro).toHaveBeenCalledWith("Nothing to display");
+      expect(mocks.sectionHeader).toHaveBeenCalledWith("Account Capacity");
+      expect(mockConsoleLog).toHaveBeenCalledWith("[W] No accounts configured. Run 'accounts add' to add an account.");
+      expect(mockConsoleLog).toHaveBeenCalledWith("DIM:Nothing to display");
       expect(mocks.closeQuotaStorage).toHaveBeenCalled();
       expect(mocks.fetchAccountCapacity).not.toHaveBeenCalled();
     });
@@ -179,7 +170,7 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand({ json: true });
 
-      expect(mocks.intro).not.toHaveBeenCalled();
+      expect(mocks.sectionHeader).not.toHaveBeenCalled();
       expect(mockConsoleLog).toHaveBeenCalled();
 
       const jsonOutput = JSON.parse(mockConsoleLog.mock.calls[0][0]);
@@ -210,6 +201,11 @@ describe("accountsListCommand", () => {
     });
 
     it("should continue if quota storage initialization fails", async () => {
+      // Also need to mock console.error for this test
+      const originalConsoleError = console.error;
+      const mockConsoleError = vi.fn();
+      console.error = mockConsoleError;
+
       mocks.loadAccounts.mockResolvedValue({
         accounts: [],
         settings: {},
@@ -221,7 +217,9 @@ describe("accountsListCommand", () => {
 
       await expect(accountsListCommand()).resolves.not.toThrow();
 
-      expect(mocks.logError).toHaveBeenCalledWith("[E] Failed to initialize quota storage: SQLite error");
+      expect(mockConsoleError).toHaveBeenCalledWith("[E] Failed to initialize quota storage: SQLite error");
+
+      console.error = originalConsoleError;
     });
 
     it("should close quota storage on exit", async () => {
@@ -278,7 +276,7 @@ describe("accountsListCommand", () => {
       expect(mocks.spinnerStart).toHaveBeenCalledWith("Fetching capacity for test@example.com...");
       expect(mocks.refreshAccessToken).toHaveBeenCalledWith("1//valid-token");
       expect(mocks.fetchAccountCapacity).toHaveBeenCalledWith("access-token", "test@example.com");
-      expect(mocks.spinnerStop).toHaveBeenCalledWith("[S] test@example.com");
+      expect(mocks.spinnerSucceed).toHaveBeenCalledWith("test@example.com");
     });
 
     it("should record snapshots for burn rate tracking", async () => {
@@ -422,7 +420,7 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand();
 
-      expect(mocks.spinnerStop).toHaveBeenCalledWith("[E] expired@example.com - Token expired or revoked");
+      expect(mocks.spinnerFail).toHaveBeenCalledWith("expired@example.com - Token expired or revoked");
       expect(mocks.fetchAccountCapacity).not.toHaveBeenCalled();
     });
 
@@ -445,7 +443,7 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand();
 
-      expect(mocks.spinnerStop).toHaveBeenCalledWith("[E] test@example.com - API error");
+      expect(mocks.spinnerFail).toHaveBeenCalledWith("test@example.com - API error");
     });
 
     it("should continue processing other accounts after failure", async () => {
@@ -564,10 +562,10 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand({ json: true });
 
-      expect(mocks.intro).not.toHaveBeenCalled();
-      expect(mocks.outro).not.toHaveBeenCalled();
+      expect(mocks.sectionHeader).not.toHaveBeenCalled();
+      expect(mocks.ora).not.toHaveBeenCalled();
       expect(mocks.spinnerStart).not.toHaveBeenCalled();
-      expect(mocks.spinnerStop).not.toHaveBeenCalled();
+      expect(mocks.spinnerSucceed).not.toHaveBeenCalled();
     });
 
     it("should output valid JSON with account capacities", async () => {
@@ -689,7 +687,7 @@ describe("accountsListCommand", () => {
       expect(mocks.renderCapacitySummary).toHaveBeenCalledWith([mockCapacity]);
     });
 
-    it("should display success count in outro", async () => {
+    it("should display success count in footer", async () => {
       mocks.loadAccounts.mockResolvedValue({
         accounts: [
           {
@@ -708,7 +706,7 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand();
 
-      expect(mocks.outro).toHaveBeenCalledWith("1/1 accounts fetched successfully");
+      expect(mockConsoleLog).toHaveBeenCalledWith("DIM:1/1 accounts fetched successfully");
     });
 
     it("should warn about errors and suggest verify command", async () => {
@@ -729,7 +727,7 @@ describe("accountsListCommand", () => {
 
       await accountsListCommand();
 
-      expect(mocks.logWarn).toHaveBeenCalledWith("[W] 1 account(s) had errors. Run 'accounts verify' to check token status.");
+      expect(mockConsoleLog).toHaveBeenCalledWith("[W] 1 account(s) had errors. Run 'accounts verify' to check token status.");
     });
   });
 

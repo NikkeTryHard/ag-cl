@@ -145,6 +145,19 @@ function App(): React.ReactElement {
     );
   }
 
+  if (modal.type === "add-account") {
+    return (
+      <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
+        <AddAccountModal
+          onClose={modalControls.close}
+          onAccountAdded={() => {
+            void refresh();
+          }}
+        />
+      </Box>
+    );
+  }
+
   // Dashboard view with overlay modals
   return (
     <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
@@ -154,18 +167,6 @@ function App(): React.ReactElement {
       {modal.type === "command-palette" && (
         <Box position="absolute" marginTop={1} marginLeft={1}>
           <CommandPalette commands={commands} onSelect={handleSelectCommand} onClose={modalControls.close} />
-        </Box>
-      )}
-
-      {/* Add account modal overlay */}
-      {modal.type === "add-account" && (
-        <Box position="absolute" marginTop={2} marginLeft={2}>
-          <AddAccountModal
-            onClose={modalControls.close}
-            onAccountAdded={() => {
-              void refresh();
-            }}
-          />
         </Box>
       )}
     </Box>

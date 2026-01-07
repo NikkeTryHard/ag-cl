@@ -92,6 +92,10 @@ export function initQuotaStorage(dbPath?: string): void {
     CREATE INDEX IF NOT EXISTS idx_snapshots_account_time
       ON quota_snapshots(account_id, recorded_at DESC);
   `);
+
+  // Clean up old snapshots (older than 7 days) to prevent database growth
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  cleanOldSnapshots(sevenDaysAgo);
 }
 
 /**

@@ -64,7 +64,13 @@ export interface AccountCapacity {
 }
 
 /**
- * Normalize tier string to AccountTier type
+ * Normalize a tier ID string to a standard AccountTier type.
+ *
+ * Handles various tier ID formats from the API (e.g., "tier_pro", "PRO_TIER")
+ * by checking for keywords and mapping to standardized tier names.
+ *
+ * @param tierId - Raw tier ID string from the API, may be null/undefined
+ * @returns Normalized AccountTier: "ULTRA", "PRO", "FREE", or "UNKNOWN"
  */
 function normalizeTier(tierId: string | null | undefined): AccountTier {
   if (!tierId) return "UNKNOWN";

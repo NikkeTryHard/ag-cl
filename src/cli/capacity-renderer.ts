@@ -120,7 +120,8 @@ export function formatProgressBar(percentage: number, options?: RenderOptions): 
   const clamped = Math.max(0, Math.min(100, percentage));
 
   // Calculate filled portion (including the arrow position)
-  // Total bar width is PROGRESS_BAR_WIDTH + 1 to account for the arrow
+  // Total bar width is PROGRESS_BAR_WIDTH + 1 to account for the '>' arrow character
+  // that marks the current position at the end of the filled section
   const barWidth = PROGRESS_BAR_WIDTH + 1;
   const filledCount = Math.round((clamped / 100) * PROGRESS_BAR_WIDTH);
 

@@ -246,6 +246,53 @@ describe("cloudcode/burn-rate", () => {
         // Should use oldest snapshot in window
         expect(result.ratePerHour).toBeCloseTo(2.5, 1); // (100 - 70) / 12
       });
+
+      it("excludes snapshots outside reset window when reset time is close", () => {
+        // Reset in 6 hours means we only look back 6 hours
+        const now = Date.now();
+        const tenHoursAgo = now - 10 * 60 * 60 * 1000; // Outside 6h window
+        const threeHoursAgo = now - 3 * 60 * 60 * 1000; // Inside 6h window
+
+        recordSnapshot("account-1", "claude", 100, tenHoursAgo); // Should be excluded
+        recordSnapshot("account-1", "claude", 90, threeHoursAgo); // Should be used
+
+        const resetTime = new Date(now + 6 * 60 * 60 * 1000).toISOString();
+        const result = calculateBurnRate("account-1", "claude", 70, resetTime);
+
+        expect(result.status).toBe("burning");
+        // Should use 3h-old snapshot (not 10h-old), so rate = (90 - 70) / 3 = 6.67
+        expect(result.ratePerHour).toBeCloseTo(6.67, 1);
+      });
+
+      it("uses default 24h window when reset time is in the past", () => {
+        const now = Date.now();
+        const twentyHoursAgo = now - 20 * 60 * 60 * 1000;
+
+        recordSnapshot("account-1", "claude", 100, twentyHoursAgo);
+
+        // Reset time is 1 hour in the past
+        const resetTime = new Date(now - 60 * 60 * 1000).toISOString();
+        const result = calculateBurnRate("account-1", "claude", 60, resetTime);
+
+        expect(result.status).toBe("burning");
+        // Should use default 24h window, so 20h-old snapshot is included
+        expect(result.ratePerHour).toBeCloseTo(2, 0); // (100 - 60) / 20
+      });
+
+      it("uses default 24h window when reset time is more than 24h away", () => {
+        const now = Date.now();
+        const twentyHoursAgo = now - 20 * 60 * 60 * 1000;
+
+        recordSnapshot("account-1", "claude", 100, twentyHoursAgo);
+
+        // Reset time is 30 hours away (more than 24h)
+        const resetTime = new Date(now + 30 * 60 * 60 * 1000).toISOString();
+        const result = calculateBurnRate("account-1", "claude", 60, resetTime);
+
+        expect(result.status).toBe("burning");
+        // Should use default 24h window, so 20h-old snapshot is included
+        expect(result.ratePerHour).toBeCloseTo(2, 0); // (100 - 60) / 20
+      });
     });
 
     describe("BurnRateInfo structure", () => {

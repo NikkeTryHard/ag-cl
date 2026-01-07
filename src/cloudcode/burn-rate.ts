@@ -80,9 +80,23 @@ export function calculateBurnRate(accountId: string, family: QuotaModelFamily, c
 /**
  * Internal function to calculate burn rate from snapshots
  */
-function calculateBurnRateFromSnapshots(accountId: string, family: QuotaModelFamily, currentPercentage: number, _resetTime: string | null, now: number): BurnRateInfo {
-  // Use default 24h window for snapshot lookback
-  const windowMs = DEFAULT_WINDOW_MS;
+function calculateBurnRateFromSnapshots(accountId: string, family: QuotaModelFamily, currentPercentage: number, resetTime: string | null, now: number): BurnRateInfo {
+  // Calculate window size based on reset time
+  // If reset time is provided and in the future, use time until reset as window
+  // This ensures we only look at snapshots from the current reset period
+  let windowMs = DEFAULT_WINDOW_MS;
+
+  if (resetTime) {
+    const resetMs = new Date(resetTime).getTime();
+    const timeUntilResetMs = resetMs - now;
+
+    // Only adjust window if reset is in the future and less than 24h away
+    if (timeUntilResetMs > 0 && timeUntilResetMs < DEFAULT_WINDOW_MS) {
+      // Use time until reset as window, plus 1ms to include boundary snapshots
+      // (getSnapshots uses > not >= for the since parameter)
+      windowMs = timeUntilResetMs + 1;
+    }
+  }
 
   // Get snapshots within window
   const since = now - windowMs;

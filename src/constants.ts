@@ -86,7 +86,7 @@ export const ACCOUNT_CONFIG_PATH = join(homedir(), ".config/antigravity-proxy/ac
 // Uses platform-specific path detection
 export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();
 
-export const DEFAULT_COOLDOWN_MS = 60 * 1000; // 1 minute default cooldown
+export const DEFAULT_COOLDOWN_MS = 10 * 1000; // 10 second default cooldown
 export const MAX_RETRIES = 5; // Max retry attempts across accounts
 export const MAX_ACCOUNTS = 10; // Maximum number of accounts allowed
 

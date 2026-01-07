@@ -1,6 +1,6 @@
 {
   "name": "ag-cl",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Proxy server to use Antigravity's Claude models with Claude Code CLI",
   "main": "dist/index.js",
   "type": "module",
@@ -42,9 +42,11 @@
     "test:oauth": "node tests/integration/test-oauth-no-browser.cjs",
     "prepublishOnly": "npm run build",
     "upstream:fetch": "git fetch upstream",
-    "upstream:log": "git fetch upstream && git log main..upstream/main --oneline",
-    "upstream:diff": "git fetch upstream && git diff main..upstream/main --stat",
-    "upstream:diff-full": "git fetch upstream && git diff main..upstream/main"
+    "upstream:log": "git fetch upstream && git log upstream-synced..upstream/main --oneline",
+    "upstream:diff": "git fetch upstream && git diff upstream-synced..upstream/main --stat",
+    "upstream:diff-full": "git fetch upstream && git diff upstream-synced..upstream/main",
+    "upstream:mark": "git tag -f upstream-synced upstream/main && echo 'Bookmark updated to current upstream/main'",
+    "upstream:status": "git fetch upstream && echo '=== Upstream Status ===' && echo \"Bookmarked at: $(git rev-parse --short upstream-synced)\" && echo \"Upstream HEAD: $(git rev-parse --short upstream/main)\" && echo \"New commits: $(git rev-list upstream-synced..upstream/main --count)\""
   },
   "keywords": [
     "claude",

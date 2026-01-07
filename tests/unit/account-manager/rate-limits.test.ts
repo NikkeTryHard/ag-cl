@@ -297,11 +297,11 @@ describe("rate-limits", () => {
 
       const accounts = [createAccount({ email: "a@example.com" })];
 
-      // DEFAULT_COOLDOWN_MS is 60000 (1 minute)
+      // DEFAULT_COOLDOWN_MS is 10000 (10 seconds)
       markRateLimited(accounts, "a@example.com", null, {}, "model-1");
 
       expect(accounts[0]?.modelRateLimits["model-1"]?.isRateLimited).toBe(true);
-      expect(accounts[0]?.modelRateLimits["model-1"]?.resetTime).toBe(now + 60000);
+      expect(accounts[0]?.modelRateLimits["model-1"]?.resetTime).toBe(now + 10000);
     });
 
     it("uses settings.cooldownDurationMs when available", () => {
@@ -409,8 +409,8 @@ describe("rate-limits", () => {
 
     it("returns default cooldown when no valid reset times", () => {
       const accounts = [createAccount({ email: "a@example.com", isInvalid: true })];
-      // DEFAULT_COOLDOWN_MS is 60000
-      expect(getMinWaitTimeMs(accounts, "model-1")).toBe(60000);
+      // DEFAULT_COOLDOWN_MS is 10000
+      expect(getMinWaitTimeMs(accounts, "model-1")).toBe(10000);
     });
 
     it("returns 0 when modelId is null and accounts exist", () => {

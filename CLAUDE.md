@@ -157,13 +157,18 @@ npm test -- --no-coverage              # Skip coverage for faster runs
 This is a TypeScript rewrite of [antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy). Track upstream changes with:
 
 ```bash
-npm run upstream:fetch      # Fetch latest from upstream
-npm run upstream:log        # Show new upstream commits not yet reviewed
-npm run upstream:diff       # File-level summary of upstream changes
-npm run upstream:diff-full  # Full diff of all upstream changes
+npm run upstream:status     # Show bookmark position vs upstream HEAD
+npm run upstream:log        # Show new commits since last bookmark
+npm run upstream:diff       # File-level summary of changes since bookmark
+npm run upstream:diff-full  # Full diff of changes since bookmark
+npm run upstream:mark       # Update bookmark to current upstream HEAD
 ```
 
+The `upstream-synced` git tag acts as a bookmark. After reviewing upstream changes, run `npm run upstream:mark` to update it.
+
 ## Test Strategy
+
+`npm test` runs all test types except load tests (which require a running server) and benchmarks. Load tests are skipped by default and run with `RUN_LOAD_TESTS=true npm run test:load`.
 
 ### Current Test Types
 
@@ -192,7 +197,7 @@ tests/golden/**/*.golden.test.ts      # Golden file tests
 tests/chaos/**/*.chaos.test.ts        # Chaos/fault injection tests
 tests/load/**/*.load.test.ts          # Load/stress tests
 tests/security/**/*.security.test.ts  # Security tests
-tests/types/**/*.types.test.ts        # Type tests
+tests/types/**/*.type.test.ts         # Type tests
 tests/bench/**/*.bench.ts             # Benchmarks
 tests/integration/*.cjs               # Integration tests
 ```

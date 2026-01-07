@@ -48,7 +48,9 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
 
       {/* Hotkey hints */}
       <Box>
-        <Text dimColor> [a]ccounts [s]erver [l]ogs [q]uit</Text>
+        <Text dimColor> [a]ccounts [s]erver [r]efresh [l]ogs [q]uit </Text>
+        <Text color="cyan">Ctrl+P</Text>
+        <Text dimColor> commands</Text>
       </Box>
     </Box>
   );

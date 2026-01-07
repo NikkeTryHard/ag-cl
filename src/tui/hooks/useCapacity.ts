@@ -4,12 +4,13 @@
  * Fetches and aggregates capacity data from all accounts.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ACCOUNT_CONFIG_PATH } from "../../constants.js";
 import { loadAccounts } from "../../account-manager/storage.js";
 import type { Account } from "../../account-manager/types.js";
 import { refreshAccessToken } from "../../auth/oauth.js";
 import { fetchAccountCapacity, type AccountCapacity } from "../../cloudcode/quota-api.js";
+import { initQuotaStorage, recordSnapshot } from "../../cloudcode/quota-storage.js";
 import { calculateBurnRate, type BurnRateInfo } from "../../cloudcode/burn-rate.js";
 import type { AggregatedCapacity } from "../types.js";
 
@@ -62,6 +63,19 @@ export function useCapacity(): UseCapacityResult {
   const [claudeCapacity, setClaudeCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "claude" });
   const [geminiCapacity, setGeminiCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "gemini" });
   const [accountCount, setAccountCount] = useState(0);
+  const storageInitialized = useRef(false);
+
+  // Initialize quota storage once
+  useEffect(() => {
+    if (!storageInitialized.current) {
+      try {
+        initQuotaStorage();
+        storageInitialized.current = true;
+      } catch {
+        // Storage init failed, burn rate calculation will return "calculating" status
+      }
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -101,6 +115,14 @@ export function useCapacity(): UseCapacityResult {
 
           totalClaude += capacity.claudePool.aggregatedPercentage;
           totalGemini += capacity.geminiPool.aggregatedPercentage;
+
+          // Record snapshots for burn rate calculation
+          try {
+            recordSnapshot(account.email, "claude", capacity.claudePool.aggregatedPercentage);
+            recordSnapshot(account.email, "gemini", capacity.geminiPool.aggregatedPercentage);
+          } catch {
+            // Ignore snapshot recording errors
+          }
 
           claudeBurnRates.push(calculateBurnRate(account.email, "claude", capacity.claudePool.aggregatedPercentage, capacity.claudePool.earliestReset));
           geminiBurnRates.push(calculateBurnRate(account.email, "gemini", capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.earliestReset));

@@ -39,11 +39,13 @@ describe("Dashboard", () => {
     expect(output).toContain("account");
   });
 
-  it("renders hotkey hints", () => {
+  it("renders hotkey hints including refresh and Ctrl+P", () => {
     const { lastFrame } = render(<Dashboard version="1.0.0" serverState={{ running: true, port: 8080 }} claudeCapacity={{ family: "claude", totalPercentage: 100, accountCount: 1, status: "stable", hoursToExhaustion: null }} geminiCapacity={{ family: "gemini", totalPercentage: 100, accountCount: 1, status: "stable", hoursToExhaustion: null }} accountCount={1} />);
 
     const output = lastFrame();
     expect(output).toContain("[a]");
+    expect(output).toContain("[r]");
     expect(output).toContain("[q]");
+    expect(output).toContain("Ctrl+P");
   });
 });

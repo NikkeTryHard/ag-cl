@@ -544,13 +544,16 @@ describe("auth/oauth", () => {
         headers: { Connection: "close" },
       });
 
-    beforeEach(() => {
+    beforeEach(async () => {
       global.fetch = originalFetch;
+      // Ensure port is fully released from previous test
+      await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
     afterEach(async () => {
       // Give time for server socket to fully close and port to be released
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Node.js TCP TIME_WAIT can take a while, so we wait longer
+      await new Promise((resolve) => setTimeout(resolve, 500));
       global.fetch = mockFetch;
     });
 

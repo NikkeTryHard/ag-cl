@@ -10,6 +10,12 @@ import TextInput from "ink-text-input";
 import fuzzysort from "fuzzysort";
 import type { Command } from "../types.js";
 
+/** Maximum number of commands visible in the palette */
+const MAX_VISIBLE = 10;
+
+/** Permissive threshold for fuzzy matching - lower values = more lenient */
+const FUZZY_THRESHOLD = -10000;
+
 interface CommandPaletteProps {
   commands: Command[];
   onSelect: (command: Command) => void;
@@ -25,11 +31,14 @@ export function CommandPalette({ commands, onSelect, onClose }: CommandPalettePr
 
     const results = fuzzysort.go(query, commands, {
       key: "label",
-      threshold: -10000,
+      threshold: FUZZY_THRESHOLD,
     });
 
     return results.map((r) => r.obj);
   }, [query, commands]);
+
+  // Clamp selectedIndex to prevent out-of-bounds access during render/useEffect race
+  const safeSelectedIndex = Math.min(selectedIndex, Math.max(0, filteredCommands.length - 1));
 
   useInput((_input, key) => {
     if (key.escape) {
@@ -43,12 +52,12 @@ export function CommandPalette({ commands, onSelect, onClose }: CommandPalettePr
     }
 
     if (key.downArrow) {
-      setSelectedIndex((i) => Math.min(filteredCommands.length - 1, i + 1));
+      setSelectedIndex((i) => Math.min(Math.min(filteredCommands.length, MAX_VISIBLE) - 1, i + 1));
       return;
     }
 
     if (key.return && filteredCommands.length > 0) {
-      onSelect(filteredCommands[selectedIndex]);
+      onSelect(filteredCommands[safeSelectedIndex]);
       return;
     }
   });
@@ -67,10 +76,10 @@ export function CommandPalette({ commands, onSelect, onClose }: CommandPalettePr
 
       <Text> </Text>
 
-      {filteredCommands.slice(0, 10).map((cmd, index) => (
+      {filteredCommands.slice(0, MAX_VISIBLE).map((cmd, index) => (
         <Box key={cmd.id}>
-          <Text color={index === selectedIndex ? "cyan" : undefined} inverse={index === selectedIndex}>
-            {index === selectedIndex ? " > " : "   "}
+          <Text color={index === safeSelectedIndex ? "cyan" : undefined} inverse={index === safeSelectedIndex}>
+            {index === safeSelectedIndex ? " > " : "   "}
             {cmd.label}
           </Text>
           <Text dimColor> ({cmd.category})</Text>

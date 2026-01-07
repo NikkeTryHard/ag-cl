@@ -70,10 +70,19 @@ function createProgram(): Command {
     setLogLevel(logLevel);
   });
 
-  // Start command (default)
+  // TUI command (default) - launches interactive dashboard
   program
-    .command("start", { isDefault: true })
-    .description("Start the proxy server")
+    .command("tui", { isDefault: true })
+    .description("Launch interactive TUI dashboard")
+    .action(async () => {
+      const { startTUI } = await import("../tui/app.js");
+      startTUI();
+    });
+
+  // Start command - headless server mode
+  program
+    .command("start")
+    .description("Start the proxy server (headless mode)")
     .action(async () => {
       const opts: GlobalOptions = program.opts<GlobalOptions>();
       console.log(banner("Antigravity Claude Proxy", VERSION));

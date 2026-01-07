@@ -41,8 +41,11 @@
     "skipLibCheck": true,
 
     // Resolve JSON imports
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+
+    // React/JSX support for Ink TUI
+    "jsx": "react-jsx"
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "tests"]
 }

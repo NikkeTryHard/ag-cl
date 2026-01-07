@@ -10,6 +10,9 @@ import { fileURLToPath } from "url";
 
 import { Dashboard } from "./components/Dashboard.js";
 import { CommandPalette } from "./components/CommandPalette.js";
+import { AccountListModal } from "./components/AccountListModal.js";
+import { AddAccountModal } from "./components/AddAccountModal.js";
+import { ServerLogsModal } from "./components/ServerLogsModal.js";
 import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
 import { useCommands } from "./hooks/useCommands.js";
@@ -29,7 +32,7 @@ function App(): React.ReactElement {
 
   // Hooks
   const serverState = useServerState(DEFAULT_PORT);
-  const { loading, claudeCapacity, geminiCapacity, accountCount, refresh } = useCapacity();
+  const { loading, claudeCapacity, geminiCapacity, accountCount, accounts, refresh } = useCapacity();
 
   // Modal controls
   const modalControls = useMemo(
@@ -59,7 +62,7 @@ function App(): React.ReactElement {
   const handleSelectCommand = useCallback(
     (command: Command) => {
       modalControls.close();
-      command.action();
+      void command.action();
     },
     [modalControls],
   );
@@ -87,17 +90,17 @@ function App(): React.ReactElement {
     // Quick shortcuts when no modal open
     if (modal.type === "none") {
       if (input === "a") {
-        setModal({ type: "add-account" });
+        setModal({ type: "accounts" });
       } else if (input === "s") {
         if (serverState.running) {
-          serverState.stop();
+          void serverState.stop();
         } else {
-          serverState.start();
+          void serverState.start();
         }
       } else if (input === "l") {
         setModal({ type: "logs" });
       } else if (input === "r") {
-        refresh();
+        void refresh();
       }
     }
   });
@@ -123,18 +126,35 @@ function App(): React.ReactElement {
         </Box>
       )}
 
-      {/* Placeholder for other modals */}
-      {modal.type === "add-account" && (
-        <Box borderStyle="round" padding={1}>
-          <Text>Add Account modal (TODO)</Text>
-          <Text dimColor> Press ESC to close</Text>
+      {/* Account list modal */}
+      {modal.type === "accounts" && (
+        <Box position="absolute" marginTop={2} marginLeft={2}>
+          <AccountListModal
+            accounts={accounts}
+            onClose={modalControls.close}
+            onAddAccount={() => {
+              setModal({ type: "add-account" });
+            }}
+          />
         </Box>
       )}
 
+      {/* Add account modal */}
+      {modal.type === "add-account" && (
+        <Box position="absolute" marginTop={2} marginLeft={2}>
+          <AddAccountModal
+            onClose={modalControls.close}
+            onAccountAdded={() => {
+              void refresh();
+            }}
+          />
+        </Box>
+      )}
+
+      {/* Server logs modal */}
       {modal.type === "logs" && (
-        <Box borderStyle="round" padding={1}>
-          <Text>Server Logs modal (TODO)</Text>
-          <Text dimColor> Press ESC to close</Text>
+        <Box position="absolute" marginTop={2} marginLeft={2}>
+          <ServerLogsModal onClose={modalControls.close} />
         </Box>
       )}
     </Box>

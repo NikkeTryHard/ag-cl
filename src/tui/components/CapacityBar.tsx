@@ -22,11 +22,11 @@ function formatExhaustionTime(hours: number): string {
     const wholeHours = Math.floor(hours);
     const minutes = Math.round((hours - wholeHours) * 60);
     if (minutes > 0) {
-      return `~${wholeHours}h ${minutes}m`;
+      return `~${String(wholeHours)}h ${String(minutes)}m`;
     }
-    return `~${wholeHours}h`;
+    return `~${String(wholeHours)}h`;
   }
-  return `~${Math.round(hours * 60)}m`;
+  return `~${String(Math.round(hours * 60))}m`;
 }
 
 function getStatusText(status: BurnRateStatus, hoursToExhaustion: number | null): string {

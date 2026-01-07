@@ -2,10 +2,25 @@
  * TUI Type Definitions
  */
 
+import type { BurnRateStatus } from "../cloudcode/burn-rate.js";
+
 /** Server running state */
 export interface ServerState {
   running: boolean;
   port: number;
+}
+
+/** Per-account capacity info for display */
+export interface AccountCapacityInfo {
+  email: string;
+  tier: string;
+  claudePercentage: number;
+  claudeStatus: BurnRateStatus;
+  claudeHoursToExhaustion: number | null;
+  geminiPercentage: number;
+  geminiStatus: BurnRateStatus;
+  geminiHoursToExhaustion: number | null;
+  error: string | null;
 }
 
 /** Aggregated capacity for a model family */
@@ -19,7 +34,7 @@ export interface AggregatedCapacity {
 
 /** UI modal state */
 export interface ModalState {
-  type: "none" | "command-palette" | "add-account" | "remove-account" | "logs" | "settings";
+  type: "none" | "command-palette" | "accounts" | "add-account" | "remove-account" | "logs" | "settings";
 }
 
 /** Command for command palette */

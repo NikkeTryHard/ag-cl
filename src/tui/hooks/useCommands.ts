@@ -45,10 +45,18 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
 
       // Account commands
       {
+        id: "view-accounts",
+        label: "View Accounts",
+        category: "accounts",
+        action: (): void => {
+          modalControls.open("accounts");
+        },
+      },
+      {
         id: "add-account-oauth",
         label: "Add Account (OAuth)",
         category: "accounts",
-        action: () => {
+        action: (): void => {
           modalControls.open("add-account");
         },
       },
@@ -56,7 +64,7 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
         id: "remove-account",
         label: "Remove Account",
         category: "accounts",
-        action: () => {
+        action: (): void => {
           modalControls.open("remove-account");
         },
       },
@@ -64,7 +72,9 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
         id: "refresh-capacity",
         label: "Refresh Capacity",
         category: "accounts",
-        action: refreshCapacity,
+        action: (): void => {
+          void refreshCapacity();
+        },
       },
 
       // View commands
@@ -72,7 +82,7 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
         id: "view-logs",
         label: "Server Logs",
         category: "view",
-        action: () => {
+        action: (): void => {
           modalControls.open("logs");
         },
       },
@@ -82,7 +92,7 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
         id: "settings",
         label: "Settings",
         category: "settings",
-        action: () => {
+        action: (): void => {
           modalControls.open("settings");
         },
       },

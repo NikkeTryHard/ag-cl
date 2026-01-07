@@ -12,15 +12,20 @@ import { refreshAccessToken } from "../../auth/oauth.js";
 import { fetchAccountCapacity, type AccountCapacity } from "../../cloudcode/quota-api.js";
 import { initQuotaStorage, recordSnapshot } from "../../cloudcode/quota-storage.js";
 import { calculateBurnRate, type BurnRateInfo } from "../../cloudcode/burn-rate.js";
-import type { AggregatedCapacity } from "../types.js";
+import type { AggregatedCapacity, AccountCapacityInfo } from "../types.js";
 
 /**
- * Determine overall status from burn rates.
+ * Determine overall status from burn rates and total percentage.
+ * Only "exhausted" if total percentage is 0 (all accounts exhausted).
  */
-function getOverallStatus(rates: BurnRateInfo[]): AggregatedCapacity["status"] {
-  if (rates.some((r) => r.status === "exhausted")) return "exhausted";
+function getOverallStatus(rates: BurnRateInfo[], totalPct: number): AggregatedCapacity["status"] {
+  // Only exhausted if we have no capacity left
+  if (totalPct === 0) return "exhausted";
+  // Check for burning (active consumption)
   if (rates.some((r) => r.status === "burning")) return "burning";
+  // Check for recovering (quota reset)
   if (rates.some((r) => r.status === "recovering")) return "recovering";
+  // All stable
   if (rates.every((r) => r.status === "stable")) return "stable";
   return "calculating";
 }
@@ -46,6 +51,7 @@ interface UseCapacityResult {
   claudeCapacity: AggregatedCapacity;
   geminiCapacity: AggregatedCapacity;
   accountCount: number;
+  accounts: AccountCapacityInfo[];
   refresh: () => Promise<void>;
 }
 
@@ -63,6 +69,7 @@ export function useCapacity(): UseCapacityResult {
   const [claudeCapacity, setClaudeCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "claude" });
   const [geminiCapacity, setGeminiCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "gemini" });
   const [accountCount, setAccountCount] = useState(0);
+  const [accounts, setAccounts] = useState<AccountCapacityInfo[]>([]);
   const storageInitialized = useRef(false);
 
   // Initialize quota storage once
@@ -90,6 +97,7 @@ export function useCapacity(): UseCapacityResult {
       if (oauthAccounts.length === 0) {
         setClaudeCapacity({ ...defaultCapacity, family: "claude" });
         setGeminiCapacity({ ...defaultCapacity, family: "gemini" });
+        setAccounts([]);
         setLoading(false);
         return;
       }
@@ -107,9 +115,12 @@ export function useCapacity(): UseCapacityResult {
       let totalGemini = 0;
       const claudeBurnRates: BurnRateInfo[] = [];
       const geminiBurnRates: BurnRateInfo[] = [];
+      const accountInfos: AccountCapacityInfo[] = [];
 
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
+        const accountEmail = oauthAccounts[i].email;
+
         if (result.status === "fulfilled") {
           const { account, capacity } = result.value;
 
@@ -124,20 +135,49 @@ export function useCapacity(): UseCapacityResult {
             // Ignore snapshot recording errors
           }
 
-          claudeBurnRates.push(calculateBurnRate(account.email, "claude", capacity.claudePool.aggregatedPercentage, capacity.claudePool.earliestReset));
-          geminiBurnRates.push(calculateBurnRate(account.email, "gemini", capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.earliestReset));
+          const claudeBurn = calculateBurnRate(account.email, "claude", capacity.claudePool.aggregatedPercentage, capacity.claudePool.earliestReset);
+          const geminiBurn = calculateBurnRate(account.email, "gemini", capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.earliestReset);
+
+          claudeBurnRates.push(claudeBurn);
+          geminiBurnRates.push(geminiBurn);
+
+          // Build per-account info
+          accountInfos.push({
+            email: account.email,
+            tier: capacity.tier,
+            claudePercentage: capacity.claudePool.aggregatedPercentage,
+            claudeStatus: claudeBurn.status,
+            claudeHoursToExhaustion: claudeBurn.hoursToExhaustion,
+            geminiPercentage: capacity.geminiPool.aggregatedPercentage,
+            geminiStatus: geminiBurn.status,
+            geminiHoursToExhaustion: geminiBurn.hoursToExhaustion,
+            error: null,
+          });
         } else {
           // Log failed account for debugging
-          const failedAccount = oauthAccounts[i];
-          console.debug(`Failed to fetch capacity for ${failedAccount.email}:`, (result.reason as Error).message);
+          console.debug(`Failed to fetch capacity for ${accountEmail}:`, (result.reason as Error).message);
+          // Add error entry for this account
+          accountInfos.push({
+            email: accountEmail,
+            tier: "UNKNOWN",
+            claudePercentage: 0,
+            claudeStatus: "calculating",
+            claudeHoursToExhaustion: null,
+            geminiPercentage: 0,
+            geminiStatus: "calculating",
+            geminiHoursToExhaustion: null,
+            error: (result.reason as Error).message,
+          });
         }
       }
+
+      setAccounts(accountInfos);
 
       setClaudeCapacity({
         family: "claude",
         totalPercentage: totalClaude,
         accountCount: oauthAccounts.length,
-        status: getOverallStatus(claudeBurnRates),
+        status: getOverallStatus(claudeBurnRates, totalClaude),
         hoursToExhaustion: getHoursToExhaustion(claudeBurnRates, totalClaude),
       });
 
@@ -145,7 +185,7 @@ export function useCapacity(): UseCapacityResult {
         family: "gemini",
         totalPercentage: totalGemini,
         accountCount: oauthAccounts.length,
-        status: getOverallStatus(geminiBurnRates),
+        status: getOverallStatus(geminiBurnRates, totalGemini),
         hoursToExhaustion: getHoursToExhaustion(geminiBurnRates, totalGemini),
       });
     } catch (err) {
@@ -165,6 +205,7 @@ export function useCapacity(): UseCapacityResult {
     claudeCapacity,
     geminiCapacity,
     accountCount,
+    accounts,
     refresh,
   };
 }

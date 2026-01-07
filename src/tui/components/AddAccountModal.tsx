@@ -1,0 +1,201 @@
+/**
+ * AddAccountModal Component
+ *
+ * Modal for adding new accounts via OAuth.
+ */
+
+import React, { useState, useEffect, useRef } from "react";
+import { Box, Text, useInput } from "ink";
+import Spinner from "ink-spinner";
+import open from "open";
+import { getAuthorizationUrl, startCallbackServer, completeOAuthFlow } from "../../auth/oauth.js";
+import { loadAccounts, saveAccounts } from "../../account-manager/storage.js";
+import { ACCOUNT_CONFIG_PATH } from "../../constants.js";
+
+interface AddAccountModalProps {
+  onClose: () => void;
+  onAccountAdded: () => void;
+}
+
+type FlowState = "choose-method" | "waiting-auth" | "exchanging" | "success" | "error";
+
+export function AddAccountModal({ onClose, onAccountAdded }: AddAccountModalProps): React.ReactElement {
+  const [flowState, setFlowState] = useState<FlowState>("choose-method");
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successEmail, setSuccessEmail] = useState<string | null>(null);
+  const isRunning = useRef(false);
+
+  useInput((input, key) => {
+    if (key.escape) {
+      onClose();
+      return;
+    }
+
+    if (flowState === "choose-method") {
+      if (input === "1" || input === "o") {
+        void startOAuth(true);
+      } else if (input === "2" || input === "n") {
+        void startOAuth(false);
+      }
+    } else if (flowState === "success" || flowState === "error") {
+      if (key.return || input === " ") {
+        if (flowState === "success") {
+          onAccountAdded();
+        }
+        onClose();
+      }
+    }
+  });
+
+  async function startOAuth(openBrowser: boolean) {
+    if (isRunning.current) return;
+    isRunning.current = true;
+
+    try {
+      // Generate auth URL
+      const { url, verifier, state } = getAuthorizationUrl();
+      setAuthUrl(url);
+      setFlowState("waiting-auth");
+
+      // Open browser if requested
+      if (openBrowser) {
+        await open(url);
+      }
+
+      // Wait for callback
+      const code = await startCallbackServer(state);
+
+      setFlowState("exchanging");
+
+      // Exchange code for tokens and get account info
+      const accountInfo = await completeOAuthFlow(code, verifier);
+
+      // Save the account
+      const { accounts } = await loadAccounts(ACCOUNT_CONFIG_PATH);
+
+      // Check if account already exists
+      const existingIndex = accounts.findIndex((a) => a.email === accountInfo.email);
+      if (existingIndex >= 0) {
+        accounts[existingIndex] = {
+          ...accounts[existingIndex],
+          refreshToken: accountInfo.refreshToken,
+        };
+      } else {
+        accounts.push({
+          email: accountInfo.email,
+          source: "oauth",
+          refreshToken: accountInfo.refreshToken,
+          addedAt: Date.now(),
+          lastUsed: null,
+          modelRateLimits: {},
+        });
+      }
+
+      // Get current settings and activeIndex
+      const config = await loadAccounts(ACCOUNT_CONFIG_PATH);
+      await saveAccounts(ACCOUNT_CONFIG_PATH, accounts, config.settings, config.activeIndex);
+      setSuccessEmail(accountInfo.email);
+      setFlowState("success");
+    } catch (err) {
+      setError((err as Error).message);
+      setFlowState("error");
+    } finally {
+      isRunning.current = false;
+    }
+  }
+
+  // Cleanup hint
+  useEffect(() => {
+    return () => {
+      isRunning.current = false;
+    };
+  }, []);
+
+  return (
+    <Box flexDirection="column" borderStyle="round" padding={1}>
+      <Box marginBottom={1}>
+        <Text bold color="cyan">
+          Add Account
+        </Text>
+      </Box>
+
+      {flowState === "choose-method" && (
+        <>
+          <Text>Choose authentication method:</Text>
+          <Text> </Text>
+          <Box>
+            <Text color="cyan">[1]</Text>
+            <Text> OAuth with browser (recommended)</Text>
+          </Box>
+          <Box>
+            <Text color="cyan">[2]</Text>
+            <Text> OAuth without browser (copy URL manually)</Text>
+          </Box>
+          <Text> </Text>
+          <Text dimColor>Press 1, 2, or ESC to cancel</Text>
+        </>
+      )}
+
+      {flowState === "waiting-auth" && (
+        <>
+          <Box>
+            <Text color="green">
+              <Spinner type="dots" />
+            </Text>
+            <Text> Waiting for authorization...</Text>
+          </Box>
+          {authUrl && (
+            <>
+              <Text> </Text>
+              <Text>Open this URL in your browser if it didn't open automatically:</Text>
+              <Text> </Text>
+              <Text color="cyan" wrap="truncate-end">
+                {authUrl}
+              </Text>
+            </>
+          )}
+          <Text> </Text>
+          <Text dimColor>Press ESC to cancel</Text>
+        </>
+      )}
+
+      {flowState === "exchanging" && (
+        <>
+          <Box>
+            <Text color="green">
+              <Spinner type="dots" />
+            </Text>
+            <Text> Exchanging authorization code...</Text>
+          </Box>
+        </>
+      )}
+
+      {flowState === "success" && (
+        <>
+          <Box>
+            <Text color="green">Success!</Text>
+          </Box>
+          <Text> </Text>
+          <Text>
+            Account <Text color="cyan">{successEmail}</Text> has been added.
+          </Text>
+          <Text> </Text>
+          <Text dimColor>Press Enter to continue</Text>
+        </>
+      )}
+
+      {flowState === "error" && (
+        <>
+          <Box>
+            <Text color="red">Error</Text>
+          </Box>
+          <Text> </Text>
+          <Text color="red">{error}</Text>
+          <Text> </Text>
+          <Text dimColor>Press Enter or ESC to close</Text>
+        </>
+      )}
+    </Box>
+  );
+}

@@ -228,11 +228,16 @@ export function formatResetTime(resetTime: string | null, options?: RenderOption
  * Format exhaustion time for display.
  *
  * @param hours - Hours to exhaustion
- * @returns Formatted string like "~3h" or "~30m"
+ * @returns Formatted string like "~2h 15m" or "~30m"
  */
 function formatExhaustionTime(hours: number): string {
   if (hours >= 1) {
-    return `~${Math.round(hours)}h`;
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.round((hours - wholeHours) * 60);
+    if (minutes > 0) {
+      return `~${wholeHours}h ${minutes}m`;
+    }
+    return `~${wholeHours}h`;
   } else {
     const minutes = Math.round(hours * 60);
     return `~${minutes}m`;

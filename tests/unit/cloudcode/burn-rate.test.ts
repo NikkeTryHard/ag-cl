@@ -230,21 +230,22 @@ describe("cloudcode/burn-rate", () => {
       });
 
       it("respects custom reset window from reset time", () => {
-        // If reset time is 6 hours from now, the window should be shorter
+        // Reset time determines window - only look back as far as time until reset
+        // because snapshots from previous cycles aren't useful
         const now = Date.now();
-        const twelveHoursAgo = now - 12 * 60 * 60 * 1000;
-        const threeHoursAgo = now - 3 * 60 * 60 * 1000;
+        const tenHoursAgo = now - 10 * 60 * 60 * 1000;
+        const fiveHoursAgo = now - 5 * 60 * 60 * 1000;
 
-        recordSnapshot("account-1", "claude", 100, twelveHoursAgo); // Might be outside reset window
-        recordSnapshot("account-1", "claude", 90, threeHoursAgo);
+        recordSnapshot("account-1", "claude", 100, tenHoursAgo); // Inside 12h window
+        recordSnapshot("account-1", "claude", 90, fiveHoursAgo); // Inside 12h window
 
-        // Reset in 12 hours means 24h window total, both should be included
+        // Reset in 12 hours means we look back 12 hours (current cycle only)
         const resetTime = new Date(now + 12 * 60 * 60 * 1000).toISOString();
         const result = calculateBurnRate("account-1", "claude", 70, resetTime);
 
         expect(result.status).toBe("burning");
-        // Should use oldest snapshot in window
-        expect(result.ratePerHour).toBeCloseTo(2.5, 1); // (100 - 70) / 12
+        // Should use oldest snapshot in window (10h ago)
+        expect(result.ratePerHour).toBeCloseTo(3, 1); // (100 - 70) / 10
       });
 
       it("excludes snapshots outside reset window when reset time is close", () => {

@@ -40,7 +40,11 @@
     "test:caching": "node tests/integration/test-caching-streaming.cjs",
     "test:crossmodel": "node tests/integration/test-cross-model-thinking.cjs",
     "test:oauth": "node tests/integration/test-oauth-no-browser.cjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "upstream:fetch": "git fetch upstream",
+    "upstream:log": "git fetch upstream && git log main..upstream/main --oneline",
+    "upstream:diff": "git fetch upstream && git diff main..upstream/main --stat",
+    "upstream:diff-full": "git fetch upstream && git diff main..upstream/main"
   },
   "keywords": [
     "claude",

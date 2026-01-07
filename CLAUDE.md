@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rules
+
+- **No temporary documentation files.** Do not create standalone markdown files for notes, specs, or tracking. All persistent documentation belongs in `docs/` or in this file.
+
 ## Project Overview
 
 Antigravity Claude Proxy is a Node.js proxy server that exposes an Anthropic-compatible API backed by Antigravity's Cloud Code service. It enables using Claude and Gemini models with Claude Code CLI.
@@ -148,6 +152,17 @@ npm test -- --reporter=verbose         # Verbose test output
 npm test -- --no-coverage              # Skip coverage for faster runs
 ```
 
+### Upstream Sync
+
+This is a TypeScript rewrite of [antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy). Track upstream changes with:
+
+```bash
+npm run upstream:fetch      # Fetch latest from upstream
+npm run upstream:log        # Show new upstream commits not yet reviewed
+npm run upstream:diff       # File-level summary of upstream changes
+npm run upstream:diff-full  # Full diff of all upstream changes
+```
+
 ## Test Strategy
 
 ### Current Test Types
@@ -194,6 +209,9 @@ src/
 ├── utils/            # Helpers, logging
 ├── server.ts         # Express server
 └── constants.ts      # Configuration
+
+docs/
+└── ANTIGRAVITY_API_SPEC.md  # Antigravity API specification
 
 tests/
 ├── unit/             # Vitest unit tests

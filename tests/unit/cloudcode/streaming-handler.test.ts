@@ -722,4 +722,38 @@ describe("cloudcode/streaming-handler", () => {
       expect(accountManager.pickNext).toHaveBeenCalled();
     });
   });
+
+  describe("sendMessageStream - empty response retry", () => {
+    it("should have retry capability for EmptyResponseError", async () => {
+      const { isEmptyResponseError } = await import("../../../src/errors.js");
+      const { EmptyResponseError } = await import("../../../src/errors.js");
+
+      const error = new EmptyResponseError("test");
+      expect(isEmptyResponseError(error)).toBe(true);
+      expect(error.retryable).toBe(true);
+    });
+
+    it("should export emitEmptyResponseFallback helper", async () => {
+      const { emitEmptyResponseFallback } = await import("../../../src/cloudcode/streaming-handler.js");
+
+      expect(emitEmptyResponseFallback).toBeDefined();
+      expect(typeof emitEmptyResponseFallback).toBe("function");
+    });
+
+    it("should emit fallback message from emitEmptyResponseFallback", async () => {
+      const { emitEmptyResponseFallback } = await import("../../../src/cloudcode/streaming-handler.js");
+
+      const events: unknown[] = [];
+      for (const event of emitEmptyResponseFallback("claude-sonnet-4-5")) {
+        events.push(event);
+      }
+
+      expect(events.length).toBeGreaterThan(0);
+      expect((events[0] as { type: string }).type).toBe("message_start");
+
+      // Find the text delta with fallback message
+      const textDelta = events.find((e) => (e as { type: string; delta?: { type: string; text?: string } }).type === "content_block_delta" && (e as { delta?: { type: string } }).delta?.type === "text_delta") as { delta: { text: string } } | undefined;
+      expect(textDelta?.delta?.text).toContain("[No response received from API]");
+    });
+  });
 });

@@ -5,8 +5,9 @@
  * retry logic, and endpoint failover.
  */
 
-import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS } from "../constants.js";
-import { isRateLimitError, isAuthError } from "../errors.js";
+import * as crypto from "crypto";
+import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, MAX_EMPTY_RETRIES } from "../constants.js";
+import { isRateLimitError, isAuthError, isEmptyResponseError } from "../errors.js";
 import { formatDuration, sleep, isNetworkError } from "../utils/helpers.js";
 import { getLogger } from "../utils/logger.js";
 import { parseResetTime } from "./rate-limit-parser.js";
@@ -25,6 +26,58 @@ interface RateLimitErrorInfo {
   response: Response;
   errorText: string;
   resetMs: number | null;
+}
+
+/**
+ * Emit fallback message when all empty response retries are exhausted
+ */
+export function* emitEmptyResponseFallback(model: string): Generator<AnthropicSSEEvent, void, unknown> {
+  const messageId = `msg_${crypto.randomBytes(16).toString("hex")}`;
+
+  yield {
+    type: "message_start",
+    message: {
+      id: messageId,
+      type: "message",
+      role: "assistant",
+      content: [],
+      model: model,
+      stop_reason: null,
+      stop_sequence: null,
+      usage: {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      },
+    },
+  };
+
+  yield {
+    type: "content_block_start",
+    index: 0,
+    content_block: { type: "text", text: "" },
+  };
+
+  yield {
+    type: "content_block_delta",
+    index: 0,
+    delta: { type: "text_delta", text: "[No response received from API]" },
+  };
+
+  yield { type: "content_block_stop", index: 0 };
+
+  yield {
+    type: "message_delta",
+    delta: { stop_reason: "end_turn", stop_sequence: null },
+    usage: {
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    },
+  };
+
+  yield { type: "message_stop" };
 }
 
 /**
@@ -147,14 +200,51 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
             continue;
           }
 
-          // Stream the response - yield events as they arrive
+          // Stream the response with empty response retry logic
           if (!response.body) {
             throw new Error("Response body is null");
           }
-          yield* streamSSEResponse({ body: response.body }, anthropicRequest.model);
 
-          getLogger().debug("[CloudCode] Stream completed");
-          return;
+          let emptyRetries = 0;
+          let currentResponse = response;
+
+          while (emptyRetries <= MAX_EMPTY_RETRIES) {
+            try {
+              yield* streamSSEResponse({ body: currentResponse.body! }, anthropicRequest.model);
+              getLogger().debug("[CloudCode] Stream completed");
+              return;
+            } catch (streamError) {
+              if (isEmptyResponseError(streamError as Error) && emptyRetries < MAX_EMPTY_RETRIES) {
+                emptyRetries++;
+                getLogger().warn(`[CloudCode] Empty response, retry ${emptyRetries}/${MAX_EMPTY_RETRIES}...`);
+
+                // Re-fetch for retry
+                currentResponse = await fetch(url, {
+                  method: "POST",
+                  headers: buildHeaders(token, model, "text/event-stream"),
+                  body: JSON.stringify(payload),
+                });
+
+                if (!currentResponse.ok) {
+                  throw new Error(`Empty response retry failed: ${currentResponse.status}`);
+                }
+
+                if (!currentResponse.body) {
+                  throw new Error("Response body is null on retry");
+                }
+
+                continue;
+              }
+
+              if (isEmptyResponseError(streamError as Error)) {
+                getLogger().error(`[CloudCode] Empty response after ${MAX_EMPTY_RETRIES} retries`);
+                yield* emitEmptyResponseFallback(anthropicRequest.model);
+                return;
+              }
+
+              throw streamError;
+            }
+          }
         } catch (endpointError) {
           if (isRateLimitError(endpointError as Error)) {
             throw endpointError; // Re-throw to trigger account switch

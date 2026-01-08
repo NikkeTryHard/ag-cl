@@ -67,6 +67,8 @@ export interface AccountSettings {
   logLevel?: LogLevel | undefined;
   /** Enable model fallback on quota exhaustion */
   fallbackEnabled?: boolean | undefined;
+  /** Enable auto-refresh of quota every 5 hours */
+  autoRefreshEnabled?: boolean | undefined;
   /** Allow additional unknown settings for extensibility */
   [key: string]: unknown;
 }

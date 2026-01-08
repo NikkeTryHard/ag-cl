@@ -2,7 +2,7 @@
  * TUI Application Entry Point
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { render, useApp, useInput, Box, Text, useStdout } from "ink";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -17,6 +17,9 @@ import { PortInputModal } from "./components/PortInputModal.js";
 import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
 import { useCommands } from "./hooks/useCommands.js";
+import { createLogBufferDestination } from "./hooks/useLogBuffer.js";
+import { isDemoMode, getDemoAccounts, getDemoClaudeCapacity, getDemoGeminiCapacity, initDemoLogs } from "./demo.js";
+import { initLogger } from "../utils/logger.js";
 import type { ModalState, Command } from "./types.js";
 import { DEFAULT_PORT } from "../constants.js";
 
@@ -32,13 +35,32 @@ function App(): React.ReactElement {
   const { stdout } = useStdout();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
 
+  // Use a ref to track modal state for the input handler
+  // This ensures the handler always sees the latest modal state
+  const modalRef = useRef(modal);
+  useEffect(() => {
+    modalRef.current = modal;
+  }, [modal]);
+
+  // Check demo mode
+  const demoMode = isDemoMode();
+
   // Get terminal dimensions
   const terminalHeight = stdout.rows;
   const terminalWidth = stdout.columns;
 
   // Hooks
-  const serverState = useServerState(DEFAULT_PORT);
-  const { loading, claudeCapacity, geminiCapacity, accountCount, accounts, refresh } = useCapacity();
+  const serverState = useServerState(DEFAULT_PORT, demoMode);
+  const realCapacity = useCapacity();
+
+  // Use demo data if in demo mode
+  const loading = demoMode ? false : realCapacity.loading;
+  const refreshing = demoMode ? false : realCapacity.refreshing;
+  const claudeCapacity = demoMode ? getDemoClaudeCapacity() : realCapacity.claudeCapacity;
+  const geminiCapacity = demoMode ? getDemoGeminiCapacity() : realCapacity.geminiCapacity;
+  const accounts = demoMode ? getDemoAccounts() : realCapacity.accounts;
+  const accountCount = demoMode ? 3 : realCapacity.accountCount;
+  const refresh = realCapacity.refresh;
 
   // Modal controls
   const modalControls = useMemo(
@@ -74,42 +96,44 @@ function App(): React.ReactElement {
   );
 
   // Global keyboard shortcuts - only active when no modal is open
-  useInput(
-    (input) => {
-      // : opens command palette (vim-style)
-      if (input === ":") {
-        modalControls.open("command-palette");
-        return;
-      }
+  useInput((input) => {
+    // Check modal state via ref to ensure we have latest value
+    if (modalRef.current.type !== "none") {
+      return; // Don't handle input when modal is open
+    }
 
-      // q quits
-      if (input === "q") {
-        exit();
-        return;
-      }
+    // : opens command palette (vim-style)
+    if (input === ":") {
+      modalControls.open("command-palette");
+      return;
+    }
 
-      // Quick shortcuts
-      if (input === "a") {
-        setModal({ type: "accounts" });
-      } else if (input === "s") {
-        if (serverState.running) {
-          void serverState.stop();
-        } else {
-          void serverState.start();
-        }
-      } else if (input === "l") {
-        setModal({ type: "logs" });
-      } else if (input === "r") {
-        void refresh();
-      } else if (input === "p") {
-        setModal({ type: "change-port" });
-      } else if (input === "?" || input === "h") {
-        // ? or h opens command palette for help
-        modalControls.open("command-palette");
+    // q quits
+    if (input === "q") {
+      exit();
+      return;
+    }
+
+    // Quick shortcuts
+    if (input === "a") {
+      setModal({ type: "accounts" });
+    } else if (input === "s") {
+      if (serverState.running) {
+        void serverState.stop();
+      } else {
+        void serverState.start();
       }
-    },
-    { isActive: modal.type === "none" },
-  );
+    } else if (input === "l") {
+      setModal({ type: "logs" });
+    } else if (input === "r") {
+      void refresh();
+    } else if (input === "p") {
+      setModal({ type: "change-port" });
+    } else if (input === "?" || input === "h") {
+      // ? or h opens command palette for help
+      modalControls.open("command-palette");
+    }
+  });
 
   // Loading state
   if (loading) {
@@ -127,6 +151,7 @@ function App(): React.ReactElement {
         accounts={accounts}
         claudeCapacity={claudeCapacity}
         geminiCapacity={geminiCapacity}
+        refreshing={refreshing}
         onClose={modalControls.close}
         onAddAccount={() => {
           setModal({ type: "add-account" });
@@ -175,9 +200,21 @@ function App(): React.ReactElement {
   }
 
   // Dashboard view
-  return <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} />;
+  return <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} />;
 }
 
 export function startTUI(): void {
+  // Initialize logger in TUI mode - writes to buffer instead of stdout
+  initLogger({
+    level: "info",
+    tuiMode: true,
+    tuiDestination: createLogBufferDestination(),
+  });
+
+  // Initialize demo logs if in demo mode
+  if (isDemoMode()) {
+    initDemoLogs();
+  }
+
   render(<App />);
 }

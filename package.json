@@ -1,6 +1,6 @@
 {
   "name": "ag-cl",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Proxy server to use Antigravity's Claude models with Claude Code CLI",
   "main": "dist/index.js",
   "type": "module",
@@ -71,7 +71,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "ag-cl": "^1.1.0",
+    "ag-cl": "^1.2.0",
     "better-sqlite3": "^12.5.0",
     "boxen": "^8.0.1",
     "cli-table3": "^0.6.5",

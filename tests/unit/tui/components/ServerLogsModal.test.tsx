@@ -25,8 +25,8 @@ describe("ServerLogsModal", () => {
   it("renders with no logs message when empty", () => {
     const { lastFrame } = render(<ServerLogsModal onClose={() => {}} />);
 
-    expect(lastFrame()).toContain("Logs");
     expect(lastFrame()).toContain("No logs yet");
+    expect(lastFrame()).toContain("ESC close");
   });
 
   it("shows ESC close hint", () => {
@@ -46,12 +46,12 @@ describe("ServerLogsModal", () => {
     expect(lastFrame()).not.toContain("No logs yet");
   });
 
-  it("shows scroll hint when logs exist", () => {
+  it("shows entry count when logs exist", () => {
     addLogEntry("info", "Test log");
 
     const { lastFrame } = render(<ServerLogsModal onClose={() => {}} />);
 
-    expect(lastFrame()).toContain("scroll");
+    expect(lastFrame()).toContain("1 entries");
   });
 
   it("displays different log levels with correct labels", () => {
@@ -73,6 +73,6 @@ describe("ServerLogsModal", () => {
 
     // Component should render without calling callback initially
     expect(onClose).not.toHaveBeenCalled();
-    expect(lastFrame()).toContain("Logs");
+    expect(lastFrame()).toContain("ESC close");
   });
 });

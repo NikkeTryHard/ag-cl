@@ -34,7 +34,7 @@ function checkPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-export function useServerState(initialPort: number): UseServerStateResult {
+export function useServerState(initialPort: number, demoMode = false): UseServerStateResult {
   const [running, setRunning] = useState(false);
   const [port, setPortState] = useState(initialPort);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +45,13 @@ export function useServerState(initialPort: number): UseServerStateResult {
     if (running || startingRef.current) return;
     startingRef.current = true;
     setError(null);
+
+    // Demo mode: fake server start
+    if (demoMode) {
+      setRunning(true);
+      startingRef.current = false;
+      return;
+    }
 
     try {
       // Check if port is available first
@@ -66,9 +73,15 @@ export function useServerState(initialPort: number): UseServerStateResult {
     } finally {
       startingRef.current = false;
     }
-  }, [running, port]);
+  }, [running, port, demoMode]);
 
   const stop = useCallback(async () => {
+    // Demo mode: fake server stop
+    if (demoMode) {
+      setRunning(false);
+      return;
+    }
+
     const server = serverRef.current;
     if (!running || !server) return;
     setError(null);
@@ -83,7 +96,7 @@ export function useServerState(initialPort: number): UseServerStateResult {
         resolve();
       });
     });
-  }, [running]);
+  }, [running, demoMode]);
 
   // Cleanup on unmount
   useEffect(() => {

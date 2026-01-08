@@ -18,6 +18,7 @@ interface DashboardProps {
   claudeCapacity: AggregatedCapacity;
   geminiCapacity: AggregatedCapacity;
   accountCount: number;
+  refreshing: boolean;
 }
 
 // ASCII banner letters from "Impossible" figlet font
@@ -58,7 +59,7 @@ function Banner(): React.ReactElement {
   );
 }
 
-export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount }: DashboardProps): React.ReactElement {
+export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing }: DashboardProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const barWidth = Math.max(20, Math.min(50, width - 40));
 
@@ -81,7 +82,9 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
 
       {/* Account count */}
       <Box marginTop={2}>
-        {accountCount === 0 ? (
+        {refreshing ? (
+          <Text color="cyan">Refreshing...</Text>
+        ) : accountCount === 0 ? (
           <Text color="yellow">No accounts configured. Press [a] to add one.</Text>
         ) : (
           <>

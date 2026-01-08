@@ -12,6 +12,7 @@ import { refreshAccessToken } from "../../auth/oauth.js";
 import { fetchAccountCapacity, type AccountCapacity, type ModelQuotaInfo } from "../../cloudcode/quota-api.js";
 import { initQuotaStorage, recordSnapshot } from "../../cloudcode/quota-storage.js";
 import { calculateBurnRate, type BurnRateInfo } from "../../cloudcode/burn-rate.js";
+import { isDemoMode } from "../demo.js";
 import type { AggregatedCapacity, AccountCapacityInfo, ModelQuotaDisplay } from "../types.js";
 
 /**
@@ -80,6 +81,7 @@ interface CapacityFetchResult {
 
 interface UseCapacityResult {
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
   claudeCapacity: AggregatedCapacity;
   geminiCapacity: AggregatedCapacity;
@@ -99,12 +101,14 @@ const defaultCapacity: AggregatedCapacity = {
 
 export function useCapacity(): UseCapacityResult {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claudeCapacity, setClaudeCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "claude" });
   const [geminiCapacity, setGeminiCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "gemini" });
   const [accountCount, setAccountCount] = useState(0);
   const [accounts, setAccounts] = useState<AccountCapacityInfo[]>([]);
   const storageInitialized = useRef(false);
+  const hasLoadedOnce = useRef(false);
 
   // Initialize quota storage once
   useEffect(() => {
@@ -119,7 +123,18 @@ export function useCapacity(): UseCapacityResult {
   }, []);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    // Skip in demo mode - demo data is provided externally
+    if (isDemoMode()) {
+      setLoading(false);
+      return;
+    }
+
+    // Use refreshing state after initial load
+    if (hasLoadedOnce.current) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -234,6 +249,8 @@ export function useCapacity(): UseCapacityResult {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      hasLoadedOnce.current = true;
     }
   }, []);
 
@@ -243,6 +260,7 @@ export function useCapacity(): UseCapacityResult {
 
   return {
     loading,
+    refreshing,
     error,
     claudeCapacity,
     geminiCapacity,

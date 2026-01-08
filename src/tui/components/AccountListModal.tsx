@@ -16,6 +16,7 @@ interface AccountListModalProps {
   accounts: AccountCapacityInfo[];
   claudeCapacity: AggregatedCapacity;
   geminiCapacity: AggregatedCapacity;
+  refreshing: boolean;
   onClose: () => void;
   onAddAccount: () => void;
   onRefresh: () => void;
@@ -114,7 +115,7 @@ function formatGeminiModels(models: ModelQuotaDisplay[], maxWidth: number): { te
   return { text: result, hiddenCount };
 }
 
-export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onClose, onAddAccount, onRefresh }: AccountListModalProps): React.ReactElement {
+export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, refreshing, onClose, onAddAccount, onRefresh }: AccountListModalProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -194,7 +195,7 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
       <Box flexDirection="column" borderStyle="round" padding={1}>
         <Box marginBottom={1}>
           <Text bold color="cyan">
-            Accounts ({accounts.length})
+            Accounts ({accounts.length}){refreshing ? " - Refreshing..." : ""}
           </Text>
         </Box>
 

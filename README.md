@@ -19,7 +19,7 @@ ag-cl start  # Headless server mode
 ```
 
 <p align="center">
-  <img src="assets/ag-cl-tui.png" alt="ag-cl TUI Dashboard" width="700">
+  <img src="assets/demo.gif" alt="ag-cl TUI Dashboard" width="700">
 </p>
 
 ### Keyboard Shortcuts

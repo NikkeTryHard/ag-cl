@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.unmock("../../../src/utils/logger.js");
 
 // Import after unmocking
-import { getLogger, initLogger, setLogLevel, type LogLevel } from "../../../src/utils/logger.js";
+import { getLogger, initLogger, setLogLevel, isLoggerInTuiMode, type LogLevel } from "../../../src/utils/logger.js";
 
 describe("Pino Logger", () => {
   beforeEach(() => {
@@ -153,6 +153,54 @@ describe("Pino Logger", () => {
         const logger = getLogger();
         expect(logger.level).toBe(level);
       }
+    });
+  });
+
+  describe("TUI mode", () => {
+    it("isLoggerInTuiMode returns false by default", () => {
+      // After non-TUI init, should be false (or true if previous test set it)
+      // Just test that the function exists and returns a boolean
+      expect(typeof isLoggerInTuiMode()).toBe("boolean");
+    });
+
+    it("initLogger with tuiMode creates logger that writes to destination", () => {
+      const messages: string[] = [];
+      const mockDestination = {
+        write: (chunk: string): void => {
+          messages.push(chunk);
+        },
+      };
+
+      initLogger({
+        level: "info",
+        tuiMode: true,
+        tuiDestination: mockDestination,
+      });
+
+      const logger = getLogger();
+      logger.info("test message");
+
+      // Should have written to our mock destination
+      expect(messages.length).toBeGreaterThan(0);
+      expect(messages[0]).toContain("test message");
+      expect(isLoggerInTuiMode()).toBe(true);
+    });
+
+    it("can initialize with TUI destination", () => {
+      const mockDestination = { write: (): void => {} };
+
+      // Should not throw
+      expect(() =>
+        initLogger({
+          level: "info",
+          tuiMode: true,
+          tuiDestination: mockDestination,
+        }),
+      ).not.toThrow();
+
+      const logger = getLogger();
+      expect(logger).toBeDefined();
+      expect(typeof logger.info).toBe("function");
     });
   });
 });

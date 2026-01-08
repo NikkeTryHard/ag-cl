@@ -6,4 +6,9 @@ describe("ModalState type", () => {
     const modal: ModalState = { type: "change-port" };
     expect(modal.type).toBe("change-port");
   });
+
+  it("accepts settings as valid modal type", () => {
+    const modal: ModalState = { type: "settings" };
+    expect(modal.type).toBe("settings");
+  });
 });

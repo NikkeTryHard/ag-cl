@@ -14,9 +14,11 @@ import { AccountListModal } from "./components/AccountListModal.js";
 import { AddAccountModal } from "./components/AddAccountModal.js";
 import { ServerLogsModal } from "./components/ServerLogsModal.js";
 import { PortInputModal } from "./components/PortInputModal.js";
+import { SettingsModal } from "./components/SettingsModal.js";
 import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
 import { useCommands } from "./hooks/useCommands.js";
+import { useSettings } from "./hooks/useSettings.js";
 import { createLogBufferDestination } from "./hooks/useLogBuffer.js";
 import { isDemoMode, getDemoAccounts, getDemoClaudeCapacity, getDemoGeminiCapacity, initDemoLogs } from "./demo.js";
 import { initLogger } from "../utils/logger.js";
@@ -52,6 +54,7 @@ function App(): React.ReactElement {
   // Hooks
   const serverState = useServerState(DEFAULT_PORT, demoMode);
   const realCapacity = useCapacity();
+  const { settings, updateSettings } = useSettings();
 
   // Use demo data if in demo mode
   const loading = demoMode ? false : realCapacity.loading;
@@ -129,6 +132,8 @@ function App(): React.ReactElement {
       void refresh();
     } else if (input === "p") {
       setModal({ type: "change-port" });
+    } else if (input === "o") {
+      setModal({ type: "settings" });
     } else if (input === "?" || input === "h") {
       // ? or h opens command palette for help
       modalControls.open("command-palette");
@@ -193,6 +198,10 @@ function App(): React.ReactElement {
         onClose={modalControls.close}
       />
     );
+  }
+
+  if (modal.type === "settings") {
+    return <SettingsModal settings={settings} onUpdateSettings={updateSettings} onClose={modalControls.close} />;
   }
 
   if (modal.type === "command-palette") {

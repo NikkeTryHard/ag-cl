@@ -78,6 +78,14 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
           modalControls.open("logs");
         },
       },
+      {
+        id: "view-settings",
+        label: "Settings",
+        category: "view",
+        action: (): void => {
+          modalControls.open("settings");
+        },
+      },
     ],
     [serverControls, modalControls, refreshCapacity],
   );

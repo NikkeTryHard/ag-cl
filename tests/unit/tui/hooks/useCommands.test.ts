@@ -190,6 +190,44 @@ describe("useCommands", () => {
     expect(mockModalControls.open).toHaveBeenCalledWith("logs");
   });
 
+  it("includes Settings command in view category", () => {
+    const mockServerControls = { start: vi.fn(), stop: vi.fn(), restart: vi.fn() };
+    const mockModalControls = { open: vi.fn(), close: vi.fn() };
+    const mockRefreshCapacity = vi.fn();
+
+    const { result } = renderHook(() =>
+      useCommands({
+        serverControls: mockServerControls,
+        modalControls: mockModalControls,
+        refreshCapacity: mockRefreshCapacity,
+      }),
+    );
+
+    const settingsCommand = result.current.find((c) => c.id === "view-settings");
+    expect(settingsCommand).toBeDefined();
+    expect(settingsCommand!.label).toBe("Settings");
+    expect(settingsCommand!.category).toBe("view");
+  });
+
+  it("calls modalControls.open with settings when view-settings command is executed", () => {
+    const mockServerControls = { start: vi.fn(), stop: vi.fn(), restart: vi.fn() };
+    const mockModalControls = { open: vi.fn(), close: vi.fn() };
+    const mockRefreshCapacity = vi.fn();
+
+    const { result } = renderHook(() =>
+      useCommands({
+        serverControls: mockServerControls,
+        modalControls: mockModalControls,
+        refreshCapacity: mockRefreshCapacity,
+      }),
+    );
+
+    const settingsCommand = result.current.find((c) => c.id === "view-settings");
+    expect(settingsCommand).toBeDefined();
+    settingsCommand!.action();
+    expect(mockModalControls.open).toHaveBeenCalledWith("settings");
+  });
+
   it("returns memoized commands array", () => {
     const mockServerControls = { start: vi.fn(), stop: vi.fn(), restart: vi.fn() };
     const mockModalControls = { open: vi.fn(), close: vi.fn() };

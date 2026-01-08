@@ -5,7 +5,7 @@
  * Starts/stops the scheduler when the setting changes or on mount/unmount.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getAutoRefreshEnabled } from "../../settings/defaults.js";
 import type { AccountSettings } from "../../account-manager/types.js";
 
@@ -27,28 +27,32 @@ export interface UseAutoRefreshResult {
 
 export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshResult {
   const { settings, demoMode = false } = options;
-  const isRunningRef = useRef(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const start = useCallback(async () => {
-    if (demoMode || isRunningRef.current) return;
+    if (demoMode || isRunning) return;
 
     const { startAutoRefresh, isAutoRefreshRunning } = await import("../../cloudcode/auto-refresh-scheduler.js");
 
     if (!isAutoRefreshRunning()) {
       await startAutoRefresh();
-      isRunningRef.current = true;
+      setIsRunning(true);
     }
-  }, [demoMode]);
+  }, [demoMode, isRunning]);
 
   const stop = useCallback(() => {
     if (demoMode) return;
 
-    void import("../../cloudcode/auto-refresh-scheduler.js").then(({ stopAutoRefresh, isAutoRefreshRunning }) => {
-      if (isAutoRefreshRunning()) {
-        stopAutoRefresh();
-        isRunningRef.current = false;
-      }
-    });
+    void import("../../cloudcode/auto-refresh-scheduler.js")
+      .then(({ stopAutoRefresh, isAutoRefreshRunning }) => {
+        if (isAutoRefreshRunning()) {
+          stopAutoRefresh();
+          setIsRunning(false);
+        }
+      })
+      .catch(() => {
+        /* Import or stop failed */
+      });
   }, [demoMode]);
 
   // Start/stop based on setting changes
@@ -62,13 +66,13 @@ export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshRe
     }
 
     // Cleanup on unmount
-    return () => {
+    return (): void => {
       stop();
     };
   }, [settings.autoRefreshEnabled, start, stop]);
 
   return {
-    isRunning: isRunningRef.current,
+    isRunning,
     start,
     stop,
   };

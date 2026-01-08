@@ -32,6 +32,7 @@ export interface GlobalOptions {
   silent?: boolean;
   maxEmptyRetries?: string;
   triggerReset?: boolean;
+  autoRefresh?: boolean;
 }
 
 /**
@@ -52,7 +53,8 @@ function createProgram(): Command {
     .option("--json-logs", "output logs as JSON")
     .option("--silent", "suppress all output except errors")
     .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
-    .option("--trigger-reset", "trigger quota reset on startup");
+    .option("--trigger-reset", "trigger quota reset on startup")
+    .option("--auto-refresh", "automatically refresh quota every 5 hours");
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {

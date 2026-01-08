@@ -30,6 +30,7 @@ export interface GlobalOptions {
   logFile?: string;
   jsonLogs?: boolean;
   silent?: boolean;
+  maxEmptyRetries?: string;
 }
 
 /**
@@ -48,7 +49,8 @@ function createProgram(): Command {
     .addOption(new Option("--log-level <level>", "log level").choices(["silent", "error", "warn", "info", "debug", "trace"]).default("info"))
     .option("--log-file <path>", "write logs to file")
     .option("--json-logs", "output logs as JSON")
-    .option("--silent", "suppress all output except errors");
+    .option("--silent", "suppress all output except errors")
+    .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)");
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {
@@ -84,6 +86,15 @@ function createProgram(): Command {
     .description("Start the proxy server (headless mode)")
     .action(async () => {
       const opts: GlobalOptions = program.opts<GlobalOptions>();
+
+      // Set max empty retries environment variable if provided
+      if (opts.maxEmptyRetries !== undefined) {
+        const retries = parseInt(opts.maxEmptyRetries, 10);
+        if (!isNaN(retries) && retries >= 0) {
+          process.env.MAX_EMPTY_RETRIES = String(retries);
+        }
+      }
+
       const { startCommand } = await import("./commands/start.js");
       startCommand({
         port: opts.port,

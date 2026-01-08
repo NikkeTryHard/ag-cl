@@ -181,6 +181,7 @@ describe("useServerState", () => {
         fallbackEnabled: true,
         identityMode: "short",
         cooldownDurationMs: 5000,
+        autoRefreshEnabled: true,
       };
 
       const { result } = renderHook(() => useServerState({ settings, demoMode: true }));

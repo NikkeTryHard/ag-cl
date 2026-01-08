@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { DEFAULTS, getIdentityMode, getDefaultPort, getLogLevel, getFallbackEnabled, getCooldownDurationMs } from "../../../src/settings/defaults.js";
+import { DEFAULTS, getIdentityMode, getDefaultPort, getLogLevel, getFallbackEnabled, getCooldownDurationMs, getAutoRefreshEnabled } from "../../../src/settings/defaults.js";
 import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS } from "../../../src/constants.js";
 import type { AccountSettings } from "../../../src/account-manager/types.js";
 
@@ -18,6 +18,7 @@ describe("settings/defaults", () => {
       expect(DEFAULTS.logLevel).toBe("info");
       expect(DEFAULTS.fallbackEnabled).toBe(false);
       expect(DEFAULTS.cooldownDurationMs).toBe(DEFAULT_COOLDOWN_MS);
+      expect(DEFAULTS.autoRefreshEnabled).toBe(false);
     });
 
     it("uses DEFAULT_PORT from constants.ts", () => {
@@ -261,6 +262,63 @@ describe("settings/defaults", () => {
 
       it("returns 10000 (10 seconds) as the default", () => {
         expect(getCooldownDurationMs()).toBe(10000);
+      });
+    });
+  });
+
+  describe("getAutoRefreshEnabled", () => {
+    const originalEnv = process.env.AUTO_REFRESH;
+
+    beforeEach(() => {
+      delete process.env.AUTO_REFRESH;
+    });
+
+    afterEach(() => {
+      if (originalEnv !== undefined) {
+        process.env.AUTO_REFRESH = originalEnv;
+      } else {
+        delete process.env.AUTO_REFRESH;
+      }
+    });
+
+    describe("priority: settings object first", () => {
+      it("returns settings.autoRefreshEnabled when true", () => {
+        const settings: AccountSettings = { autoRefreshEnabled: true };
+        expect(getAutoRefreshEnabled(settings)).toBe(true);
+      });
+
+      it("returns settings.autoRefreshEnabled when false", () => {
+        const settings: AccountSettings = { autoRefreshEnabled: false };
+        expect(getAutoRefreshEnabled(settings)).toBe(false);
+      });
+
+      it("settings take precedence over env var", () => {
+        process.env.AUTO_REFRESH = "true";
+        const settings: AccountSettings = { autoRefreshEnabled: false };
+        expect(getAutoRefreshEnabled(settings)).toBe(false);
+      });
+    });
+
+    describe("priority: env var second", () => {
+      it("returns true when AUTO_REFRESH=true", () => {
+        process.env.AUTO_REFRESH = "true";
+        expect(getAutoRefreshEnabled()).toBe(true);
+      });
+
+      it("returns false when AUTO_REFRESH is not exactly 'true'", () => {
+        process.env.AUTO_REFRESH = "false";
+        expect(getAutoRefreshEnabled()).toBe(false);
+      });
+    });
+
+    describe("priority: default last", () => {
+      it("returns false when no settings provided", () => {
+        expect(getAutoRefreshEnabled()).toBe(false);
+      });
+
+      it("returns false when settings has no autoRefreshEnabled", () => {
+        const settings: AccountSettings = { logLevel: "debug" };
+        expect(getAutoRefreshEnabled(settings)).toBe(false);
       });
     });
   });

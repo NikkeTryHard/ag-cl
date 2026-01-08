@@ -124,44 +124,83 @@ flowchart TD
 
 ## Open Issues
 
-| Issue                                                                    | Title                                            | Author         | Created    | Type            | Our Status               |
-| ------------------------------------------------------------------------ | ------------------------------------------------ | -------------- | ---------- | --------------- | ------------------------ |
-| [#68](https://github.com/badri-s2001/antigravity-claude-proxy/issues/68) | Bug: First request hangs after idle period       | @parkjaeuk0210 | 2026-01-08 | Bug             | **INVESTIGATING**        |
-| [#67](https://github.com/badri-s2001/antigravity-claude-proxy/issues/67) | Bug: Compaction fails with Invalid JSON payload  | @IrvanFza      | 2026-01-08 | Bug             | **INVESTIGATING**        |
-| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc     | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64) |
-| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc     | 2026-01-04 | Feature Request | **IMPLEMENTED**          |
-| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc  | 2026-01-03 | Feature Request | TUI alternative          |
-| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC   | 2025-12-31 | Bug/Limitation  | **DOCUMENTED**           |
+| Issue                                                                    | Title                                            | Author         | Created    | Type            | Our Status                  |
+| ------------------------------------------------------------------------ | ------------------------------------------------ | -------------- | ---------- | --------------- | --------------------------- |
+| [#68](https://github.com/badri-s2001/antigravity-claude-proxy/issues/68) | Bug: First request hangs after idle period       | @parkjaeuk0210 | 2026-01-08 | Bug             | **APPLICABLE** - Fix needed |
+| [#67](https://github.com/badri-s2001/antigravity-claude-proxy/issues/67) | Bug: Compaction fails with Invalid JSON payload  | @IrvanFza      | 2026-01-08 | Bug             | **MAYBE** - Needs testing   |
+| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc     | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64)    |
+| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc     | 2026-01-04 | Feature Request | **IMPLEMENTED**             |
+| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc  | 2026-01-03 | Feature Request | TUI alternative             |
+| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC   | 2025-12-31 | Bug/Limitation  | **DOCUMENTED**              |
 
-### Issue #68: First Request Hangs After Idle (NEW)
+### Issue #68: First Request Hangs After Idle
 
 **Problem**: The first request after the proxy has been idle for several minutes hangs indefinitely, requiring ESC + retry.
 
-**Suspected Causes**:
+**Upstream Suspected Causes**:
 
 - Connection pool going stale
 - OAuth token not refreshing properly on first request
 
-**Proposed Solutions**:
+**Our Investigation**: **CONFIRMED APPLICABLE**
 
-- Keep-alive mechanism for connections
-- Connection health check before first request
+We found the root cause in our codebase. After 5 minutes idle, token cache expires (`TOKEN_REFRESH_INTERVAL_MS = 300000`). The next request calls `refreshAccessToken` which has **NO TIMEOUT**:
 
-**Workaround**: Use `gemini-2.5-flash-lite` model (reportedly doesn't trigger the bug)
+```typescript
+// src/auth/oauth.ts:327-339
+const response = await fetch(OAUTH_CONFIG.tokenUrl, {
+  method: "POST",
+  // NO AbortController, NO signal - can hang forever!
+});
+```
 
-**Our Status**: **INVESTIGATING** - May be related to our token refresh logic (5-minute cache). Need to add timeout to token refresh.
+Similarly, `discoverProject` in `credentials.ts:121-135` has no timeout.
+
+**Fix Required**:
+
+- Add `AbortController` with 10-15 second timeout to:
+  - `refreshAccessToken()` in `src/auth/oauth.ts`
+  - `discoverProject()` in `src/account-manager/credentials.ts`
+  - `getUserEmail()` in `src/auth/oauth.ts`
+
+**Priority**: HIGH - Affects all users after any idle period
 
 ---
 
-### Issue #67: Tool Schema Conversion Fails on Compaction (NEW)
+### Issue #67: Tool Schema Conversion Fails on Compaction
 
 **Problem**: The `/compact` command fails with "Invalid JSON payload" error when hitting token limits with sub agents.
 
 **Error**: `400 - Proto field is not repeating, cannot start list` at tool schema conversion.
 
-**Root Cause**: Incorrect conversion of Anthropic tool schemas to Google Generative AI function declarations format.
+**Our Investigation**: **POTENTIALLY APPLICABLE - NEEDS TESTING**
 
-**Our Status**: **INVESTIGATING** - We have comprehensive schema sanitization in `src/format/schema-sanitizer.ts`. Need to test with the specific schema that causes the error to verify if we're affected.
+We found that our `cleanSchemaForGemini` preserves tuple-style items (array of schemas):
+
+```typescript
+// src/format/schema-sanitizer.ts:602-608
+if (result.items) {
+  if (Array.isArray(result.items)) {
+    result.items = result.items.map((item) => cleanSchemaForGemini(item));
+    // STILL AN ARRAY - proto may not support this!
+  }
+}
+```
+
+Google's proto format may expect `items` to be a **single schema**, not an array. The error suggests the proto field is not defined as `repeated`.
+
+**To Confirm**: Need to test with a schema containing tuple-style items (e.g., `items: [{ type: "string" }, { type: "number" }]`).
+
+**Fix If Confirmed**:
+
+```typescript
+// Flatten tuple items to single schema
+if (Array.isArray(result.items)) {
+  result.items = result.items[0]; // Use first item only
+}
+```
+
+**Priority**: MEDIUM - Only affects specific complex tool schemas
 
 ---
 
@@ -391,9 +430,9 @@ Or add to settings:
 | Web UI                     | PR #47            | LOW      | TUI alternative implemented |
 | Disable sticky accounts    | Issue #57         | MEDIUM   | **ALREADY ADDRESSED**       |
 | Quota reset trigger        | PR #44            | LOW      | **IMPLEMENTED**             |
-| Map 404s with context      | PR #15            | LOW      | Not implemented             |
-| Idle hang fix              | Issue #68         | MEDIUM   | **INVESTIGATING**           |
-| Tool schema conversion fix | Issue #67         | MEDIUM   | **INVESTIGATING**           |
+| Map 404s with context      | PR #15            | LOW      | Partial (we warn in logs)   |
+| Idle hang fix              | Issue #68         | HIGH     | **APPLICABLE** - Fix needed |
+| Tool schema conversion fix | Issue #67         | MEDIUM   | **MAYBE** - Needs testing   |
 
 ---
 
@@ -424,21 +463,24 @@ Or add to settings:
    - Our `pickStickyAccount` logic already prioritizes switching to available accounts
    - No additional `--no-sticky` flag needed
 
-### Investigating (New Bugs)
+### Action Required
 
-1. **First request hangs after idle** (Issue #68)
-   - May be related to token refresh timeout
-   - Need to add timeout to token refresh and/or connection health check
+1. **Idle Hang Fix** (Issue #68) - **HIGH PRIORITY**
+   - Add `AbortController` with 10-15s timeout to OAuth fetch calls
+   - Files: `src/auth/oauth.ts`, `src/account-manager/credentials.ts`
+   - Effort: ~1 hour
 
-2. **Tool schema conversion fails** (Issue #67)
-   - Need to reproduce with specific schema
-   - May already be handled by our `schema-sanitizer.ts`
+2. **Schema Tuple Items** (Issue #67) - **NEEDS TESTING FIRST**
+   - Test with tuple-style items schema to confirm if we're affected
+   - If affected: Flatten tuple items to single schema
+   - Effort: ~1-2 hours (including testing)
 
 ### Low Priority (Future)
 
 3. **Map 404s with context** (PR #15)
-   - Better error messages for model/project not found
-   - Low priority, nice-to-have
+   - We already warn in logs about Gemini Code Assist
+   - Could add better error response to client
+   - Effort: ~30 min
 
 4. **Consider lightweight dashboard**
    - We have TUI, but web UI could be useful for remote monitoring

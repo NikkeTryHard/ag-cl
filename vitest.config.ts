@@ -38,6 +38,11 @@ export default defineConfig({
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "tests/**/*.fuzz.test.ts", "tests/**/*.contract.test.ts", "tests/**/*.chaos.test.ts", "tests/**/*.golden.test.ts", "tests/**/*.snap.test.ts", "tests/**/*.security.test.ts", "tests/**/*.load.test.ts", "tests/**/*.type.test.ts", "tests/**/*.types.test.ts"],
     exclude: ["node_modules", "dist", "tests/**/*.cjs"],
 
+    // Run oauth tests serially to avoid port conflicts
+    sequence: {
+      shuffle: false,
+    },
+
     // Timeout for integration tests
     testTimeout: 60000,
     hookTimeout: 30000,
@@ -55,5 +60,11 @@ export default defineConfig({
       escapeString: false,
       printBasicPrototype: false,
     },
+
+    // Isolate tests that modify global state (like fetch) to prevent interference
+    isolate: true,
+
+    // Use forks pool for better isolation of tests that bind to ports
+    pool: "forks",
   },
 });

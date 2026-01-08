@@ -655,15 +655,18 @@ describe("auth/oauth", () => {
       await serverPromise; // Should resolve with "cleanup"
     });
 
-    it("rejects with timeout error when no callback received", async () => {
+    it("rejects with timeout error when no callback received", { timeout: 10000 }, async () => {
       const expectedState = "timeout-state";
 
-      // Very short timeout for testing
-      const serverPromise = startCallbackServer(expectedState, 100);
+      // Use 500ms timeout - short enough for fast test, long enough for clean shutdown
+      const serverPromise = startCallbackServer(expectedState, 500);
       // Attach a no-op catch handler to prevent unhandled rejection warning
       serverPromise.catch(() => {});
 
       await expect(serverPromise).rejects.toThrow("OAuth callback timeout");
+
+      // Give extra time for server socket to fully close after timeout
+      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("rejects with port in use error when port is already bound", async () => {

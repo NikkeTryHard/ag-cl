@@ -22,7 +22,7 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type SettingKey = "identityMode" | "defaultPort" | "logLevel" | "fallbackEnabled";
+type SettingKey = "identityMode" | "defaultPort" | "logLevel" | "fallbackEnabled" | "autoRefreshEnabled";
 
 interface SettingItem {
   key: SettingKey;
@@ -34,6 +34,7 @@ const SETTINGS_LIST: SettingItem[] = [
   { key: "defaultPort", label: "Default Port" },
   { key: "logLevel", label: "Log Level" },
   { key: "fallbackEnabled", label: "Model Fallback" },
+  { key: "autoRefreshEnabled", label: "Auto Refresh" },
 ];
 
 const IDENTITY_MODES: IdentityMode[] = ["full", "short", "none"];
@@ -52,6 +53,8 @@ function getDisplayValue(key: SettingKey, settings: AccountSettings): string {
       return settings.logLevel ?? DEFAULTS.logLevel;
     case "fallbackEnabled":
       return (settings.fallbackEnabled ?? DEFAULTS.fallbackEnabled) ? "on" : "off";
+    case "autoRefreshEnabled":
+      return (settings.autoRefreshEnabled ?? DEFAULTS.autoRefreshEnabled) ? "on" : "off";
   }
 }
 
@@ -110,6 +113,11 @@ export function SettingsModal({ settings, onUpdateSettings, onClose }: SettingsM
       case "fallbackEnabled": {
         const current = settings.fallbackEnabled ?? DEFAULTS.fallbackEnabled;
         await handleSave({ fallbackEnabled: !current });
+        break;
+      }
+      case "autoRefreshEnabled": {
+        const current = settings.autoRefreshEnabled ?? DEFAULTS.autoRefreshEnabled;
+        await handleSave({ autoRefreshEnabled: !current });
         break;
       }
       case "defaultPort": {

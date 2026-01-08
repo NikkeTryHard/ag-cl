@@ -108,4 +108,141 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       expect(nextRefresh).toBeGreaterThan(startTime);
     });
   });
+
+  describe("error handling", () => {
+    it("logs warning when no OAuth accounts available", async () => {
+      // Reset modules to get fresh state with different mock
+      vi.resetModules();
+
+      // Re-mock with empty accounts
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([]); // No accounts
+          getTokenForAccount = vi.fn();
+          getProjectForAccount = vi.fn();
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Re-mock logger to capture calls
+      const mockLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue(mockLogger),
+      }));
+
+      // Re-mock quota-reset-trigger
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: vi.fn().mockResolvedValue({
+          successCount: 3,
+          failureCount: 0,
+          groupsTriggered: [],
+        }),
+      }));
+
+      // Dynamic import to get fresh module with new mocks
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startAutoRefreshFresh();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("No OAuth accounts"));
+
+      stopAutoRefreshFresh();
+    });
+
+    it("logs warning when quota trigger fails for all groups", async () => {
+      // Reset modules to get fresh state
+      vi.resetModules();
+
+      // Re-mock logger to capture calls
+      const mockLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue(mockLogger),
+      }));
+
+      // Re-mock account manager with OAuth account
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "test@example.com", source: "oauth", refreshToken: "token123" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access_token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-123");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Re-mock quota-reset-trigger to return 0 successes
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: vi.fn().mockResolvedValue({
+          successCount: 0,
+          failureCount: 3,
+          groupsTriggered: [],
+        }),
+      }));
+
+      // Dynamic import to get fresh module with new mocks
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startAutoRefreshFresh();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to trigger quota reset"));
+
+      stopAutoRefreshFresh();
+    });
+
+    it("logs error and continues when performRefresh throws", async () => {
+      // Reset modules to get fresh state
+      vi.resetModules();
+
+      // Re-mock logger to capture calls
+      const mockLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue(mockLogger),
+      }));
+
+      // Re-mock account manager with OAuth account
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "test@example.com", source: "oauth", refreshToken: "token123" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access_token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-123");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Re-mock quota-reset-trigger to throw
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: vi.fn().mockRejectedValue(new Error("API Error")),
+      }));
+
+      // Dynamic import to get fresh module with new mocks
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, isAutoRefreshRunning: isAutoRefreshRunningFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startAutoRefreshFresh();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining("Error during quota refresh"));
+      expect(isAutoRefreshRunningFresh()).toBe(true); // Should still be running
+
+      stopAutoRefreshFresh();
+    });
+  });
 });

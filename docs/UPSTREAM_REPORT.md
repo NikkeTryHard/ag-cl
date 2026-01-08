@@ -7,13 +7,15 @@
 
 ## Executive Summary
 
-The upstream repository is actively maintained with strong community engagement. There are **3 open PRs** and **4 open issues** as of this report. Key themes include:
+The upstream repository is actively maintained with strong community engagement. There are **4 open PRs** and **6 open issues** as of this report. Key themes include:
 
 - Web dashboard/UI features (multiple implementations)
 - Empty response retry mechanism - **IMPLEMENTED**
 - Quota reset triggers - **IMPLEMENTED**
 - Context window reporting for Gemini models - **IMPLEMENTED**
-- Sticky account configuration - **NOT IMPLEMENTED**
+- WebSearch limitation - **DOCUMENTED**
+- Sticky account configuration - **ALREADY ADDRESSED** (upstream closed)
+- New bugs: idle hang (#68), tool schema conversion (#67) - **INVESTIGATING**
 
 ---
 
@@ -26,6 +28,7 @@ The upstream repository is actively maintained with strong community engagement.
 | [#64](https://github.com/badri-s2001/antigravity-claude-proxy/pull/64) | fix: add retry mechanism for empty API responses  | @BrunoMarc     | 2026-01-07 | OPEN   | **IMPLEMENTED**                       |
 | [#47](https://github.com/badri-s2001/antigravity-claude-proxy/pull/47) | feat: Add Web UI for account and quota management | @Wha1eChai     | 2026-01-04 | OPEN   | Not implemented (We have TUI instead) |
 | [#44](https://github.com/badri-s2001/antigravity-claude-proxy/pull/44) | feat: Add quota reset trigger system              | @shivangtanwar | 2026-01-03 | OPEN   | **IMPLEMENTED**                       |
+| [#15](https://github.com/badri-s2001/antigravity-claude-proxy/pull/15) | Map model/project 404s with context               | @jroth1111     | 2025-12-29 | OPEN   | Not implemented                       |
 
 ### PR #64: Empty Response Retry Mechanism
 
@@ -121,32 +124,66 @@ flowchart TD
 
 ## Open Issues
 
-| Issue                                                                    | Title                                            | Author        | Created    | Type            | Our Status               |
-| ------------------------------------------------------------------------ | ------------------------------------------------ | ------------- | ---------- | --------------- | ------------------------ |
-| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc    | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64) |
-| [#57](https://github.com/badri-s2001/antigravity-claude-proxy/issues/57) | FEATURE: Let us disable sticky accounts          | @Blueemi      | 2026-01-05 | Feature Request | Not implemented          |
-| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc    | 2026-01-04 | Feature Request | **IMPLEMENTED**          |
-| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc | 2026-01-03 | Feature Request | TUI alternative          |
-| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC  | 2025-12-31 | Bug/Limitation  | **DOCUMENTED**           |
+| Issue                                                                    | Title                                            | Author         | Created    | Type            | Our Status               |
+| ------------------------------------------------------------------------ | ------------------------------------------------ | -------------- | ---------- | --------------- | ------------------------ |
+| [#68](https://github.com/badri-s2001/antigravity-claude-proxy/issues/68) | Bug: First request hangs after idle period       | @parkjaeuk0210 | 2026-01-08 | Bug             | **INVESTIGATING**        |
+| [#67](https://github.com/badri-s2001/antigravity-claude-proxy/issues/67) | Bug: Compaction fails with Invalid JSON payload  | @IrvanFza      | 2026-01-08 | Bug             | **INVESTIGATING**        |
+| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc     | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64) |
+| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc     | 2026-01-04 | Feature Request | **IMPLEMENTED**          |
+| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc  | 2026-01-03 | Feature Request | TUI alternative          |
+| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC   | 2025-12-31 | Bug/Limitation  | **DOCUMENTED**           |
+
+### Issue #68: First Request Hangs After Idle (NEW)
+
+**Problem**: The first request after the proxy has been idle for several minutes hangs indefinitely, requiring ESC + retry.
+
+**Suspected Causes**:
+
+- Connection pool going stale
+- OAuth token not refreshing properly on first request
+
+**Proposed Solutions**:
+
+- Keep-alive mechanism for connections
+- Connection health check before first request
+
+**Workaround**: Use `gemini-2.5-flash-lite` model (reportedly doesn't trigger the bug)
+
+**Our Status**: **INVESTIGATING** - May be related to our token refresh logic (5-minute cache). Need to add timeout to token refresh.
+
+---
+
+### Issue #67: Tool Schema Conversion Fails on Compaction (NEW)
+
+**Problem**: The `/compact` command fails with "Invalid JSON payload" error when hitting token limits with sub agents.
+
+**Error**: `400 - Proto field is not repeating, cannot start list` at tool schema conversion.
+
+**Root Cause**: Incorrect conversion of Anthropic tool schemas to Google Generative AI function declarations format.
+
+**Our Status**: **INVESTIGATING** - We have comprehensive schema sanitization in `src/format/schema-sanitizer.ts`. Need to test with the specific schema that causes the error to verify if we're affected.
+
+---
 
 ### Issue #61: Empty API Response Retry (Same as PR #64)
 
 Already addressed by PR #64 above.
 
-### Issue #57: Disable Sticky Accounts
+### Issue #57: Disable Sticky Accounts (CLOSED)
 
 **Request**: Option to disable sticky account behavior for reduced rate limits.
 
 **Context**: Sticky accounts keep requests on the same account to maintain conversation context, but this can lead to faster rate limiting on individual accounts vs round-robin distribution.
 
-**Potential Implementation**:
+**Upstream Resolution**: Issue was closed after reducing cooldown from 60s to 10s. The requester confirmed "working fine now."
 
-```bash
-npm start -- --no-sticky          # CLI flag
-DISABLE_STICKY=true npm start     # Environment variable
-```
+**Our Analysis**: Our implementation already handles this optimally:
 
-**Recommendation**: **MEDIUM PRIORITY** - Valid use case for high-throughput scenarios.
+1. `pickStickyAccount` tries current account first
+2. If unavailable, immediately switches to any available account
+3. Only waits if ALL accounts are rate-limited AND wait is <= 2 minutes
+
+**Our Status**: **ALREADY ADDRESSED** - Our failover logic prioritizes switching to available accounts. No `--no-sticky` flag needed.
 
 ---
 
@@ -267,6 +304,18 @@ Or add to settings:
 
 ## Closed Issues (Common Themes)
 
+### Recently Closed (Notable)
+
+| Issue | Title                                 | Resolution                        |
+| ----- | ------------------------------------- | --------------------------------- |
+| #69   | Resource has been exhausted           | Rate limit handling               |
+| #66   | Expected 429 Rate Limiting on Pro     | Normal behavior                   |
+| #63   | How to be safe from being ratelimited | Documentation                     |
+| #62   | Unable to use cc without login        | Need to re-authenticate           |
+| #58   | Dockerized version + OpenAI endpoint  | Separate fork maintained          |
+| #57   | Disable sticky accounts               | Fixed by reducing cooldown to 10s |
+| #52   | Claude thinking output abnormal       | Official Claude API issue         |
+
 ### Authentication & Setup
 
 | Issue | Title                             | Resolution                      |
@@ -340,8 +389,11 @@ Or add to settings:
 | Empty response retry       | PR #64            | HIGH     | **IMPLEMENTED**             |
 | Gemini context_length      | Issue #53         | HIGH     | **IMPLEMENTED**             |
 | Web UI                     | PR #47            | LOW      | TUI alternative implemented |
-| Disable sticky accounts    | Issue #57         | MEDIUM   | **NOT IMPLEMENTED**         |
+| Disable sticky accounts    | Issue #57         | MEDIUM   | **ALREADY ADDRESSED**       |
 | Quota reset trigger        | PR #44            | LOW      | **IMPLEMENTED**             |
+| Map 404s with context      | PR #15            | LOW      | Not implemented             |
+| Idle hang fix              | Issue #68         | MEDIUM   | **INVESTIGATING**           |
+| Tool schema conversion fix | Issue #67         | MEDIUM   | **INVESTIGATING**           |
 
 ---
 
@@ -368,21 +420,29 @@ Or add to settings:
    - WebSearch is Anthropic-only, doesn't work on proxies
    - Documented workaround: deny in settings.json + use Brave Search MCP
 
-### Immediate Actions (Next)
+5. **Sticky account optimization** (from Issue #57) - **ALREADY ADDRESSED**
+   - Our `pickStickyAccount` logic already prioritizes switching to available accounts
+   - No additional `--no-sticky` flag needed
 
-1. **Add --no-sticky flag** (from Issue #57)
-   - Configuration flexibility
-   - Useful for high-throughput scenarios
+### Investigating (New Bugs)
 
-### Medium-Term (Future)
+1. **First request hangs after idle** (Issue #68)
+   - May be related to token refresh timeout
+   - Need to add timeout to token refresh and/or connection health check
+
+2. **Tool schema conversion fails** (Issue #67)
+   - Need to reproduce with specific schema
+   - May already be handled by our `schema-sanitizer.ts`
+
+### Low Priority (Future)
+
+3. **Map 404s with context** (PR #15)
+   - Better error messages for model/project not found
+   - Low priority, nice-to-have
 
 4. **Consider lightweight dashboard**
    - We have TUI, but web UI could be useful for remote monitoring
    - Lower priority since TUI exists
-
-5. **Monitor PR #15 (Map model/project 404s)**
-   - Better error messages
-   - Currently OPEN
 
 ---
 

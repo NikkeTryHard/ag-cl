@@ -1,6 +1,7 @@
 # Upstream Investigation Report
 
 > Generated: 2026-01-07
+> Updated: 2026-01-08
 > Upstream: [badri-s2001/antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy)
 > Stars: 1,123 | Forks: 136 | Last Updated: 2026-01-08
 
@@ -9,10 +10,10 @@
 The upstream repository is actively maintained with strong community engagement. There are **3 open PRs** and **4 open issues** as of this report. Key themes include:
 
 - Web dashboard/UI features (multiple implementations)
-- Empty response retry mechanism
-- Quota reset triggers
-- Context window reporting for Gemini models
-- Sticky account configuration
+- Empty response retry mechanism - **IMPLEMENTED**
+- Quota reset triggers - **IMPLEMENTED**
+- Context window reporting for Gemini models - **NOT IMPLEMENTED**
+- Sticky account configuration - **NOT IMPLEMENTED**
 
 ---
 
@@ -20,11 +21,11 @@ The upstream repository is actively maintained with strong community engagement.
 
 ### High Priority (Features)
 
-| PR                                                                     | Title                                             | Author         | Created    | Status |
-| ---------------------------------------------------------------------- | ------------------------------------------------- | -------------- | ---------- | ------ |
-| [#64](https://github.com/badri-s2001/antigravity-claude-proxy/pull/64) | fix: add retry mechanism for empty API responses  | @BrunoMarc     | 2026-01-07 | OPEN   |
-| [#47](https://github.com/badri-s2001/antigravity-claude-proxy/pull/47) | feat: Add Web UI for account and quota management | @Wha1eChai     | 2026-01-04 | OPEN   |
-| [#44](https://github.com/badri-s2001/antigravity-claude-proxy/pull/44) | feat: Add quota reset trigger system              | @shivangtanwar | 2026-01-03 | OPEN   |
+| PR                                                                     | Title                                             | Author         | Created    | Status | Our Status                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------- | -------------- | ---------- | ------ | ------------------------------------- |
+| [#64](https://github.com/badri-s2001/antigravity-claude-proxy/pull/64) | fix: add retry mechanism for empty API responses  | @BrunoMarc     | 2026-01-07 | OPEN   | **IMPLEMENTED**                       |
+| [#47](https://github.com/badri-s2001/antigravity-claude-proxy/pull/47) | feat: Add Web UI for account and quota management | @Wha1eChai     | 2026-01-04 | OPEN   | Not implemented (We have TUI instead) |
+| [#44](https://github.com/badri-s2001/antigravity-claude-proxy/pull/44) | feat: Add quota reset trigger system              | @shivangtanwar | 2026-01-03 | OPEN   | **IMPLEMENTED**                       |
 
 ### PR #64: Empty Response Retry Mechanism
 
@@ -51,6 +52,8 @@ flowchart TD
 | Total requests processed | - | 1,884 |
 
 **Recommendation**: **HIGH PRIORITY** - This addresses a critical UX issue.
+
+**Our Status**: **IMPLEMENTED** in v1.2.2 via `src/cloudcode/streaming-handler.ts` with `MAX_EMPTY_RETRIES` constant (configurable, default 2, max 10).
 
 ---
 
@@ -84,6 +87,8 @@ flowchart TD
 
 **Recommendation**: **MEDIUM PRIORITY** - Nice-to-have but adds complexity. Consider feature flags.
 
+**Our Status**: Not implementing. We have a TUI (`npm run tui`) built with React/Ink that provides similar functionality.
+
 ---
 
 ### PR #44: Quota Reset Trigger System
@@ -105,17 +110,24 @@ flowchart TD
 
 **Recommendation**: **LOW PRIORITY** - Edge case feature.
 
+**Our Status**: **IMPLEMENTED** in v1.2.2:
+
+- API endpoint: `POST /trigger-reset` with `?group=claude|geminiPro|geminiFlash|all`
+- CLI command: `npm run trigger-reset`
+- Startup flag: `--trigger-reset` or `TRIGGER_RESET=true`
+- Enhanced `/account-limits` with per-group reset times
+
 ---
 
 ## Open Issues
 
-| Issue                                                                    | Title                                            | Author        | Created    | Type            |
-| ------------------------------------------------------------------------ | ------------------------------------------------ | ------------- | ---------- | --------------- |
-| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc    | 2026-01-06 | Bug/Enhancement |
-| [#57](https://github.com/badri-s2001/antigravity-claude-proxy/issues/57) | FEATURE: Let us disable sticky accounts          | @Blueemi      | 2026-01-05 | Feature Request |
-| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc    | 2026-01-04 | Feature Request |
-| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc | 2026-01-03 | Feature Request |
-| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC  | 2025-12-31 | Bug/Limitation  |
+| Issue                                                                    | Title                                            | Author        | Created    | Type            | Our Status               |
+| ------------------------------------------------------------------------ | ------------------------------------------------ | ------------- | ---------- | --------------- | ------------------------ |
+| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc    | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64) |
+| [#57](https://github.com/badri-s2001/antigravity-claude-proxy/issues/57) | FEATURE: Let us disable sticky accounts          | @Blueemi      | 2026-01-05 | Feature Request | Not implemented          |
+| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc    | 2026-01-04 | Feature Request | **NOT IMPLEMENTED**      |
+| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc | 2026-01-03 | Feature Request | TUI alternative          |
+| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC  | 2025-12-31 | Bug/Limitation  | Known limitation         |
 
 ### Issue #61: Empty API Response Retry (Same as PR #64)
 
@@ -283,50 +295,56 @@ DISABLE_STICKY=true npm start     # Environment variable
 
 ### Features Upstream Has That We Should Consider
 
-| Feature                    | Upstream Location | Priority | Notes              |
-| -------------------------- | ----------------- | -------- | ------------------ |
-| Native module auto-rebuild | PR #54            | LOW      | Good for npx users |
-| --no-browser OAuth         | PR #50            | MEDIUM   | Already have this  |
-| Empty response retry       | PR #64            | HIGH     | Should implement   |
-| Gemini context_length      | Issue #53         | HIGH     | Quick win          |
-| Web UI                     | PR #47            | LOW      | Consider later     |
-| Disable sticky accounts    | Issue #57         | MEDIUM   | Consider flag      |
-| Quota reset trigger        | PR #44            | LOW      | Edge case          |
+| Feature                    | Upstream Location | Priority | Our Status                    |
+| -------------------------- | ----------------- | -------- | ----------------------------- |
+| Native module auto-rebuild | PR #54            | LOW      | Not needed (TypeScript)       |
+| --no-browser OAuth         | PR #50            | MEDIUM   | **IMPLEMENTED**               |
+| Empty response retry       | PR #64            | HIGH     | **IMPLEMENTED**               |
+| Gemini context_length      | Issue #53         | HIGH     | **NOT IMPLEMENTED** - Next up |
+| Web UI                     | PR #47            | LOW      | TUI alternative implemented   |
+| Disable sticky accounts    | Issue #57         | MEDIUM   | **NOT IMPLEMENTED**           |
+| Quota reset trigger        | PR #44            | LOW      | **IMPLEMENTED**               |
 
 ---
 
 ## Recommendations
 
-### Immediate Actions (This Week)
+### Completed (v1.2.2)
 
-1. **Implement Empty Response Retry** (from PR #64)
-   - Critical for production stability
-   - 88% recovery rate improvement
-   - Relatively simple implementation
+1. **Empty Response Retry** (from PR #64) - **DONE**
+   - Implemented in `streaming-handler.ts`
+   - Configurable via `MAX_EMPTY_RETRIES` env var (default 2, max 10)
+   - Emits fallback message after retries exhausted
 
-2. **Add Gemini context_length to /v1/models** (from Issue #53)
+2. **Quota Reset Trigger** (from PR #44) - **DONE**
+   - API: `POST /trigger-reset?group=claude|geminiPro|geminiFlash|all`
+   - CLI: `npm run trigger-reset`
+   - Startup: `--trigger-reset` flag
+
+### Immediate Actions (Next)
+
+1. **Add Gemini context_length to /v1/models** (from Issue #53)
    - Quick 15-minute fix
    - Prevents unnecessary auto-compaction
-   - Significant UX improvement
+   - Significant UX improvement for Gemini users
 
 ### Short-Term (This Month)
 
-3. **Add --no-sticky flag** (from Issue #57)
+2. **Add --no-sticky flag** (from Issue #57)
    - Configuration flexibility
    - Useful for high-throughput scenarios
 
-4. **Document WebSearch limitation** (Issue #27)
+3. **Document WebSearch limitation** (Issue #27)
    - Known limitation in README
    - Potential future MCP integration
 
 ### Medium-Term (Future)
 
-5. **Consider lightweight dashboard**
-   - Simpler than PR #47
-   - Just quota visualization
-   - Optional feature flag
+4. **Consider lightweight dashboard**
+   - We have TUI, but web UI could be useful for remote monitoring
+   - Lower priority since TUI exists
 
-6. **Monitor PR #15 (Map model/project 404s)**
+5. **Monitor PR #15 (Map model/project 404s)**
    - Better error messages
    - Currently OPEN
 

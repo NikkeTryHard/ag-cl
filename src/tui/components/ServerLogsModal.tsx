@@ -9,7 +9,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import { getLogBuffer, subscribeToLogs, type LogEntry } from "../hooks/useLogBuffer.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
-import { MIN_VISIBLE_LOG_LINES } from "../constants.js";
+import { MIN_VISIBLE_LOG_LINES, SERVER_LOGS_RESERVED_LINES } from "../constants.js";
 
 interface ServerLogsModalProps {
   onClose: () => void;
@@ -38,7 +38,7 @@ export function ServerLogsModal({ onClose }: ServerLogsModalProps): React.ReactE
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Calculate visible lines based on terminal height
-  const maxVisibleLines = Math.max(MIN_VISIBLE_LOG_LINES, height - 10);
+  const maxVisibleLines = Math.max(MIN_VISIBLE_LOG_LINES, height - SERVER_LOGS_RESERVED_LINES);
 
   // Subscribe to new logs
   useEffect(() => {
@@ -135,7 +135,11 @@ export function ServerLogsModal({ onClose }: ServerLogsModalProps): React.ReactE
             {autoScroll ? " (auto)" : ""}
           </Text>
         )}
-        {logs.length > 0 && logs.length <= maxVisibleLines && <Text dimColor>{logs.length} entries</Text>}
+        {logs.length > 0 && logs.length <= maxVisibleLines && (
+          <Text dimColor>
+            {logs.length} {logs.length === 1 ? "entry" : "entries"}
+          </Text>
+        )}
       </Box>
     </Box>
   );

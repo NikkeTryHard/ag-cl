@@ -51,7 +51,7 @@ describe("ServerLogsModal", () => {
 
     const { lastFrame } = render(<ServerLogsModal onClose={() => {}} />);
 
-    expect(lastFrame()).toContain("1 entries");
+    expect(lastFrame()).toContain("1 entry");
   });
 
   it("displays different log levels with correct labels", () => {

@@ -8,6 +8,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { Server } from "http";
 import net from "net";
 import type { ServerState } from "../types.js";
+import type { AccountSettings } from "../../account-manager/types.js";
+import { getDefaultPort, getLogLevel, getFallbackEnabled } from "../../settings/defaults.js";
 
 export interface UseServerStateResult extends ServerState {
   error: string | null;
@@ -34,7 +36,22 @@ function checkPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-export function useServerState(initialPort: number, demoMode = false): UseServerStateResult {
+/**
+ * Options for useServerState hook
+ */
+export interface UseServerStateOptions {
+  /** Account settings for server configuration */
+  settings?: AccountSettings;
+  /** Demo mode skips actual server startup */
+  demoMode?: boolean;
+}
+
+export function useServerState(options: UseServerStateOptions = {}): UseServerStateResult {
+  const { settings, demoMode = false } = options;
+
+  // Get initial port from settings, falling back to defaults
+  const initialPort = getDefaultPort(settings);
+
   const [running, setRunning] = useState(false);
   const [port, setPortState] = useState(initialPort);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +79,19 @@ export function useServerState(initialPort: number, demoMode = false): UseServer
         return;
       }
 
+      // Set environment variables for server configuration before import
+      // The server module reads FALLBACK from process.env at load time
+      const fallbackEnabled = getFallbackEnabled(settings);
+      if (fallbackEnabled) {
+        process.env.FALLBACK = "true";
+      } else {
+        delete process.env.FALLBACK;
+      }
+
+      // Set log level for server logging
+      const logLevel = getLogLevel(settings);
+      process.env.LOG_LEVEL = logLevel;
+
       // Dynamically import to avoid circular deps
       const { default: app } = await import("../../server.js");
       const server = app.listen(port);
@@ -73,7 +103,7 @@ export function useServerState(initialPort: number, demoMode = false): UseServer
     } finally {
       startingRef.current = false;
     }
-  }, [running, port, demoMode]);
+  }, [running, port, demoMode, settings]);
 
   const stop = useCallback(async () => {
     // Demo mode: fake server stop

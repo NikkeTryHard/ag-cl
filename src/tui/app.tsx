@@ -23,7 +23,6 @@ import { createLogBufferDestination } from "./hooks/useLogBuffer.js";
 import { isDemoMode, getDemoAccounts, getDemoClaudeCapacity, getDemoGeminiCapacity, initDemoLogs } from "./demo.js";
 import { initLogger } from "../utils/logger.js";
 import type { ModalState, Command } from "./types.js";
-import { DEFAULT_PORT } from "../constants.js";
 
 // Get version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -52,12 +51,12 @@ function App(): React.ReactElement {
   const terminalWidth = stdout.columns;
 
   // Hooks
-  const serverState = useServerState(DEFAULT_PORT, demoMode);
+  const { settings, updateSettings, loading: settingsLoading } = useSettings();
+  const serverState = useServerState({ settings, demoMode });
   const realCapacity = useCapacity();
-  const { settings, updateSettings } = useSettings();
 
   // Use demo data if in demo mode
-  const loading = demoMode ? false : realCapacity.loading;
+  const loading = demoMode ? false : realCapacity.loading || settingsLoading;
   const refreshing = demoMode ? false : realCapacity.refreshing;
   const claudeCapacity = demoMode ? getDemoClaudeCapacity() : realCapacity.claudeCapacity;
   const geminiCapacity = demoMode ? getDemoGeminiCapacity() : realCapacity.geminiCapacity;

@@ -96,6 +96,9 @@ export function initQuotaStorage(dbPath?: string): void {
   // Clean up old snapshots (older than 7 days) to prevent database growth
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   cleanOldSnapshots(sevenDaysAgo);
+
+  // Clean up invalid snapshots (percentage > 100, from old summed format)
+  cleanInvalidSnapshots();
 }
 
 /**
@@ -177,6 +180,26 @@ export function cleanOldSnapshots(olderThan: number): number {
   `);
 
   const result = stmt.run(olderThan);
+  return result.changes;
+}
+
+/**
+ * Clean up invalid quota snapshots.
+ * Removes snapshots with percentage > 100 (from old summed format).
+ *
+ * @returns Number of deleted snapshots
+ */
+export function cleanInvalidSnapshots(): number {
+  if (!db) {
+    throw new Error("Quota storage not initialized. Call initQuotaStorage() first.");
+  }
+
+  const stmt = db.prepare(`
+    DELETE FROM quota_snapshots
+    WHERE percentage > 100
+  `);
+
+  const result = stmt.run();
   return result.changes;
 }
 

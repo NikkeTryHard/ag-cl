@@ -10,9 +10,19 @@ import { Text } from "ink";
 interface StatusIndicatorProps {
   running: boolean;
   port: number;
+  error?: string | null;
 }
 
-export function StatusIndicator({ running, port }: StatusIndicatorProps): React.ReactElement {
+export function StatusIndicator({ running, port, error }: StatusIndicatorProps): React.ReactElement {
+  if (error) {
+    return (
+      <Text color="red">
+        <Text color="red">●</Text>
+        <Text color="red"> error: {error}</Text>
+      </Text>
+    );
+  }
+
   if (running) {
     return (
       <Text>

@@ -49,6 +49,13 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 const MIN_TIME_DELTA_MS = 60 * 1000;
 
 /**
+ * Maximum sane burn rate (percentage per hour)
+ * Rates higher than this are likely due to stale/invalid snapshot data
+ * (e.g., old snapshots used summed model percentages, new ones use averaged)
+ */
+const MAX_SANE_BURN_RATE = 100;
+
+/**
  * Calculate burn rate from quota snapshots.
  *
  * Uses historical snapshot data to determine how fast quota is being consumed
@@ -136,6 +143,16 @@ function calculateBurnRateFromSnapshots(accountId: string, family: QuotaModelFam
 
   // Calculate burn rate (percentage per hour)
   const ratePerHour = percentageDelta / timeDeltaHours;
+
+  // Validate burn rate - rates > 100%/h are likely stale/invalid data
+  // (e.g., old snapshots used summed percentages, new ones use averaged)
+  if (Math.abs(ratePerHour) > MAX_SANE_BURN_RATE) {
+    return {
+      ratePerHour: null,
+      hoursToExhaustion: null,
+      status: "calculating",
+    };
+  }
 
   // Determine status based on burn rate
   if (ratePerHour > 0) {

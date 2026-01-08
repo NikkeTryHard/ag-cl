@@ -69,11 +69,12 @@ export function useServerState(initialPort: number): UseServerStateResult {
   }, [running, port]);
 
   const stop = useCallback(async () => {
-    if (!running || !serverRef.current) return;
+    const server = serverRef.current;
+    if (!running || !server) return;
     setError(null);
 
     return new Promise<void>((resolve) => {
-      serverRef.current!.close((err) => {
+      server.close((err) => {
         if (err) {
           setError(err.message);
         }
@@ -86,7 +87,7 @@ export function useServerState(initialPort: number): UseServerStateResult {
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
+    return (): void => {
       if (serverRef.current) {
         serverRef.current.close();
       }

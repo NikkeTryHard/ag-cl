@@ -6,7 +6,7 @@
  * Gemini: Shows only models below 100%
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { AccountCapacityInfo, AggregatedCapacity, ModelQuotaDisplay } from "../types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
@@ -100,7 +100,7 @@ function formatGeminiModels(models: ModelQuotaDisplay[], maxWidth: number): { te
   belowFull.sort((a, b) => a.percentage - b.percentage);
 
   // Format: "model:pct%"
-  const parts = belowFull.map((m) => `${m.name}:${m.percentage}%`);
+  const parts = belowFull.map((m) => `${m.name}:${String(m.percentage)}%`);
   const full = parts.join(" ");
 
   if (full.length <= maxWidth) return { text: full, hiddenCount };
@@ -124,18 +124,13 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
   // Calculate max visible based on terminal height
   const maxVisible = Math.max(3, height - RESERVED_LINES);
 
-  // Calculate column widths based on terminal width
-  const availableWidth = Math.max(90, width - 6);
-  const emailWidth = Math.min(28, Math.max(18, Math.floor(availableWidth * 0.22)));
+  // Calculate content width - cap at 120 chars for readability
+  const contentWidth = Math.min(120, width - 10);
+  const emailWidth = Math.min(28, Math.max(18, Math.floor(contentWidth * 0.22)));
   const tierWidth = 6;
   const claudeWidth = 10; // Just "XX%" for Claude
   const resetWidth = 12; // Reset time column
-  const geminiWidth = availableWidth - emailWidth - tierWidth - claudeWidth - resetWidth - 6;
-
-  // Check if any Gemini models are hidden (at 100%)
-  const hasHiddenGemini = useMemo(() => {
-    return accounts.some((a) => !a.error && a.geminiModels.some((m) => m.percentage === 100));
-  }, [accounts]);
+  const geminiWidth = contentWidth - emailWidth - tierWidth - claudeWidth - resetWidth - 10;
 
   useInput((input, key) => {
     if (key.escape) {
@@ -197,103 +192,104 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
   const visibleAccounts = accounts.slice(scrollOffset, scrollOffset + maxVisible);
 
   return (
-    <Box flexDirection="column" borderStyle="round" padding={1} width={Math.min(availableWidth, width - 4)} height={height - 2}>
-      <Box marginBottom={1} justifyContent="space-between">
-        <Text bold color="cyan">
-          Accounts ({accounts.length})
-        </Text>
-        {hasHiddenGemini && <Text dimColor>Gemini models at 100% hidden</Text>}
-      </Box>
+    <Box flexDirection="column" alignItems="center" justifyContent="center" width={width} height={height - 1}>
+      <Box flexDirection="column" borderStyle="round" padding={1}>
+        <Box marginBottom={1}>
+          <Text bold color="cyan">
+            Accounts ({accounts.length})
+          </Text>
+        </Box>
 
-      {/* Header row */}
-      <Box>
-        <Text dimColor>{"   "}</Text>
-        <Text dimColor>{"Email".padEnd(emailWidth)}</Text>
-        <Text dimColor>{"Tier".padEnd(tierWidth)}</Text>
-        <Text dimColor>{"Claude".padEnd(claudeWidth)}</Text>
-        <Text dimColor>{"Reset".padEnd(resetWidth)}</Text>
-        <Text dimColor>{"Gemini (models below 100%)"}</Text>
-      </Box>
+        {/* Header row */}
+        <Box>
+          <Text dimColor>{"   "}</Text>
+          <Text dimColor>{"Email".padEnd(emailWidth)}</Text>
+          <Text dimColor>{"Tier".padEnd(tierWidth)}</Text>
+          <Text dimColor>{"Claude".padEnd(claudeWidth)}</Text>
+          <Text dimColor>{"Reset".padEnd(resetWidth)}</Text>
+          <Text dimColor>{"Gemini (models below 100%)"}</Text>
+        </Box>
 
-      {/* Account rows */}
-      {visibleAccounts.map((account, index) => {
-        const actualIndex = scrollOffset + index;
-        const isSelected = actualIndex === selectedIndex;
-        const prefix = isSelected ? " > " : "   ";
-        const truncatedEmail = account.email.length > emailWidth - 2 ? account.email.substring(0, emailWidth - 3) + "..." : account.email;
+        {/* Account rows */}
+        {visibleAccounts.map((account, index) => {
+          const actualIndex = scrollOffset + index;
+          const isSelected = actualIndex === selectedIndex;
+          const prefix = isSelected ? " > " : "   ";
+          const truncatedEmail = account.email.length > emailWidth - 2 ? account.email.substring(0, emailWidth - 3) + "..." : account.email;
 
-        if (account.error) {
+          if (account.error) {
+            return (
+              <Box key={account.email}>
+                <Text color={isSelected ? "cyan" : undefined} inverse={isSelected}>
+                  {prefix}
+                </Text>
+                <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
+                <Text color="red">Error: {account.error.substring(0, 40)}</Text>
+              </Box>
+            );
+          }
+
+          const claudePct = getClaudePercentage(account.claudeModels);
+          const { text: geminiText } = formatGeminiModels(account.geminiModels, geminiWidth);
+
+          // Get lowest Gemini percentage for color
+          const geminiBelow100 = account.geminiModels.filter((m) => m.percentage < 100);
+          const geminiLowest = geminiBelow100.length > 0 ? Math.min(...geminiBelow100.map((m) => m.percentage)) : 100;
+
+          // Get earliest reset time for this account
+          const resetTime = account.claudeReset ?? account.geminiReset;
+
           return (
             <Box key={account.email}>
               <Text color={isSelected ? "cyan" : undefined} inverse={isSelected}>
                 {prefix}
               </Text>
               <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
-              <Text color="red">Error: {account.error.substring(0, 40)}</Text>
+              <Text dimColor>{account.tier.substring(0, tierWidth - 1).padEnd(tierWidth)}</Text>
+              <Text color={getPercentageColor(claudePct)}>{`${String(claudePct)}%`.padEnd(claudeWidth)}</Text>
+              <Text dimColor>{formatResetTime(resetTime).padEnd(resetWidth)}</Text>
+              <Text color={getPercentageColor(geminiLowest)}>{geminiText}</Text>
             </Box>
           );
-        }
+        })}
 
-        const claudePct = getClaudePercentage(account.claudeModels);
-        const { text: geminiText } = formatGeminiModels(account.geminiModels, geminiWidth);
+        {accounts.length === 0 && <Text dimColor>No accounts configured. Press [a] to add one.</Text>}
 
-        // Get lowest Gemini percentage for color
-        const geminiBelow100 = account.geminiModels.filter((m) => m.percentage < 100);
-        const geminiLowest = geminiBelow100.length > 0 ? Math.min(...geminiBelow100.map((m) => m.percentage)) : 100;
-
-        // Get earliest reset time for this account
-        const resetTime = account.claudeReset || account.geminiReset;
-
-        return (
-          <Box key={account.email}>
-            <Text color={isSelected ? "cyan" : undefined} inverse={isSelected}>
-              {prefix}
+        {/* Scroll indicator */}
+        {accounts.length > maxVisible && (
+          <Box marginTop={1}>
+            <Text dimColor>
+              Showing {scrollOffset + 1}-{Math.min(scrollOffset + maxVisible, accounts.length)} of {accounts.length} (PgUp/PgDn)
             </Text>
-            <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
-            <Text dimColor>{account.tier.substring(0, tierWidth - 1).padEnd(tierWidth)}</Text>
-            <Text color={getPercentageColor(claudePct)}>{`${claudePct}%`.padEnd(claudeWidth)}</Text>
-            <Text dimColor>{formatResetTime(resetTime).padEnd(resetWidth)}</Text>
-            <Text color={getPercentageColor(geminiLowest)}>{geminiText}</Text>
           </Box>
-        );
-      })}
+        )}
 
-      {accounts.length === 0 && <Text dimColor>No accounts configured. Press [a] to add one.</Text>}
-
-      {/* Scroll indicator */}
-      {accounts.length > maxVisible && (
-        <Box marginTop={1}>
-          <Text dimColor>
-            Showing {scrollOffset + 1}-{Math.min(scrollOffset + maxVisible, accounts.length)} of {accounts.length} (PgUp/PgDn)
-          </Text>
+        {/* Totals footer */}
+        <Box marginTop={1} paddingTop={1} flexDirection="column">
+          <Box>
+            <Text bold>Totals: </Text>
+            <Text color={getPercentageColor(claudeCapacity.totalPercentage > 0 ? 100 : 0)}>Claude {claudeCapacity.totalPercentage}%</Text>
+            {claudeCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(claudeCapacity.ratePerHour)}</Text>}
+            {claudeCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(claudeCapacity.hoursToExhaustion)} left)</Text>}
+          </Box>
+          <Box>
+            <Text>{"        "}</Text>
+            <Text color={getPercentageColor(geminiCapacity.totalPercentage > 0 ? 100 : 0)}>Gemini {geminiCapacity.totalPercentage}%</Text>
+            {geminiCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(geminiCapacity.ratePerHour)}</Text>}
+            {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
+          </Box>
         </Box>
-      )}
 
-      {/* Totals footer */}
-      <Box marginTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingTop={1} flexDirection="column">
+        <Text> </Text>
         <Box>
-          <Text bold>Totals: </Text>
-          <Text color={getPercentageColor(claudeCapacity.totalPercentage > 0 ? 100 : 0)}>Claude {claudeCapacity.totalPercentage}%</Text>
-          {claudeCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(claudeCapacity.ratePerHour)}</Text>}
-          {claudeCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(claudeCapacity.hoursToExhaustion)} left)</Text>}
+          <Text dimColor>Up/Down navigate </Text>
+          <Text color="cyan">[a]</Text>
+          <Text dimColor>dd </Text>
+          <Text color="cyan">[r]</Text>
+          <Text dimColor>efresh </Text>
+          <Text color="cyan">ESC</Text>
+          <Text dimColor> close</Text>
         </Box>
-        <Box>
-          <Text>{"        "}</Text>
-          <Text color={getPercentageColor(geminiCapacity.totalPercentage > 0 ? 100 : 0)}>Gemini {geminiCapacity.totalPercentage}%</Text>
-          {geminiCapacity.ratePerHour !== null && <Text dimColor> {formatBurnRate(geminiCapacity.ratePerHour)}</Text>}
-          {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
-        </Box>
-      </Box>
-
-      <Text> </Text>
-      <Box>
-        <Text dimColor>Up/Down navigate </Text>
-        <Text color="cyan">[a]</Text>
-        <Text dimColor>dd </Text>
-        <Text color="cyan">[r]</Text>
-        <Text dimColor>efresh </Text>
-        <Text color="cyan">ESC</Text>
-        <Text dimColor> close</Text>
       </Box>
     </Box>
   );

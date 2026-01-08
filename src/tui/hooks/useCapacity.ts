@@ -54,21 +54,23 @@ function getOverallStatus(rates: BurnRateInfo[], totalPct: number): AggregatedCa
 
 /**
  * Calculate combined hours to exhaustion based on burning rates.
+ * Uses average percentage and average burn rate for accurate estimate.
  */
-function getHoursToExhaustion(rates: BurnRateInfo[], totalPct: number): number | null {
+function getHoursToExhaustion(rates: BurnRateInfo[], avgPct: number): number | null {
   const burningRates = rates.filter((r) => r.status === "burning" && r.ratePerHour && r.ratePerHour > 0);
   if (burningRates.length === 0) return null;
-  const totalRate = burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0);
-  return totalPct / totalRate;
+  // Average burn rate across burning accounts
+  const avgRate = burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0) / burningRates.length;
+  return avgPct / avgRate;
 }
 
 /**
- * Get total burn rate from all burning accounts
+ * Get average burn rate from all burning accounts
  */
-function getTotalBurnRate(rates: BurnRateInfo[]): number | null {
+function getAvgBurnRate(rates: BurnRateInfo[]): number | null {
   const burningRates = rates.filter((r) => r.status === "burning" && r.ratePerHour && r.ratePerHour > 0);
   if (burningRates.length === 0) return null;
-  return burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0);
+  return burningRates.reduce((sum, r) => sum + (r.ratePerHour ?? 0), 0) / burningRates.length;
 }
 
 interface CapacityFetchResult {
@@ -136,15 +138,20 @@ export function useCapacity(): UseCapacityResult {
 
       // Fetch capacity for all accounts in parallel
       const fetchPromises = oauthAccounts.map(async (account): Promise<CapacityFetchResult> => {
-        const { accessToken } = await refreshAccessToken(account.refreshToken!);
+        if (!account.refreshToken) {
+          throw new Error("No refresh token available");
+        }
+        const { accessToken } = await refreshAccessToken(account.refreshToken);
         const capacity = await fetchAccountCapacity(accessToken, account.email);
         return { account, capacity };
       });
 
       const results = await Promise.allSettled(fetchPromises);
 
-      let totalClaude = 0;
-      let totalGemini = 0;
+      let claudeSum = 0;
+      let geminiSum = 0;
+      let claudeAccountsWithData = 0;
+      let geminiAccountsWithData = 0;
       const claudeBurnRates: BurnRateInfo[] = [];
       const geminiBurnRates: BurnRateInfo[] = [];
       const accountInfos: AccountCapacityInfo[] = [];
@@ -156,8 +163,11 @@ export function useCapacity(): UseCapacityResult {
         if (result.status === "fulfilled") {
           const { account, capacity } = result.value;
 
-          totalClaude += capacity.claudePool.aggregatedPercentage;
-          totalGemini += capacity.geminiPool.aggregatedPercentage;
+          // Sum percentages for averaging later (each account's percentage is already 0-100)
+          claudeSum += capacity.claudePool.aggregatedPercentage;
+          geminiSum += capacity.geminiPool.aggregatedPercentage;
+          if (capacity.claudePool.models.length > 0) claudeAccountsWithData++;
+          if (capacity.geminiPool.models.length > 0) geminiAccountsWithData++;
 
           // Record snapshots for burn rate calculation
           try {
@@ -184,8 +194,6 @@ export function useCapacity(): UseCapacityResult {
             error: null,
           });
         } else {
-          // Log failed account for debugging
-          console.debug(`Failed to fetch capacity for ${accountEmail}:`, (result.reason as Error).message);
           // Add error entry for this account
           accountInfos.push({
             email: accountEmail,
@@ -201,22 +209,26 @@ export function useCapacity(): UseCapacityResult {
 
       setAccounts(accountInfos);
 
+      // Calculate average percentage across accounts (0-100% range)
+      const avgClaudePct = claudeAccountsWithData > 0 ? Math.round(claudeSum / claudeAccountsWithData) : 0;
+      const avgGeminiPct = geminiAccountsWithData > 0 ? Math.round(geminiSum / geminiAccountsWithData) : 0;
+
       setClaudeCapacity({
         family: "claude",
-        totalPercentage: totalClaude,
+        totalPercentage: avgClaudePct,
         accountCount: oauthAccounts.length,
-        status: getOverallStatus(claudeBurnRates, totalClaude),
-        hoursToExhaustion: getHoursToExhaustion(claudeBurnRates, totalClaude),
-        ratePerHour: getTotalBurnRate(claudeBurnRates),
+        status: getOverallStatus(claudeBurnRates, avgClaudePct),
+        hoursToExhaustion: getHoursToExhaustion(claudeBurnRates, avgClaudePct),
+        ratePerHour: getAvgBurnRate(claudeBurnRates),
       });
 
       setGeminiCapacity({
         family: "gemini",
-        totalPercentage: totalGemini,
+        totalPercentage: avgGeminiPct,
         accountCount: oauthAccounts.length,
-        status: getOverallStatus(geminiBurnRates, totalGemini),
-        hoursToExhaustion: getHoursToExhaustion(geminiBurnRates, totalGemini),
-        ratePerHour: getTotalBurnRate(geminiBurnRates),
+        status: getOverallStatus(geminiBurnRates, avgGeminiPct),
+        hoursToExhaustion: getHoursToExhaustion(geminiBurnRates, avgGeminiPct),
+        ratePerHour: getAvgBurnRate(geminiBurnRates),
       });
     } catch (err) {
       setError((err as Error).message);

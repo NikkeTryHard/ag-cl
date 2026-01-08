@@ -24,8 +24,16 @@ vi.mock("../../../../src/cloudcode/quota-api.js", () => ({
   fetchAccountCapacity: vi.fn().mockResolvedValue({
     email: "test@example.com",
     tier: "PRO",
-    claudePool: { models: [], aggregatedPercentage: 75, earliestReset: null },
-    geminiPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+    claudePool: {
+      models: [{ name: "claude-sonnet", percentage: 75, resetTime: null }],
+      aggregatedPercentage: 75,
+      earliestReset: null,
+    },
+    geminiPool: {
+      models: [{ name: "gemini-pro", percentage: 100, resetTime: null }],
+      aggregatedPercentage: 100,
+      earliestReset: null,
+    },
     projectId: null,
     lastUpdated: Date.now(),
     isForbidden: false,

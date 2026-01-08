@@ -11,6 +11,7 @@ import open from "open";
 import { getAuthorizationUrl, startCallbackServer, completeOAuthFlow } from "../../auth/oauth.js";
 import { loadAccounts, saveAccounts } from "../../account-manager/storage.js";
 import { ACCOUNT_CONFIG_PATH } from "../../constants.js";
+import { useTerminalSize } from "../hooks/useTerminalSize.js";
 
 interface AddAccountModalProps {
   onClose: () => void;
@@ -20,10 +21,12 @@ interface AddAccountModalProps {
 type FlowState = "choose-method" | "waiting-auth" | "exchanging" | "success" | "error";
 
 export function AddAccountModal({ onClose, onAccountAdded }: AddAccountModalProps): React.ReactElement {
+  const { width, height } = useTerminalSize();
   const [flowState, setFlowState] = useState<FlowState>("choose-method");
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successEmail, setSuccessEmail] = useState<string | null>(null);
+  const [browserWarning, setBrowserWarning] = useState<string | null>(null);
   const isRunning = useRef(false);
 
   useInput((input, key) => {
@@ -51,6 +54,7 @@ export function AddAccountModal({ onClose, onAccountAdded }: AddAccountModalProp
   async function startOAuth(openBrowser: boolean) {
     if (isRunning.current) return;
     isRunning.current = true;
+    setBrowserWarning(null);
 
     try {
       // Generate auth URL
@@ -60,7 +64,12 @@ export function AddAccountModal({ onClose, onAccountAdded }: AddAccountModalProp
 
       // Open browser if requested
       if (openBrowser) {
-        await open(url);
+        try {
+          await open(url);
+        } catch {
+          // Browser open failed - show warning but continue
+          setBrowserWarning("Could not open browser automatically. Please copy the URL below.");
+        }
       }
 
       // Wait for callback
@@ -113,89 +122,101 @@ export function AddAccountModal({ onClose, onAccountAdded }: AddAccountModalProp
   }, []);
 
   return (
-    <Box flexDirection="column" borderStyle="round" padding={1}>
-      <Box marginBottom={1}>
-        <Text bold color="cyan">
-          Add Account
-        </Text>
-      </Box>
-
-      {flowState === "choose-method" && (
-        <>
-          <Text>Choose authentication method:</Text>
-          <Text> </Text>
-          <Box>
-            <Text color="cyan">[1]</Text>
-            <Text> OAuth with browser (recommended)</Text>
-          </Box>
-          <Box>
-            <Text color="cyan">[2]</Text>
-            <Text> OAuth without browser (copy URL manually)</Text>
-          </Box>
-          <Text> </Text>
-          <Text dimColor>Press 1, 2, or ESC to cancel</Text>
-        </>
-      )}
-
-      {flowState === "waiting-auth" && (
-        <>
-          <Box>
-            <Text color="green">
-              <Spinner type="dots" />
-            </Text>
-            <Text> Waiting for authorization...</Text>
-          </Box>
-          {authUrl && (
-            <>
-              <Text> </Text>
-              <Text>Open this URL in your browser if it didn't open automatically:</Text>
-              <Text> </Text>
-              <Text color="cyan" wrap="truncate-end">
-                {authUrl}
-              </Text>
-            </>
-          )}
-          <Text> </Text>
-          <Text dimColor>Press ESC to cancel</Text>
-        </>
-      )}
-
-      {flowState === "exchanging" && (
-        <>
-          <Box>
-            <Text color="green">
-              <Spinner type="dots" />
-            </Text>
-            <Text> Exchanging authorization code...</Text>
-          </Box>
-        </>
-      )}
-
-      {flowState === "success" && (
-        <>
-          <Box>
-            <Text color="green">Success!</Text>
-          </Box>
-          <Text> </Text>
-          <Text>
-            Account <Text color="cyan">{successEmail}</Text> has been added.
+    <Box flexDirection="column" alignItems="center" justifyContent="center" width={width} height={height - 1}>
+      <Box flexDirection="column" padding={1}>
+        <Box marginBottom={1}>
+          <Text bold color="cyan">
+            Add Account
           </Text>
-          <Text> </Text>
-          <Text dimColor>Press Enter to continue</Text>
-        </>
-      )}
+        </Box>
 
-      {flowState === "error" && (
-        <>
-          <Box>
-            <Text color="red">Error</Text>
-          </Box>
-          <Text> </Text>
-          <Text color="red">{error}</Text>
-          <Text> </Text>
-          <Text dimColor>Press Enter or ESC to close</Text>
-        </>
-      )}
+        {flowState === "choose-method" && (
+          <>
+            <Text>Choose authentication method:</Text>
+            <Text> </Text>
+            <Box>
+              <Text color="cyan">[1]</Text>
+              <Text> OAuth with browser (recommended)</Text>
+            </Box>
+            <Box>
+              <Text color="cyan">[2]</Text>
+              <Text> OAuth without browser (copy URL manually)</Text>
+            </Box>
+            <Text> </Text>
+            <Text dimColor>Press 1, 2, or ESC to cancel</Text>
+          </>
+        )}
+
+        {flowState === "waiting-auth" && (
+          <>
+            <Box>
+              <Text color="green">
+                <Spinner type="dots" />
+              </Text>
+              <Text> Waiting for authorization...</Text>
+            </Box>
+            {browserWarning && (
+              <>
+                <Text> </Text>
+                <Text color="yellow">{browserWarning}</Text>
+              </>
+            )}
+            {authUrl && (
+              <>
+                <Text> </Text>
+                <Text>Copy this URL to your browser:</Text>
+                <Text> </Text>
+                <Box flexDirection="column" width={Math.max(60, width - 10)}>
+                  <Text color="cyan" wrap="wrap">
+                    {authUrl}
+                  </Text>
+                </Box>
+                <Text> </Text>
+                <Text dimColor>Tip: If you see a "response_type" error, try copying this URL directly.</Text>
+              </>
+            )}
+            <Text> </Text>
+            <Text dimColor>Press ESC to cancel</Text>
+          </>
+        )}
+
+        {flowState === "exchanging" && (
+          <>
+            <Box>
+              <Text color="green">
+                <Spinner type="dots" />
+              </Text>
+              <Text> Exchanging authorization code...</Text>
+            </Box>
+          </>
+        )}
+
+        {flowState === "success" && (
+          <>
+            <Box>
+              <Text color="green">Success!</Text>
+            </Box>
+            <Text> </Text>
+            <Text>
+              Account <Text color="cyan">{successEmail}</Text> has been added.
+            </Text>
+            <Text> </Text>
+            <Text dimColor>Press Enter to continue</Text>
+          </>
+        )}
+
+        {flowState === "error" && (
+          <>
+            <Box>
+              <Text color="red">Error</Text>
+            </Box>
+            <Text> </Text>
+            <Text color="red">{error}</Text>
+            <Text> </Text>
+            <Text dimColor>Press Enter or ESC to close</Text>
+          </>
+        )}
+      </Box>
     </Box>
   );
 }

@@ -117,53 +117,55 @@ export function ServerLogsModal({ onClose }: ServerLogsModalProps): React.ReactE
 
   const visibleLogs = logs.slice(scrollOffset, scrollOffset + maxVisibleLines);
 
+  // Minimal header when no logs, full header when logs exist
+  const showFullHeader = logs.length > 0;
+
   return (
-    <Box flexDirection="column" borderStyle="round" padding={1} width={Math.min(width - 4, 120)}>
-      <Box marginBottom={1} justifyContent="space-between">
-        <Text bold color="cyan">
-          Server Logs
-        </Text>
-        <Text dimColor>
-          {logs.length} entries {autoScroll ? "(auto-scroll)" : ""} | {height}x{width}
-        </Text>
-      </Box>
-
-      {/* Log lines */}
-      <Box flexDirection="column" height={maxVisibleLines}>
-        {visibleLogs.map((entry, index) => (
-          <Box key={scrollOffset + index}>
-            <Text dimColor>[{entry.time.toLocaleTimeString()}] </Text>
-            <Text color={getLevelColor(entry.level)}>{entry.level.toUpperCase().padEnd(5)} </Text>
-            <Text wrap="truncate-end">{entry.message}</Text>
-          </Box>
-        ))}
-        {visibleLogs.length === 0 && <Text dimColor>No logs yet. Start the server to see activity.</Text>}
-        {/* Pad empty lines */}
-        {Array.from({ length: maxVisibleLines - visibleLogs.length }).map((_, i) => (
-          <Text key={`empty-${String(i)}`}> </Text>
-        ))}
-      </Box>
-
-      {/* Scroll indicator */}
-      {logs.length > maxVisibleLines && (
-        <Box marginTop={1}>
-          <Text dimColor>
-            Lines {scrollOffset + 1}-{Math.min(scrollOffset + maxVisibleLines, logs.length)} of {logs.length} (PgUp/PgDn)
+    <Box flexDirection="column" alignItems="center" justifyContent="center" width={width} height={height - 1}>
+      <Box flexDirection="column" padding={1} width={Math.min(width - 4, 120)}>
+        {/* Header - minimal when empty */}
+        <Box marginBottom={1} justifyContent="space-between">
+          <Text bold color="cyan">
+            Logs
           </Text>
+          {showFullHeader && (
+            <Text dimColor>
+              {logs.length} entries {autoScroll ? "(auto)" : ""}
+            </Text>
+          )}
         </Box>
-      )}
 
-      <Text> </Text>
-      <Box>
-        <Text dimColor>Up/Down scroll </Text>
-        <Text color="cyan">g</Text>
-        <Text dimColor>/</Text>
-        <Text color="cyan">G</Text>
-        <Text dimColor> top/bottom </Text>
-        <Text color="cyan">c</Text>
-        <Text dimColor>lear </Text>
-        <Text color="cyan">ESC</Text>
-        <Text dimColor> close</Text>
+        {/* Log lines */}
+        <Box flexDirection="column" height={maxVisibleLines}>
+          {visibleLogs.map((entry, index) => (
+            <Box key={scrollOffset + index}>
+              <Text dimColor>[{entry.time.toLocaleTimeString()}] </Text>
+              <Text color={getLevelColor(entry.level)}>{entry.level.toUpperCase().padEnd(5)} </Text>
+              <Text wrap="truncate-end">{entry.message}</Text>
+            </Box>
+          ))}
+          {visibleLogs.length === 0 && <Text dimColor>No logs yet</Text>}
+        </Box>
+
+        {/* Scroll indicator - only when needed */}
+        {logs.length > maxVisibleLines && (
+          <Box marginTop={1}>
+            <Text dimColor>
+              {scrollOffset + 1}-{Math.min(scrollOffset + maxVisibleLines, logs.length)}/{logs.length}
+            </Text>
+          </Box>
+        )}
+
+        {/* Footer hints - minimal */}
+        <Box marginTop={1}>
+          <Text dimColor>ESC close</Text>
+          {logs.length > 0 && (
+            <>
+              <Text dimColor> | </Text>
+              <Text dimColor>↑↓ scroll</Text>
+            </>
+          )}
+        </Box>
       </Box>
     </Box>
   );

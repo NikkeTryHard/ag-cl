@@ -9,6 +9,7 @@ import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
 import fuzzysort from "fuzzysort";
 import type { Command } from "../types.js";
+import { useTerminalSize } from "../hooks/useTerminalSize.js";
 
 /** Maximum number of commands visible in the palette */
 const MAX_VISIBLE = 10;
@@ -23,6 +24,7 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ commands, onSelect, onClose }: CommandPaletteProps): React.ReactElement {
+  const { width, height } = useTerminalSize();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -68,28 +70,30 @@ export function CommandPalette({ commands, onSelect, onClose }: CommandPalettePr
   }, [query]);
 
   return (
-    <Box flexDirection="column" borderStyle="round" padding={1}>
-      <Box>
-        <Text color="cyan">&gt; </Text>
-        <TextInput value={query} onChange={setQuery} placeholder="Search commands..." />
-      </Box>
-
-      <Text> </Text>
-
-      {filteredCommands.slice(0, MAX_VISIBLE).map((cmd, index) => (
-        <Box key={cmd.id}>
-          <Text color={index === safeSelectedIndex ? "cyan" : undefined} inverse={index === safeSelectedIndex}>
-            {index === safeSelectedIndex ? " > " : "   "}
-            {cmd.label}
-          </Text>
-          <Text dimColor> ({cmd.category})</Text>
+    <Box flexDirection="column" alignItems="center" justifyContent="center" width={width} height={height - 1}>
+      <Box flexDirection="column" borderStyle="round" padding={1} width={Math.min(60, width - 10)}>
+        <Box>
+          <Text color="cyan">&gt; </Text>
+          <TextInput value={query} onChange={setQuery} placeholder="Search commands..." />
         </Box>
-      ))}
 
-      {filteredCommands.length === 0 && <Text dimColor>No matching commands</Text>}
+        <Text> </Text>
 
-      <Text> </Text>
-      <Text dimColor>Up/Down navigate Enter select ESC close</Text>
+        {filteredCommands.slice(0, MAX_VISIBLE).map((cmd, index) => (
+          <Box key={cmd.id}>
+            <Text color={index === safeSelectedIndex ? "cyan" : undefined} inverse={index === safeSelectedIndex}>
+              {index === safeSelectedIndex ? " > " : "   "}
+              {cmd.label}
+            </Text>
+            <Text dimColor> ({cmd.category})</Text>
+          </Box>
+        ))}
+
+        {filteredCommands.length === 0 && <Text dimColor>No matching commands</Text>}
+
+        <Text> </Text>
+        <Text dimColor>Up/Down navigate Enter select ESC close</Text>
+      </Box>
     </Box>
   );
 }

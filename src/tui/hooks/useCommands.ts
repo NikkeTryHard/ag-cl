@@ -61,14 +61,6 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
         },
       },
       {
-        id: "remove-account",
-        label: "Remove Account",
-        category: "accounts",
-        action: (): void => {
-          modalControls.open("remove-account");
-        },
-      },
-      {
         id: "refresh-capacity",
         label: "Refresh Capacity",
         category: "accounts",
@@ -84,16 +76,6 @@ export function useCommands({ serverControls, modalControls, refreshCapacity }: 
         category: "view",
         action: (): void => {
           modalControls.open("logs");
-        },
-      },
-
-      // Settings commands
-      {
-        id: "settings",
-        label: "Settings",
-        category: "settings",
-        action: (): void => {
-          modalControls.open("settings");
         },
       },
     ],

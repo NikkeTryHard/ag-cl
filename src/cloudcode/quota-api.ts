@@ -214,13 +214,9 @@ async function fetchModelQuotas(token: string, projectId?: string | null): Promi
 }
 
 /**
- * Create pool info from models
+ * Find earliest reset time from models
  */
-function createPoolInfo(models: ModelQuotaInfo[]): ModelPoolInfo {
-  // Sum percentages (each model can contribute 0-100%)
-  const aggregatedPercentage = models.reduce((sum, m) => sum + m.percentage, 0);
-
-  // Find earliest reset time
+function findEarliestReset(models: ModelQuotaInfo[]): string | null {
   let earliestReset: string | null = null;
   for (const model of models) {
     if (model.resetTime) {
@@ -229,16 +225,14 @@ function createPoolInfo(models: ModelQuotaInfo[]): ModelPoolInfo {
       }
     }
   }
-
-  return {
-    models,
-    aggregatedPercentage,
-    earliestReset,
-  };
+  return earliestReset;
 }
 
 /**
  * Group quotas by model family into pools
+ *
+ * Claude: All models share the same quota pool - take any model's percentage (they're identical)
+ * Gemini: Each model has independent quota - average for overall health indicator
  */
 function groupByPool(quotas: ModelQuotaInfo[]): { claudePool: ModelPoolInfo; geminiPool: ModelPoolInfo } {
   const claudeModels: ModelQuotaInfo[] = [];
@@ -253,9 +247,23 @@ function groupByPool(quotas: ModelQuotaInfo[]): { claudePool: ModelPoolInfo; gem
     }
   }
 
+  // Claude: Shared quota - all models have identical percentage, take first
+  const claudeAggregated = claudeModels.length > 0 ? claudeModels[0].percentage : 0;
+
+  // Gemini: Per-model quota - average for dashboard summary
+  const geminiAggregated = geminiModels.length > 0 ? Math.round(geminiModels.reduce((sum, m) => sum + m.percentage, 0) / geminiModels.length) : 0;
+
   return {
-    claudePool: createPoolInfo(claudeModels),
-    geminiPool: createPoolInfo(geminiModels),
+    claudePool: {
+      models: claudeModels,
+      aggregatedPercentage: claudeAggregated,
+      earliestReset: findEarliestReset(claudeModels),
+    },
+    geminiPool: {
+      models: geminiModels,
+      aggregatedPercentage: geminiAggregated,
+      earliestReset: findEarliestReset(geminiModels),
+    },
   };
 }
 

@@ -2,6 +2,7 @@
  * CapacityBar Component
  *
  * Displays a progress bar for model family capacity.
+ * Claude = orange (#FF6600), Gemini = blue
  */
 
 import React from "react";
@@ -13,9 +14,10 @@ interface CapacityBarProps {
   percentage: number;
   status: BurnRateStatus;
   hoursToExhaustion: number | null;
+  barWidth?: number;
 }
 
-const BAR_WIDTH = 20;
+const DEFAULT_BAR_WIDTH = 20;
 
 function formatExhaustionTime(hours: number): string {
   if (hours >= 1) {
@@ -36,33 +38,46 @@ function getStatusText(status: BurnRateStatus, hoursToExhaustion: number | null)
   return status;
 }
 
-function getStatusColor(status: BurnRateStatus, percentage: number): string {
-  if (status === "exhausted" || percentage < 20) return "red";
-  if (status === "burning" || percentage < 50) return "yellow";
-  return "green";
+/**
+ * Get the family-specific color (Claude = orange, Gemini = blue)
+ */
+function getFamilyColor(family: "claude" | "gemini"): string {
+  return family === "claude" ? "#FF6600" : "blue";
 }
 
-export function CapacityBar({ family, percentage, status, hoursToExhaustion }: CapacityBarProps): React.ReactElement {
-  const filledCount = Math.round((percentage / 100) * BAR_WIDTH);
-  const emptyCount = BAR_WIDTH - filledCount;
+/**
+ * Get dimmed version based on percentage (for low capacity warning)
+ */
+function getBarColor(family: "claude" | "gemini", percentage: number, status: BurnRateStatus): string {
+  // If exhausted or very low, show red regardless of family
+  if (status === "exhausted" || percentage === 0) return "red";
+  if (percentage < 20) return "yellow";
+  // Otherwise use family color
+  return getFamilyColor(family);
+}
 
-  const filled = "█".repeat(Math.min(filledCount, BAR_WIDTH));
+export function CapacityBar({ family, percentage, status, hoursToExhaustion, barWidth = DEFAULT_BAR_WIDTH }: CapacityBarProps): React.ReactElement {
+  const filledCount = Math.round((percentage / 100) * barWidth);
+  const emptyCount = barWidth - filledCount;
+
+  const filled = "█".repeat(Math.min(filledCount, barWidth));
   const empty = "░".repeat(Math.max(0, emptyCount));
 
   const familyName = family.charAt(0).toUpperCase() + family.slice(1);
   const statusText = getStatusText(status, hoursToExhaustion);
-  const color = getStatusColor(status, percentage);
+  const familyColor = getFamilyColor(family);
+  const barColor = getBarColor(family, percentage, status);
 
   return (
     <Box>
       <Text> </Text>
-      <Text>{familyName.padEnd(8)}</Text>
-      <Text color={color}>
+      <Text color={familyColor}>{familyName.padEnd(8)}</Text>
+      <Text color={barColor}>
         [{filled}
         {empty}]
       </Text>
       <Text> </Text>
-      <Text>{String(percentage).padStart(3)}%</Text>
+      <Text color={familyColor}>{String(percentage).padStart(3)}%</Text>
       <Text> </Text>
       <Text dimColor>{statusText}</Text>
     </Box>

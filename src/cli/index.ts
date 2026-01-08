@@ -169,7 +169,7 @@ export async function run(argv?: string[]): Promise<void> {
 }
 
 // Auto-execute when run directly
-run().catch((error: Error) => {
-  console.error("Fatal error:", error.message);
+run().catch((error: unknown) => {
+  console.error("Fatal error:", error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

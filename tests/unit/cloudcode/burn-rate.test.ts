@@ -98,17 +98,19 @@ describe("cloudcode/burn-rate", () => {
         expect(result2.ratePerHour).toBeCloseTo(10, 0); // (60 - 40) / 2
       });
 
-      it("handles very fast burn rate", () => {
+      it("treats very fast burn rate as invalid data (likely stale snapshots)", () => {
         // 30 minutes ago at 100%, now at 0%
         // Burn rate: 100% / 0.5 hours = 200% per hour
+        // This exceeds MAX_SANE_BURN_RATE (100), so it's treated as invalid data
         const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
         recordSnapshot("account-1", "claude", 100, thirtyMinutesAgo);
 
         const result = calculateBurnRate("account-1", "claude", 0, null);
 
-        expect(result.status).toBe("exhausted"); // 0% is exhausted
-        expect(result.ratePerHour).toBeCloseTo(200, 0);
-        expect(result.hoursToExhaustion).toBeNull(); // Already exhausted
+        // 0% is still exhausted status, but rate is null due to invalid data
+        expect(result.status).toBe("exhausted");
+        expect(result.ratePerHour).toBeNull();
+        expect(result.hoursToExhaustion).toBeNull();
       });
 
       it("handles very slow burn rate", () => {

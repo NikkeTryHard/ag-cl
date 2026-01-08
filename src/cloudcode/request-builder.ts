@@ -8,6 +8,7 @@ import * as crypto from "crypto";
 import { ANTIGRAVITY_HEADERS, getModelFamily, isThinkingModel } from "../constants.js";
 import { convertAnthropicToGoogle } from "../format/index.js";
 import { deriveSessionId } from "./session-manager.js";
+import { getIdentityMode } from "../settings/defaults.js";
 import type { AnthropicRequest, GoogleRequest } from "../format/types.js";
 
 /**
@@ -106,17 +107,6 @@ Call tools as you normally would. The following list provides additional guidanc
  * Uses fewer tokens while maintaining core identity
  */
 const ANTIGRAVITY_IDENTITY_SHORT = `You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**`;
-
-/**
- * Get the identity injection mode from environment variable
- * @returns "full" | "short" | "none"
- */
-function getIdentityMode(): "full" | "short" | "none" {
-  const mode = process.env.AG_INJECT_IDENTITY?.toLowerCase();
-  if (mode === "none") return "none";
-  if (mode === "short") return "short";
-  return "full"; // default
-}
 
 /**
  * Check if model should have identity injection (claude or gemini-3-pro)

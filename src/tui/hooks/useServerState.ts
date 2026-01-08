@@ -9,7 +9,7 @@ import type { Server } from "http";
 import net from "net";
 import type { ServerState } from "../types.js";
 import type { AccountSettings } from "../../account-manager/types.js";
-import { getDefaultPort, getLogLevel, getFallbackEnabled, getIdentityMode } from "../../settings/defaults.js";
+import { getDefaultPort, getLogLevel, getFallbackEnabled, getIdentityMode, getAutoRefreshEnabled } from "../../settings/defaults.js";
 
 export interface UseServerStateResult extends ServerState {
   error: string | null;
@@ -101,6 +101,13 @@ export function useServerState(options: UseServerStateOptions = {}): UseServerSt
       const server = app.listen(port);
       serverRef.current = server;
       setRunning(true);
+
+      // Start auto-refresh scheduler if enabled
+      const autoRefreshEnabled = getAutoRefreshEnabled(settings);
+      if (autoRefreshEnabled) {
+        const { startAutoRefresh } = await import("../../cloudcode/auto-refresh-scheduler.js");
+        void startAutoRefresh();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -110,6 +117,12 @@ export function useServerState(options: UseServerStateOptions = {}): UseServerSt
   }, [running, port, demoMode, settings]);
 
   const stop = useCallback(async () => {
+    // Stop auto-refresh scheduler
+    const { stopAutoRefresh, isAutoRefreshRunning } = await import("../../cloudcode/auto-refresh-scheduler.js");
+    if (isAutoRefreshRunning()) {
+      stopAutoRefresh();
+    }
+
     // Demo mode: fake server stop
     if (demoMode) {
       setRunning(false);
@@ -138,6 +151,12 @@ export function useServerState(options: UseServerStateOptions = {}): UseServerSt
       if (serverRef.current) {
         serverRef.current.close();
       }
+      // Stop auto-refresh on unmount
+      void import("../../cloudcode/auto-refresh-scheduler.js").then(({ stopAutoRefresh, isAutoRefreshRunning }) => {
+        if (isAutoRefreshRunning()) {
+          stopAutoRefresh();
+        }
+      });
     };
   }, []);
 

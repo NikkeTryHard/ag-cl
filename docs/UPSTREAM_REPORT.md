@@ -12,7 +12,7 @@ The upstream repository is actively maintained with strong community engagement.
 - Web dashboard/UI features (multiple implementations)
 - Empty response retry mechanism - **IMPLEMENTED**
 - Quota reset triggers - **IMPLEMENTED**
-- Context window reporting for Gemini models - **NOT IMPLEMENTED**
+- Context window reporting for Gemini models - **IMPLEMENTED**
 - Sticky account configuration - **NOT IMPLEMENTED**
 
 ---
@@ -125,7 +125,7 @@ flowchart TD
 | ------------------------------------------------------------------------ | ------------------------------------------------ | ------------- | ---------- | --------------- | ------------------------ |
 | [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc    | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64) |
 | [#57](https://github.com/badri-s2001/antigravity-claude-proxy/issues/57) | FEATURE: Let us disable sticky accounts          | @Blueemi      | 2026-01-05 | Feature Request | Not implemented          |
-| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc    | 2026-01-04 | Feature Request | **NOT IMPLEMENTED**      |
+| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc    | 2026-01-04 | Feature Request | **IMPLEMENTED**          |
 | [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc | 2026-01-03 | Feature Request | TUI alternative          |
 | [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC  | 2025-12-31 | Bug/Limitation  | Known limitation         |
 
@@ -295,15 +295,15 @@ DISABLE_STICKY=true npm start     # Environment variable
 
 ### Features Upstream Has That We Should Consider
 
-| Feature                    | Upstream Location | Priority | Our Status                    |
-| -------------------------- | ----------------- | -------- | ----------------------------- |
-| Native module auto-rebuild | PR #54            | LOW      | Not needed (TypeScript)       |
-| --no-browser OAuth         | PR #50            | MEDIUM   | **IMPLEMENTED**               |
-| Empty response retry       | PR #64            | HIGH     | **IMPLEMENTED**               |
-| Gemini context_length      | Issue #53         | HIGH     | **NOT IMPLEMENTED** - Next up |
-| Web UI                     | PR #47            | LOW      | TUI alternative implemented   |
-| Disable sticky accounts    | Issue #57         | MEDIUM   | **NOT IMPLEMENTED**           |
-| Quota reset trigger        | PR #44            | LOW      | **IMPLEMENTED**               |
+| Feature                    | Upstream Location | Priority | Our Status                  |
+| -------------------------- | ----------------- | -------- | --------------------------- |
+| Native module auto-rebuild | PR #54            | LOW      | Not needed (TypeScript)     |
+| --no-browser OAuth         | PR #50            | MEDIUM   | **IMPLEMENTED**             |
+| Empty response retry       | PR #64            | HIGH     | **IMPLEMENTED**             |
+| Gemini context_length      | Issue #53         | HIGH     | **IMPLEMENTED**             |
+| Web UI                     | PR #47            | LOW      | TUI alternative implemented |
+| Disable sticky accounts    | Issue #57         | MEDIUM   | **NOT IMPLEMENTED**         |
+| Quota reset trigger        | PR #44            | LOW      | **IMPLEMENTED**             |
 
 ---
 
@@ -321,20 +321,18 @@ DISABLE_STICKY=true npm start     # Environment variable
    - CLI: `npm run trigger-reset`
    - Startup: `--trigger-reset` flag
 
+3. **Gemini context_window** (from Issue #53) - **DONE**
+   - Added `context_window: 1000000` to Gemini models in `/v1/models` response
+   - Prevents Claude Code from triggering unnecessary auto-compaction
+   - Implemented in `src/cloudcode/model-api.ts`
+
 ### Immediate Actions (Next)
 
-1. **Add Gemini context_length to /v1/models** (from Issue #53)
-   - Quick 15-minute fix
-   - Prevents unnecessary auto-compaction
-   - Significant UX improvement for Gemini users
-
-### Short-Term (This Month)
-
-2. **Add --no-sticky flag** (from Issue #57)
+1. **Add --no-sticky flag** (from Issue #57)
    - Configuration flexibility
    - Useful for high-throughput scenarios
 
-3. **Document WebSearch limitation** (Issue #27)
+2. **Document WebSearch limitation** (Issue #27)
    - Known limitation in README
    - Potential future MCP integration
 

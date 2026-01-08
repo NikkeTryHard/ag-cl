@@ -206,6 +206,66 @@ describe("cloudcode/model-api", () => {
 
       expect(result.data[0].description).toBe("claude-3-haiku");
     });
+
+    describe("context_window injection", () => {
+      it("adds context_window: 1000000 to Gemini models", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              models: {
+                "gemini-3-flash": { displayName: "Gemini 3 Flash" },
+                "gemini-3-pro-high": { displayName: "Gemini 3 Pro High" },
+              },
+            }),
+        });
+
+        const result = await listModels("test-token");
+
+        expect(result.data).toHaveLength(2);
+        result.data.forEach((model) => {
+          expect(model.context_window).toBe(1000000);
+        });
+      });
+
+      it("does not add context_window to Claude models", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              models: {
+                "claude-sonnet-4-5": { displayName: "Claude Sonnet 4.5" },
+              },
+            }),
+        });
+
+        const result = await listModels("test-token");
+
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0].context_window).toBeUndefined();
+      });
+
+      it("handles mixed Claude and Gemini models", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              models: {
+                "claude-sonnet-4-5": { displayName: "Claude Sonnet" },
+                "gemini-3-flash": { displayName: "Gemini Flash" },
+              },
+            }),
+        });
+
+        const result = await listModels("test-token");
+
+        const claude = result.data.find((m) => m.id === "claude-sonnet-4-5");
+        const gemini = result.data.find((m) => m.id === "gemini-3-flash");
+
+        expect(claude?.context_window).toBeUndefined();
+        expect(gemini?.context_window).toBe(1000000);
+      });
+    });
   });
 
   describe("getModelQuotas", () => {

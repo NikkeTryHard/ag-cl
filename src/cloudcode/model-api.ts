@@ -42,6 +42,7 @@ export interface AnthropicModel {
   created: number;
   owned_by: string;
   description: string;
+  context_window?: number;
 }
 
 /**
@@ -82,13 +83,26 @@ export async function listModels(token: string): Promise<AnthropicModelList> {
 
   const modelList: AnthropicModel[] = Object.entries(data.models)
     .filter(([modelId]) => isSupportedModel(modelId))
-    .map(([modelId, modelData]) => ({
-      id: modelId,
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "anthropic",
-      description: modelData.displayName ?? modelId,
-    }));
+    .map(([modelId, modelData]) => {
+      const family = getModelFamily(modelId);
+      const baseModel: AnthropicModel = {
+        id: modelId,
+        object: "model",
+        created: Math.floor(Date.now() / 1000),
+        owned_by: "anthropic",
+        description: modelData.displayName ?? modelId,
+      };
+
+      // Inject 1M context window for Gemini models to prevent early auto-compaction
+      if (family === "gemini") {
+        return {
+          ...baseModel,
+          context_window: 1000000,
+        };
+      }
+
+      return baseModel;
+    });
 
   return {
     object: "list",

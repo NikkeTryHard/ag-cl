@@ -5,7 +5,6 @@ exports[`SettingsModal snapshots > renders with all settings configured 1`] = `
 
 
 
-
                             ╭───────────────────────────────────────────╮
                             │                                           │
                             │ Settings                                  │
@@ -14,6 +13,7 @@ exports[`SettingsModal snapshots > renders with all settings configured 1`] = `
                             │    Default Port   [3000]                  │
                             │    Log Level      [debug]                 │
                             │    Model Fallback [on]                    │
+                            │    Auto Refresh   [off]                   │
                             │                                           │
                             │ Changes take effect after server restart  │
                             │                                           │
@@ -31,7 +31,6 @@ exports[`SettingsModal snapshots > renders with default settings 1`] = `
 
 
 
-
                             ╭───────────────────────────────────────────╮
                             │                                           │
                             │ Settings                                  │
@@ -40,6 +39,7 @@ exports[`SettingsModal snapshots > renders with default settings 1`] = `
                             │    Default Port   [8080]                  │
                             │    Log Level      [info]                  │
                             │    Model Fallback [off]                   │
+                            │    Auto Refresh   [off]                   │
                             │                                           │
                             │ Changes take effect after server restart  │
                             │                                           │
@@ -57,7 +57,6 @@ exports[`SettingsModal snapshots > renders with identity mode none 1`] = `
 
 
 
-
                             ╭───────────────────────────────────────────╮
                             │                                           │
                             │ Settings                                  │
@@ -66,6 +65,7 @@ exports[`SettingsModal snapshots > renders with identity mode none 1`] = `
                             │    Default Port   [8080]                  │
                             │    Log Level      [info]                  │
                             │    Model Fallback [off]                   │
+                            │    Auto Refresh   [off]                   │
                             │                                           │
                             │ Changes take effect after server restart  │
                             │                                           │

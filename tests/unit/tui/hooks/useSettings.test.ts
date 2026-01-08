@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useSettings } from "../../../../src/tui/hooks/useSettings.js";
+import { isDemoMode } from "../../../../src/tui/demo.js";
 
 // Mock the storage module
 const mockLoadAccounts = vi.fn();
@@ -16,14 +17,17 @@ vi.mock("../../../../src/account-manager/storage.js", () => ({
   saveAccounts: (...args: unknown[]) => mockSaveAccounts(...args),
 }));
 
-// Mock demo mode to be off by default
+// Mock demo mode
 vi.mock("../../../../src/tui/demo.js", () => ({
   isDemoMode: vi.fn().mockReturnValue(false),
 }));
 
+const mockIsDemoMode = vi.mocked(isDemoMode);
+
 describe("useSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsDemoMode.mockReturnValue(false);
     mockLoadAccounts.mockResolvedValue({
       accounts: [{ email: "test@example.com", source: "oauth", refreshToken: "token" }],
       settings: {
@@ -191,5 +195,64 @@ describe("useSettings", () => {
 
     // Original settings should remain unchanged since save failed
     expect(result.current.settings.defaultPort).toBe(8080);
+  });
+
+  describe("demo mode", () => {
+    beforeEach(() => {
+      mockIsDemoMode.mockReturnValue(true);
+    });
+
+    it("skips loading from disk in demo mode", async () => {
+      const { result } = renderHook(() => useSettings());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      // Should NOT have called loadAccounts
+      expect(mockLoadAccounts).not.toHaveBeenCalled();
+
+      // Settings should be empty defaults
+      expect(result.current.settings).toEqual({});
+    });
+
+    it("updates settings locally only in demo mode", async () => {
+      const { result } = renderHook(() => useSettings());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.updateSettings({ defaultPort: 3000, identityMode: "short" });
+      });
+
+      // Should NOT have called saveAccounts
+      expect(mockSaveAccounts).not.toHaveBeenCalled();
+
+      // Local state should be updated
+      expect(result.current.settings.defaultPort).toBe(3000);
+      expect(result.current.settings.identityMode).toBe("short");
+    });
+
+    it("merges settings in demo mode", async () => {
+      const { result } = renderHook(() => useSettings());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.updateSettings({ defaultPort: 3000 });
+      });
+
+      await act(async () => {
+        await result.current.updateSettings({ identityMode: "none" });
+      });
+
+      // Both settings should be present
+      expect(result.current.settings.defaultPort).toBe(3000);
+      expect(result.current.settings.identityMode).toBe("none");
+    });
   });
 });

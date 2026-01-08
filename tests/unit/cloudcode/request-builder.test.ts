@@ -4,7 +4,7 @@
  * Tests building Cloud Code API request payloads and headers.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildCloudCodeRequest, buildHeaders } from "../../../src/cloudcode/request-builder.js";
 import type { AnthropicRequest } from "../../../src/format/types.js";
 import { createAnthropicRequest } from "../../helpers/factories.js";
@@ -18,9 +18,16 @@ vi.mock("crypto", async () => {
   };
 });
 
+// Mock getIdentityMode to control identity injection behavior in tests
+const mockGetIdentityMode = vi.fn().mockReturnValue("full");
+vi.mock("../../../src/settings/defaults.js", () => ({
+  getIdentityMode: () => mockGetIdentityMode(),
+}));
+
 describe("buildCloudCodeRequest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetIdentityMode.mockReturnValue("full");
   });
 
   describe("request structure", () => {
@@ -181,6 +188,96 @@ describe("buildCloudCodeRequest", () => {
       expect(result.request.systemInstruction?.parts[0]?.text).toContain("<identity>");
       // Second part should be the original system instruction
       expect(result.request.systemInstruction?.parts[1]?.text).toBe("You are a helpful assistant.");
+    });
+
+    describe("identity mode configuration", () => {
+      it("uses short identity when mode is 'short'", () => {
+        mockGetIdentityMode.mockReturnValue("short");
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+        const firstPart = result.request.systemInstruction?.parts[0];
+        // Short mode should NOT contain <identity> tags
+        expect(firstPart?.text).not.toContain("<identity>");
+        // But should still contain Antigravity
+        expect(firstPart?.text).toContain("Antigravity");
+        expect(firstPart?.text).toContain("Absolute paths only");
+      });
+
+      it("skips identity injection when mode is 'none'", () => {
+        mockGetIdentityMode.mockReturnValue("none");
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+        // Should not have identity text
+        const parts = result.request.systemInstruction?.parts ?? [];
+        const hasIdentity = parts.some((p) => p.text?.includes("Antigravity"));
+        expect(hasIdentity).toBe(false);
+      });
+
+      it("preserves existing system instruction when mode is 'none'", () => {
+        mockGetIdentityMode.mockReturnValue("none");
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+          system: "Custom system instruction",
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+        // Should have original system instruction only
+        expect(result.request.systemInstruction?.parts[0]?.text).toBe("Custom system instruction");
+        expect(result.request.systemInstruction?.role).toBe("user");
+      });
+    });
+
+    describe("model-specific injection", () => {
+      it("injects identity for gemini-3-pro models", () => {
+        const anthropicRequest = createAnthropicRequest({
+          model: "gemini-3-pro-high",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+        const firstPart = result.request.systemInstruction?.parts[0];
+        expect(firstPart?.text).toContain("Antigravity");
+      });
+
+      it("does not inject identity for gemini-3-flash models", () => {
+        const anthropicRequest = createAnthropicRequest({
+          model: "gemini-3-flash",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+        // Should not have identity text (flash is not eligible)
+        const parts = result.request.systemInstruction?.parts ?? [];
+        const hasIdentity = parts.some((p) => p.text?.includes("Antigravity"));
+        expect(hasIdentity).toBe(false);
+      });
+
+      it("sets role to user for non-eligible models", () => {
+        const anthropicRequest = createAnthropicRequest({
+          model: "gemini-3-flash",
+          messages: [{ role: "user", content: "Hello" }],
+          system: "Custom system",
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+        // Should still set role to user
+        expect(result.request.systemInstruction?.role).toBe("user");
+      });
     });
   });
 });

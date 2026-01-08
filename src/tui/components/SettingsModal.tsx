@@ -236,6 +236,11 @@ export function SettingsModal({ settings, onUpdateSettings, onClose }: SettingsM
           </Box>
         )}
 
+        {/* Restart notice */}
+        <Box marginTop={1}>
+          <Text dimColor>Changes take effect after server restart</Text>
+        </Box>
+
         {/* Footer */}
         <Box marginTop={1}>
           {editingPort ? (

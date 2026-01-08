@@ -116,6 +116,12 @@ describe("SettingsModal", () => {
     expect(lastFrame()).toContain("[3000]");
   });
 
+  it("shows restart notice", () => {
+    const { lastFrame } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+
+    expect(lastFrame()).toContain("Changes take effect after server restart");
+  });
+
   describe("keyboard interactions", () => {
     // ANSI escape sequences for keyboard input
     const ARROW_DOWN = "\x1B[B";

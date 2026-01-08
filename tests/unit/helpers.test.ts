@@ -23,9 +23,11 @@ describe("formatDuration", () => {
 
 describe("sleep", () => {
   it("delays execution for specified time", async () => {
-    const start = Date.now();
+    // Use performance.now() instead of Date.now() to avoid interference
+    // from Date mocking in other tests (monotonic clock)
+    const start = performance.now();
     await sleep(50);
-    const elapsed = Date.now() - start;
+    const elapsed = performance.now() - start;
     // Allow timing variance for slow CI environments
     // Lower bound: 40ms (slightly less than requested 50ms for timer inaccuracy)
     // Upper bound: 5000ms (very generous for extremely slow/overloaded CI)

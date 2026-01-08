@@ -9,7 +9,7 @@ import type { Server } from "http";
 import net from "net";
 import type { ServerState } from "../types.js";
 import type { AccountSettings } from "../../account-manager/types.js";
-import { getDefaultPort, getLogLevel, getFallbackEnabled } from "../../settings/defaults.js";
+import { getDefaultPort, getLogLevel, getFallbackEnabled, getIdentityMode } from "../../settings/defaults.js";
 
 export interface UseServerStateResult extends ServerState {
   error: string | null;
@@ -91,6 +91,10 @@ export function useServerState(options: UseServerStateOptions = {}): UseServerSt
       // Set log level for server logging
       const logLevel = getLogLevel(settings);
       process.env.LOG_LEVEL = logLevel;
+
+      // Set identity mode for request-builder
+      const identityMode = getIdentityMode(settings);
+      process.env.AG_INJECT_IDENTITY = identityMode;
 
       // Dynamically import to avoid circular deps
       const { default: app } = await import("../../server.js");

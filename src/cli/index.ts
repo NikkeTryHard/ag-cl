@@ -30,6 +30,8 @@ export interface GlobalOptions {
   logFile?: string;
   jsonLogs?: boolean;
   silent?: boolean;
+  maxEmptyRetries?: string;
+  triggerReset?: boolean;
 }
 
 /**
@@ -48,7 +50,9 @@ function createProgram(): Command {
     .addOption(new Option("--log-level <level>", "log level").choices(["silent", "error", "warn", "info", "debug", "trace"]).default("info"))
     .option("--log-file <path>", "write logs to file")
     .option("--json-logs", "output logs as JSON")
-    .option("--silent", "suppress all output except errors");
+    .option("--silent", "suppress all output except errors")
+    .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
+    .option("--trigger-reset", "trigger quota reset on startup");
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {
@@ -84,6 +88,25 @@ function createProgram(): Command {
     .description("Start the proxy server (headless mode)")
     .action(async () => {
       const opts: GlobalOptions = program.opts<GlobalOptions>();
+
+      // Set max empty retries environment variable if provided
+      if (opts.maxEmptyRetries !== undefined) {
+        const retries = parseInt(opts.maxEmptyRetries, 10);
+        if (!isNaN(retries) && retries >= 0) {
+          process.env.MAX_EMPTY_RETRIES = String(retries);
+        }
+      }
+
+      // Trigger quota reset on startup if requested
+      if (opts.triggerReset || process.env.TRIGGER_RESET === "true") {
+        const { default: chalk } = await import("chalk");
+        const { AccountManager } = await import("../account-manager/index.js");
+        const accountManager = new AccountManager();
+        await accountManager.initialize();
+        const result = accountManager.triggerQuotaReset("all");
+        console.log(chalk.green(`Startup quota reset: cleared ${result.limitsCleared} limit(s) on ${result.accountsAffected} account(s)`));
+      }
+
       const { startCommand } = await import("./commands/start.js");
       startCommand({
         port: opts.port,
@@ -147,6 +170,16 @@ function createProgram(): Command {
     .action(async () => {
       const { initCommand } = await import("./commands/init.js");
       await initCommand();
+    });
+
+  // Trigger quota reset command
+  program
+    .command("trigger-reset")
+    .description("Trigger quota reset for all accounts")
+    .option("-g, --group <group>", "Quota group to reset (claude, geminiPro, geminiFlash, all)", "all")
+    .action(async (options: { group: string }) => {
+      const { triggerResetCommand } = await import("./commands/trigger-reset.js");
+      await triggerResetCommand(options);
     });
 
   return program;

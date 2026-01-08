@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { AntigravityError, RateLimitError, AuthError, NoAccountsError, MaxRetriesError, ApiError, isRateLimitError, isAuthError } from "../../src/errors.js";
+import { AntigravityError, RateLimitError, AuthError, NoAccountsError, MaxRetriesError, ApiError, EmptyResponseError, isRateLimitError, isAuthError, isEmptyResponseError } from "../../src/errors.js";
 
 describe("AntigravityError", () => {
   describe("constructor", () => {
@@ -336,5 +336,38 @@ describe("isAuthError", () => {
     it("returns false for ApiError without auth message", () => {
       expect(isAuthError(new ApiError("Server error", 500))).toBe(false);
     });
+  });
+});
+
+describe("EmptyResponseError", () => {
+  it("should create error with default message", () => {
+    const error = new EmptyResponseError();
+    expect(error.message).toBe("No content received from API");
+    expect(error.code).toBe("EMPTY_RESPONSE");
+    expect(error.name).toBe("EmptyResponseError");
+    expect(error.retryable).toBe(true);
+  });
+
+  it("should create error with custom message", () => {
+    const error = new EmptyResponseError("Custom empty response message");
+    expect(error.message).toBe("Custom empty response message");
+  });
+});
+
+describe("isEmptyResponseError", () => {
+  it("should return true for EmptyResponseError instance", () => {
+    const error = new EmptyResponseError();
+    expect(isEmptyResponseError(error)).toBe(true);
+  });
+
+  it("should return true for error with EmptyResponseError name", () => {
+    const error = new Error("test");
+    error.name = "EmptyResponseError";
+    expect(isEmptyResponseError(error)).toBe(true);
+  });
+
+  it("should return false for other errors", () => {
+    const error = new Error("test");
+    expect(isEmptyResponseError(error)).toBe(false);
   });
 });

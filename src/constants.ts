@@ -90,6 +90,20 @@ export const DEFAULT_COOLDOWN_MS = 10 * 1000; // 10 second default cooldown
 export const MAX_RETRIES = 5; // Max retry attempts across accounts
 export const MAX_ACCOUNTS = 10; // Maximum number of accounts allowed
 
+/**
+ * Maximum number of retries for empty API responses
+ * Configurable via MAX_EMPTY_RETRIES environment variable
+ * Default: 2 (upstream default)
+ */
+export const MAX_EMPTY_RETRIES = ((): number => {
+  const envValue = process.env.MAX_EMPTY_RETRIES;
+  if (envValue) {
+    const parsed = parseInt(envValue, 10);
+    if (!isNaN(parsed) && parsed >= 0) return parsed;
+  }
+  return 2;
+})();
+
 // Rate limit wait thresholds
 export const MAX_WAIT_BEFORE_ERROR_MS = 120000; // 2 minutes - throw error if wait exceeds this
 

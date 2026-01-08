@@ -27,6 +27,7 @@
     "accounts:remove": "tsx src/cli/index.ts accounts remove",
     "accounts:verify": "tsx src/cli/index.ts accounts verify",
     "accounts:clear": "tsx src/cli/index.ts accounts clear",
+    "trigger-reset": "tsx src/cli/index.ts trigger-reset",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

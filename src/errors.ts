@@ -150,6 +150,19 @@ export class ApiError extends AntigravityError {
 }
 
 /**
+ * Empty response error (API returned no content)
+ */
+export class EmptyResponseError extends AntigravityError {
+  /**
+   * @param message - Error message
+   */
+  constructor(message = "No content received from API") {
+    super(message, "EMPTY_RESPONSE", true, {});
+    this.name = "EmptyResponseError";
+  }
+}
+
+/**
  * Check if an error is a rate limit error
  * Works with both custom error classes and legacy string-based errors
  * @param error - Error to check
@@ -171,4 +184,14 @@ export function isAuthError(error: Error): boolean {
   if (error instanceof AuthError) return true;
   const msg = error.message.toUpperCase();
   return msg.includes("AUTH_INVALID") || msg.includes("INVALID_GRANT") || msg.includes("TOKEN REFRESH FAILED");
+}
+
+/**
+ * Check if an error is an empty response error
+ * @param error - Error to check
+ * @returns True if it is an empty response error
+ */
+export function isEmptyResponseError(error: Error): boolean {
+  if (error instanceof EmptyResponseError) return true;
+  return error?.name === "EmptyResponseError";
 }

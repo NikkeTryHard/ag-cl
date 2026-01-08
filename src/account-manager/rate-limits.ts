@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_COOLDOWN_MS } from "../constants.js";
+import { QUOTA_GROUPS, getAllQuotaGroups, type QuotaGroupKey } from "../cloudcode/quota-groups.js";
 import { formatDuration } from "../utils/helpers.js";
 import { getLogger } from "../utils/logger.js";
 import type { Account, AccountSettings, ModelRateLimit } from "./types.js";
@@ -190,4 +191,63 @@ export function getMinWaitTimeMs(accounts: Account[], modelId: string | null): n
   }
 
   return minWait === Infinity ? DEFAULT_COOLDOWN_MS : minWait;
+}
+
+export interface QuotaResetResult {
+  accountsAffected: number;
+  limitsCleared: number;
+  groups: string[];
+}
+
+/**
+ * Trigger quota reset for specified quota group(s)
+ * Clears rate limits for all models in the specified group(s)
+ *
+ * @param accounts - Array of account objects
+ * @param group - Quota group key or "all" for all groups
+ * @returns Result with counts of affected accounts and cleared limits
+ */
+export function triggerQuotaReset(accounts: Account[], group: QuotaGroupKey | "all"): QuotaResetResult {
+  const groupsToReset = group === "all" ? getAllQuotaGroups() : [group];
+  const modelsToReset = new Set<string>();
+
+  for (const groupKey of groupsToReset) {
+    const quotaGroup = QUOTA_GROUPS[groupKey];
+    if (quotaGroup) {
+      quotaGroup.models.forEach((model) => modelsToReset.add(model));
+    }
+  }
+
+  let accountsAffected = 0;
+  let limitsCleared = 0;
+
+  for (const account of accounts) {
+    if (!account.modelRateLimits) continue;
+
+    let accountWasAffected = false;
+
+    for (const modelId of modelsToReset) {
+      const limit = account.modelRateLimits[modelId];
+      if (limit?.isRateLimited) {
+        limit.isRateLimited = false;
+        limit.resetTime = null;
+        limitsCleared++;
+        accountWasAffected = true;
+      }
+    }
+
+    if (accountWasAffected) {
+      accountsAffected++;
+    }
+  }
+
+  const groupNames = groupsToReset.map((g) => QUOTA_GROUPS[g].name);
+  getLogger().info(`[AccountManager] Quota reset triggered for: ${groupNames.join(", ")}`);
+  getLogger().info(`[AccountManager] Cleared ${limitsCleared} rate limit(s) on ${accountsAffected} account(s)`);
+
+  return {
+    accountsAffected,
+    limitsCleared,
+    groups: groupNames,
+  };
 }

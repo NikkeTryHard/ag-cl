@@ -2,7 +2,7 @@
  * Unit tests for constants module
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { getModelFamily, isThinkingModel } from "../../src/constants.js";
 
 describe("getModelFamily", () => {
@@ -154,5 +154,36 @@ describe("isThinkingModel", () => {
       expect(isThinkingModel("claude-opus-THINKING")).toBe(true);
       expect(isThinkingModel("gemini-2-flash-THINKING")).toBe(true);
     });
+  });
+});
+
+describe("MAX_EMPTY_RETRIES constant", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("should default to 2 when env not set", async () => {
+    delete process.env.MAX_EMPTY_RETRIES;
+    const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
+    expect(MAX_EMPTY_RETRIES).toBe(2);
+  });
+
+  it("should use env value when set", async () => {
+    process.env.MAX_EMPTY_RETRIES = "5";
+    const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
+    expect(MAX_EMPTY_RETRIES).toBe(5);
+  });
+
+  it("should fallback to 2 for invalid env value", async () => {
+    process.env.MAX_EMPTY_RETRIES = "invalid";
+    const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
+    expect(MAX_EMPTY_RETRIES).toBe(2);
   });
 });

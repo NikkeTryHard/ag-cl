@@ -6,7 +6,8 @@
 
 import { ACCOUNT_CONFIG_PATH } from "../constants.js";
 import { loadAccounts, loadDefaultAccount, saveAccounts } from "./storage.js";
-import { isAllRateLimited as checkAllRateLimited, getAvailableAccounts as getAvailable, getInvalidAccounts as getInvalid, clearExpiredLimits as clearLimits, resetAllRateLimits as resetLimits, markRateLimited as markLimited, markInvalid as markAccountInvalid, getMinWaitTimeMs as getMinWait } from "./rate-limits.js";
+import { isAllRateLimited as checkAllRateLimited, getAvailableAccounts as getAvailable, getInvalidAccounts as getInvalid, clearExpiredLimits as clearLimits, resetAllRateLimits as resetLimits, markRateLimited as markLimited, markInvalid as markAccountInvalid, getMinWaitTimeMs as getMinWait, triggerQuotaReset as triggerReset, type QuotaResetResult } from "./rate-limits.js";
+import type { QuotaGroupKey } from "../cloudcode/quota-groups.js";
 import { getTokenForAccount as fetchToken, getProjectForAccount as fetchProject, clearProjectCache as clearProject, clearTokenCache as clearToken } from "./credentials.js";
 import { pickNext as selectNext, getCurrentStickyAccount as getSticky, shouldWaitForCurrentAccount as shouldWait, pickStickyAccount as selectSticky } from "./selection.js";
 import { getLogger } from "../utils/logger.js";
@@ -14,6 +15,7 @@ import type { Account, AccountSettings, TokenCacheEntry, AccountManagerStatus, A
 
 // Re-export types for external consumers
 export type { Account, AccountSettings, AccountManagerStatus, AccountStatus, TokenCacheEntry, LogLevel, IdentityMode } from "./types.js";
+export type { QuotaResetResult } from "./rate-limits.js";
 
 /**
  * Result of pickStickyAccount method
@@ -296,5 +298,19 @@ export class AccountManager {
    */
   getAllAccounts(): Account[] {
     return this.#accounts;
+  }
+
+  /**
+   * Trigger quota reset for specified quota group(s)
+   * Clears rate limits for all models in the specified group(s)
+   * @param group - Quota group key or "all" for all groups
+   * @returns Result with counts of affected accounts and cleared limits
+   */
+  triggerQuotaReset(group: QuotaGroupKey | "all"): QuotaResetResult {
+    const result = triggerReset(this.#accounts, group);
+    if (result.limitsCleared > 0) {
+      void this.saveToDisk();
+    }
+    return result;
   }
 }

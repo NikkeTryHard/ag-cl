@@ -156,6 +156,30 @@ npm start -- --silent                  # Suppress output except errors
 npm run start:prod                     # Production mode (from dist/)
 ```
 
+### Empty Response Retry
+
+The proxy automatically retries requests when the API returns empty responses (common with large thinking budgets):
+
+```bash
+npm start -- --max-empty-retries 3  # Set max retries (default: 2)
+MAX_EMPTY_RETRIES=3 npm start       # Via environment variable
+```
+
+### Quota Management
+
+```bash
+npm run trigger-reset              # Reset quotas for all groups
+npm run trigger-reset -- -g claude # Reset only Claude group quotas
+npm start -- --trigger-reset       # Reset quotas on server startup
+TRIGGER_RESET=true npm start       # Via environment variable
+```
+
+Quota groups:
+
+- `claude`: claude-sonnet-4-5, claude-opus-4-5-thinking, etc.
+- `geminiPro`: gemini-3-pro-high, gemini-3-pro-low, gemini-2.5-pro
+- `geminiFlash`: gemini-3-flash, gemini-2.5-flash
+
 ### Account Management
 
 ```bash

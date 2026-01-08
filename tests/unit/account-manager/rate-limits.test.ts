@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isAllRateLimited, getAvailableAccounts, getInvalidAccounts, clearExpiredLimits, resetAllRateLimits, markRateLimited, markInvalid, getMinWaitTimeMs } from "../../../src/account-manager/rate-limits.js";
+import { isAllRateLimited, getAvailableAccounts, getInvalidAccounts, clearExpiredLimits, resetAllRateLimits, markRateLimited, markInvalid, getMinWaitTimeMs, triggerQuotaReset } from "../../../src/account-manager/rate-limits.js";
 import { createAccount } from "../../helpers/factories.js";
 import type { Account } from "../../../src/account-manager/types.js";
 
@@ -416,6 +416,69 @@ describe("rate-limits", () => {
     it("returns 0 when modelId is null and accounts exist", () => {
       const accounts = [createAccount({ email: "a@example.com" })];
       expect(getMinWaitTimeMs(accounts, null)).toBe(0);
+    });
+  });
+
+  describe("triggerQuotaReset", () => {
+    it("should clear rate limits for all models in specified quota group", () => {
+      const accounts: Account[] = [
+        {
+          email: "test@example.com",
+          refreshToken: "token",
+          source: "oauth" as const,
+          lastUsed: null,
+          modelRateLimits: {
+            "claude-sonnet-4-5": { isRateLimited: true, resetTime: Date.now() + 60000 },
+            "gemini-3-flash": { isRateLimited: true, resetTime: Date.now() + 60000 },
+          },
+        },
+      ];
+
+      const result = triggerQuotaReset(accounts, "claude");
+
+      expect(result.accountsAffected).toBe(1);
+      expect(result.limitsCleared).toBeGreaterThan(0);
+      expect(accounts[0].modelRateLimits!["claude-sonnet-4-5"].isRateLimited).toBe(false);
+      // Gemini should still be rate limited
+      expect(accounts[0].modelRateLimits!["gemini-3-flash"].isRateLimited).toBe(true);
+    });
+
+    it("should clear rate limits for all quota groups when group is 'all'", () => {
+      const accounts: Account[] = [
+        {
+          email: "test@example.com",
+          refreshToken: "token",
+          source: "oauth" as const,
+          lastUsed: null,
+          modelRateLimits: {
+            "claude-sonnet-4-5": { isRateLimited: true, resetTime: Date.now() + 60000 },
+            "gemini-3-flash": { isRateLimited: true, resetTime: Date.now() + 60000 },
+          },
+        },
+      ];
+
+      const result = triggerQuotaReset(accounts, "all");
+
+      expect(result.accountsAffected).toBe(1);
+      expect(accounts[0].modelRateLimits!["claude-sonnet-4-5"].isRateLimited).toBe(false);
+      expect(accounts[0].modelRateLimits!["gemini-3-flash"].isRateLimited).toBe(false);
+    });
+
+    it("should return zero when no accounts have rate limits", () => {
+      const accounts: Account[] = [
+        {
+          email: "test@example.com",
+          refreshToken: "token",
+          source: "oauth" as const,
+          lastUsed: null,
+          modelRateLimits: {},
+        },
+      ];
+
+      const result = triggerQuotaReset(accounts, "all");
+
+      expect(result.accountsAffected).toBe(0);
+      expect(result.limitsCleared).toBe(0);
     });
   });
 });

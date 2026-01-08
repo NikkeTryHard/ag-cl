@@ -91,16 +91,21 @@ export const MAX_RETRIES = 5; // Max retry attempts across accounts
 export const MAX_ACCOUNTS = 10; // Maximum number of accounts allowed
 
 /**
+ * Upper bound for MAX_EMPTY_RETRIES to prevent excessive retries
+ */
+export const MAX_EMPTY_RETRIES_LIMIT = 10;
+
+/**
  * Maximum number of retries for empty API responses
  * Configurable via MAX_EMPTY_RETRIES environment variable
- * Default: 2 (upstream default)
+ * Default: 2 (upstream default), clamped to MAX_EMPTY_RETRIES_LIMIT
  */
 export const MAX_EMPTY_RETRIES = ((): number => {
   const envValue = process.env.MAX_EMPTY_RETRIES;
   if (envValue) {
     const parsed = parseInt(envValue, 10);
-    // Clamp between 0 and 10 to prevent excessive retries
-    if (!isNaN(parsed) && parsed >= 0) return Math.min(parsed, 10);
+    // Clamp between 0 and MAX_EMPTY_RETRIES_LIMIT to prevent excessive retries
+    if (!isNaN(parsed) && parsed >= 0) return Math.min(parsed, MAX_EMPTY_RETRIES_LIMIT);
   }
   return 2;
 })();

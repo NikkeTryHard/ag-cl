@@ -187,10 +187,11 @@ describe("MAX_EMPTY_RETRIES constant", () => {
     expect(MAX_EMPTY_RETRIES).toBe(2);
   });
 
-  it("should clamp to 10 when value exceeds upper bound", async () => {
+  it("should clamp to MAX_EMPTY_RETRIES_LIMIT when value exceeds upper bound", async () => {
     process.env.MAX_EMPTY_RETRIES = "100";
-    const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
-    expect(MAX_EMPTY_RETRIES).toBe(10);
+    const { MAX_EMPTY_RETRIES, MAX_EMPTY_RETRIES_LIMIT } = await import("../../src/constants.js");
+    expect(MAX_EMPTY_RETRIES).toBe(MAX_EMPTY_RETRIES_LIMIT);
+    expect(MAX_EMPTY_RETRIES_LIMIT).toBe(10);
   });
 
   it("should allow 0 retries when explicitly set", async () => {

@@ -210,7 +210,11 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
 
           while (emptyRetries <= MAX_EMPTY_RETRIES) {
             try {
-              yield* streamSSEResponse({ body: currentResponse.body! }, anthropicRequest.model);
+              // Safety check: body should exist after the null check above
+              if (!currentResponse.body) {
+                throw new Error("Response body is null");
+              }
+              yield* streamSSEResponse({ body: currentResponse.body }, anthropicRequest.model);
               getLogger().debug("[CloudCode] Stream completed");
               return;
             } catch (streamError) {

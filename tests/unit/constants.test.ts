@@ -186,4 +186,16 @@ describe("MAX_EMPTY_RETRIES constant", () => {
     const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
     expect(MAX_EMPTY_RETRIES).toBe(2);
   });
+
+  it("should clamp to 10 when value exceeds upper bound", async () => {
+    process.env.MAX_EMPTY_RETRIES = "100";
+    const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
+    expect(MAX_EMPTY_RETRIES).toBe(10);
+  });
+
+  it("should allow 0 retries when explicitly set", async () => {
+    process.env.MAX_EMPTY_RETRIES = "0";
+    const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
+    expect(MAX_EMPTY_RETRIES).toBe(0);
+  });
 });

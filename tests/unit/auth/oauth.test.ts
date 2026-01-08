@@ -547,13 +547,13 @@ describe("auth/oauth", () => {
     beforeEach(async () => {
       global.fetch = originalFetch;
       // Ensure port is fully released from previous test
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     });
 
     afterEach(async () => {
       // Give time for server socket to fully close and port to be released
       // Node.js TCP TIME_WAIT can take a while, so we wait longer
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 800));
       global.fetch = mockFetch;
     });
 
@@ -671,7 +671,8 @@ describe("auth/oauth", () => {
 
       // Start first server
       const server1Promise = startCallbackServer(expectedState, 5000);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Wait longer for server to fully bind to port
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Try to start second server on same port
       const server2Promise = startCallbackServer("another-state", 5000);

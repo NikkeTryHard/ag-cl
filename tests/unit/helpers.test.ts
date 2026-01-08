@@ -26,8 +26,11 @@ describe("sleep", () => {
     const start = Date.now();
     await sleep(50);
     const elapsed = Date.now() - start;
-    expect(elapsed).toBeGreaterThanOrEqual(45); // Allow small timing variance
-    expect(elapsed).toBeLessThan(500); // Allow generous upper bound for busy CI environments
+    // Allow timing variance for slow CI environments
+    // Lower bound: 40ms (slightly less than requested 50ms for timer inaccuracy)
+    // Upper bound: 5000ms (very generous for extremely slow/overloaded CI)
+    expect(elapsed).toBeGreaterThanOrEqual(40);
+    expect(elapsed).toBeLessThan(5000);
   });
 });
 

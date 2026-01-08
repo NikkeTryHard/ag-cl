@@ -71,6 +71,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
+    "ag-cl": "^1.1.0",
     "better-sqlite3": "^12.5.0",
     "boxen": "^8.0.1",
     "cli-table3": "^0.6.5",

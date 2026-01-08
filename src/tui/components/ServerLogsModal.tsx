@@ -9,13 +9,11 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import { getLogBuffer, subscribeToLogs, type LogEntry } from "../hooks/useLogBuffer.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { SERVER_LOGS_RESERVED_LINES, MIN_VISIBLE_LOG_LINES } from "../constants.js";
 
 interface ServerLogsModalProps {
   onClose: () => void;
 }
-
-// Reserve lines for: header(2) + footer hints(2) + scroll indicator(2) + borders/padding(4)
-const RESERVED_LINES = 10;
 
 function getLevelColor(level: string): string | undefined {
   switch (level) {
@@ -40,7 +38,7 @@ export function ServerLogsModal({ onClose }: ServerLogsModalProps): React.ReactE
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Calculate visible lines based on terminal height
-  const maxVisibleLines = Math.max(5, height - RESERVED_LINES);
+  const maxVisibleLines = Math.max(MIN_VISIBLE_LOG_LINES, height - SERVER_LOGS_RESERVED_LINES);
 
   // Subscribe to new logs
   useEffect(() => {

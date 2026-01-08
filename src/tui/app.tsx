@@ -103,6 +103,9 @@ function App(): React.ReactElement {
         void refresh();
       } else if (input === "p") {
         setModal({ type: "change-port" });
+      } else if (input === "?" || input === "h") {
+        // ? or h opens command palette for help
+        modalControls.open("command-palette");
       }
     },
     { isActive: modal.type === "none" },

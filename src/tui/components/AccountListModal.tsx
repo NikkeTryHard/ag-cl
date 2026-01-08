@@ -10,6 +10,7 @@ import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { AccountCapacityInfo, AggregatedCapacity, ModelQuotaDisplay } from "../types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { ACCOUNT_LIST_RESERVED_LINES, MIN_VISIBLE_ITEMS } from "../constants.js";
 
 interface AccountListModalProps {
   accounts: AccountCapacityInfo[];
@@ -19,9 +20,6 @@ interface AccountListModalProps {
   onAddAccount: () => void;
   onRefresh: () => void;
 }
-
-// Reserve lines for: header(2) + totals(4) + next reset(1) + footer hints(2) + scroll indicator(2) + note(1) + borders/padding(4)
-const RESERVED_LINES = 16;
 
 /**
  * Format reset time as relative duration
@@ -122,7 +120,7 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, onC
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   // Calculate max visible based on terminal height
-  const maxVisible = Math.max(3, height - RESERVED_LINES);
+  const maxVisible = Math.max(MIN_VISIBLE_ITEMS, height - ACCOUNT_LIST_RESERVED_LINES);
 
   // Calculate content width - cap at 120 chars for readability
   const contentWidth = Math.min(120, width - 10);

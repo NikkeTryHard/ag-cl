@@ -11,7 +11,6 @@ import { fileURLToPath } from "url";
 
 import { DEFAULT_PORT } from "../constants.js";
 import { initLogger, setLogLevel, type LogLevel } from "../utils/logger.js";
-import { banner } from "./ui.js";
 
 // Resolve package.json path for version
 const __filename = fileURLToPath(import.meta.url);
@@ -85,7 +84,6 @@ function createProgram(): Command {
     .description("Start the proxy server (headless mode)")
     .action(async () => {
       const opts: GlobalOptions = program.opts<GlobalOptions>();
-      console.log(banner("Antigravity Claude Proxy", VERSION));
       const { startCommand } = await import("./commands/start.js");
       startCommand({
         port: opts.port,

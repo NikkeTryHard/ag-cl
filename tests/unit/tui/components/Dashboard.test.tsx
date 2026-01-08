@@ -38,7 +38,7 @@ describe("Dashboard", () => {
     expect(output).toContain("account");
   });
 
-  it("renders hotkey hints including refresh and colon for commands", () => {
+  it("renders hotkey hints including refresh and help", () => {
     const { lastFrame } = render(<Dashboard version="1.0.0" serverState={{ running: true, port: 8080 }} claudeCapacity={{ family: "claude", totalPercentage: 100, accountCount: 1, status: "stable", hoursToExhaustion: null, ratePerHour: null }} geminiCapacity={{ family: "gemini", totalPercentage: 100, accountCount: 1, status: "stable", hoursToExhaustion: null, ratePerHour: null }} accountCount={1} />);
 
     const output = lastFrame();
@@ -46,6 +46,14 @@ describe("Dashboard", () => {
     expect(output).toContain("[p]");
     expect(output).toContain("[r]");
     expect(output).toContain("[q]");
-    expect(output).toContain("[:]");
+    expect(output).toContain("[?]");
+  });
+
+  it("shows first-run message when no accounts configured", () => {
+    const { lastFrame } = render(<Dashboard version="1.0.0" serverState={{ running: false, port: 8080 }} claudeCapacity={{ family: "claude", totalPercentage: 0, accountCount: 0, status: "exhausted", hoursToExhaustion: null, ratePerHour: null }} geminiCapacity={{ family: "gemini", totalPercentage: 0, accountCount: 0, status: "exhausted", hoursToExhaustion: null, ratePerHour: null }} accountCount={0} />);
+
+    const output = lastFrame();
+    expect(output).toContain("No accounts configured");
+    expect(output).toContain("[a]");
   });
 });

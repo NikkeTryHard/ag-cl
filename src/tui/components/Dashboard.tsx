@@ -81,8 +81,14 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
 
       {/* Account count */}
       <Box marginTop={2}>
-        <Text bold>{accountCount}</Text>
-        <Text dimColor> account{accountCount !== 1 ? "s" : ""}</Text>
+        {accountCount === 0 ? (
+          <Text color="yellow">No accounts configured. Press [a] to add one.</Text>
+        ) : (
+          <>
+            <Text bold>{accountCount}</Text>
+            <Text dimColor> account{accountCount !== 1 ? "s" : ""}</Text>
+          </>
+        )}
       </Box>
 
       {/* Hotkey hints */}
@@ -99,8 +105,8 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
         <Text dimColor>ogs </Text>
         <Text color="cyan">[q]</Text>
         <Text dimColor>uit </Text>
-        <Text color="cyan">[:]</Text>
-        <Text dimColor> commands</Text>
+        <Text color="cyan">[?]</Text>
+        <Text dimColor> help</Text>
       </Box>
     </Box>
   );

@@ -1,8 +1,14 @@
 /**
- * Log Buffer Hook
+ * Log Buffer Module
  *
- * Provides a ring buffer for storing recent log entries
+ * Provides a global ring buffer for storing recent log entries
  * and allows TUI components to subscribe to new logs.
+ *
+ * Note: This intentionally uses module-level state (not React context)
+ * because:
+ * 1. Logs need to persist across component remounts
+ * 2. The server's pino logger writes here from outside React
+ * 3. Multiple components may subscribe independently
  */
 
 export interface LogEntry {

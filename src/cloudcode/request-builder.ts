@@ -59,7 +59,7 @@ export function buildCloudCodeRequest(anthropicRequest: AnthropicRequest, projec
 
   // Inject Antigravity identity into system instruction to mimic genuine requests
   // This helps avoid 429 errors by making requests appear more legitimate
-  injectAntigravitySystemInstruction(googleRequest);
+  injectAntigravitySystemInstruction(googleRequest, model);
 
   const payload: CloudCodeRequest = {
     project: projectId,
@@ -76,11 +76,13 @@ export function buildCloudCodeRequest(anthropicRequest: AnthropicRequest, projec
 /**
  * Antigravity identity text to inject into system instructions
  * This helps avoid 429 errors by making requests appear more like genuine Antigravity IDE requests.
- * Adds ~300 tokens to each request.
- * 
- * Can be disabled by setting AG_INJECT_IDENTITY=none (may cause 429 errors)
+ *
+ * Can be configured via AG_INJECT_IDENTITY environment variable:
+ * - "full" (default): Full identity with ~300 tokens
+ * - "short": Shortened identity matching CLIProxyAPI v6.6.89 (~50 tokens)
+ * - "none": Disable injection (may cause 429 errors)
  */
-const ANTIGRAVITY_IDENTITY = `<identity>
+const ANTIGRAVITY_IDENTITY_FULL = `<identity>
 You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.
 You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.
 The USER will send you requests, which you must always prioritize addressing. Along with each USER request, we will attach additional metadata about their current state, such as what files they have open and where their cursor is.
@@ -100,43 +102,74 @@ Call tools as you normally would. The following list provides additional guidanc
 </communication_style>`;
 
 /**
- * Check if identity injection is disabled via environment variable
+ * Shortened identity matching CLIProxyAPI v6.6.89
+ * Uses fewer tokens while maintaining core identity
  */
-function isIdentityInjectionDisabled(): boolean {
-  return process.env.AG_INJECT_IDENTITY?.toLowerCase() === "none";
+const ANTIGRAVITY_IDENTITY_SHORT = `You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**`;
+
+/**
+ * Get the identity injection mode from environment variable
+ * @returns "full" | "short" | "none"
+ */
+function getIdentityMode(): "full" | "short" | "none" {
+  const mode = process.env.AG_INJECT_IDENTITY?.toLowerCase();
+  if (mode === "none") return "none";
+  if (mode === "short") return "short";
+  return "full"; // default
+}
+
+/**
+ * Check if model should have identity injection (claude or gemini-3-pro)
+ * Matches CLIProxyAPI v6.6.89 behavior
+ */
+function shouldInjectIdentity(model: string): boolean {
+  const modelLower = model.toLowerCase();
+  return modelLower.includes("claude") || modelLower.includes("gemini-3-pro");
 }
 
 /**
  * Inject Antigravity identity into the system instruction
  * Sets role to "user" and prepends identity text to parts
- * 
- * Can be disabled by setting AG_INJECT_IDENTITY=none
+ *
+ * Matches CLIProxyAPI v6.6.89 behavior:
+ * - Only injects for claude and gemini-3-pro models
+ * - Preserves existing system instruction parts by appending after identity
+ * - Can be configured via AG_INJECT_IDENTITY env var (full/short/none)
  *
  * @param googleRequest - The Google request to modify
+ * @param model - The model name to check for injection eligibility
  */
-function injectAntigravitySystemInstruction(googleRequest: CloudCodeGoogleRequest): void {
-  // Check if disabled via env var
-  if (isIdentityInjectionDisabled()) {
-    // Only set role if systemInstruction exists
+function injectAntigravitySystemInstruction(googleRequest: CloudCodeGoogleRequest, model: string): void {
+  const mode = getIdentityMode();
+
+  // If disabled, only set role on existing instructions
+  if (mode === "none") {
     if (googleRequest.systemInstruction) {
       googleRequest.systemInstruction.role = "user";
     }
     return;
   }
 
-  const identityPart = { text: ANTIGRAVITY_IDENTITY };
-
-  if (!googleRequest.systemInstruction) {
-    // No existing system instruction, create one with identity
-    googleRequest.systemInstruction = {
-      role: "user",
-      parts: [identityPart],
-    };
-  } else {
-    // Prepend identity to existing parts and set role
-    googleRequest.systemInstruction.role = "user";
-    googleRequest.systemInstruction.parts = [identityPart, ...googleRequest.systemInstruction.parts];
+  // Only inject identity for claude and gemini-3-pro models (CLIProxyAPI v6.6.89 behavior)
+  if (!shouldInjectIdentity(model)) {
+    if (googleRequest.systemInstruction) {
+      googleRequest.systemInstruction.role = "user";
+    }
+    return;
   }
+
+  // Select identity text based on mode
+  const identityText = mode === "short" ? ANTIGRAVITY_IDENTITY_SHORT : ANTIGRAVITY_IDENTITY_FULL;
+  const identityPart = { text: identityText };
+
+  // Save existing parts before modification (CLIProxyAPI v6.6.89 pattern)
+  const existingParts = googleRequest.systemInstruction?.parts ?? [];
+
+  // Create new system instruction with identity first, then existing parts
+  googleRequest.systemInstruction = {
+    role: "user",
+    parts: [identityPart, ...existingParts],
+  };
 }
 
 /**
@@ -151,7 +184,7 @@ export function buildHeaders(token: string, model: string, accept = "application
   const headers: RequestHeaders = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    ...(ANTIGRAVITY_HEADERS),
+    ...ANTIGRAVITY_HEADERS,
   };
 
   const modelFamily = getModelFamily(model);

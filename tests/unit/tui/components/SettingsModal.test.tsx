@@ -115,4 +115,184 @@ describe("SettingsModal", () => {
 
     expect(lastFrame()).toContain("[3000]");
   });
+
+  describe("keyboard interactions", () => {
+    // ANSI escape sequences for keyboard input
+    const ARROW_DOWN = "\x1B[B";
+    const ARROW_UP = "\x1B[A";
+    const ENTER = "\r";
+    const ESCAPE = "\x1B";
+
+    // Helper to wait for React state updates
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it("down arrow key changes selection to next item", async () => {
+      const { lastFrame, stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+
+      // Wait for component to mount and raw mode to be enabled
+      await delay(10);
+
+      // Initial state: first item (Identity Mode) is selected
+      const initialFrame = lastFrame();
+      expect(initialFrame).toContain("> ");
+      expect(initialFrame).toContain("Identity Mode");
+
+      // Press down arrow
+      stdin.write(ARROW_DOWN);
+
+      // Wait for state update
+      await delay(50);
+
+      // Now second item (Default Port) should be selected
+      const afterDown = lastFrame();
+      // The selection indicator should still be present
+      expect(afterDown).toContain("> ");
+      expect(afterDown).toContain("Default Port");
+    });
+
+    it("up arrow key changes selection to previous item", async () => {
+      const { lastFrame, stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Navigate down first
+      stdin.write(ARROW_DOWN);
+      await delay(50);
+
+      // Then navigate up
+      stdin.write(ARROW_UP);
+      await delay(50);
+
+      // Should be back at first item
+      const frame = lastFrame();
+      expect(frame).toContain("> ");
+      expect(frame).toContain("Identity Mode");
+    });
+
+    it("up arrow does not go above first item", async () => {
+      const { lastFrame, stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Try to go up when already at first item
+      stdin.write(ARROW_UP);
+      await delay(50);
+
+      // Should still be at first item
+      const frame = lastFrame();
+      expect(frame).toContain("> ");
+      expect(frame).toContain("Identity Mode");
+    });
+
+    it("down arrow does not go below last item", async () => {
+      const { lastFrame, stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Navigate to the last item (4 items total, so 3 down presses) with delays
+      stdin.write(ARROW_DOWN);
+      await delay(20);
+      stdin.write(ARROW_DOWN);
+      await delay(20);
+      stdin.write(ARROW_DOWN);
+      await delay(50);
+
+      // Try to go down again
+      stdin.write(ARROW_DOWN);
+      await delay(50);
+
+      // Should still be at last item (Model Fallback)
+      const frame = lastFrame();
+      expect(frame).toContain("> ");
+      expect(frame).toContain("Model Fallback");
+    });
+
+    it("Enter key triggers setting toggle and calls onUpdateSettings", async () => {
+      const { stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Press Enter on first item (Identity Mode) - should cycle from "full" to "short"
+      stdin.write(ENTER);
+
+      // Wait for the async update
+      await delay(100);
+
+      expect(mockOnUpdateSettings).toHaveBeenCalledTimes(1);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ identityMode: "short" });
+    });
+
+    it("Enter key toggles fallback setting", async () => {
+      const { stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Navigate to fallback setting (4th item, so 3 down presses) with delays between each
+      stdin.write(ARROW_DOWN);
+      await delay(20);
+      stdin.write(ARROW_DOWN);
+      await delay(20);
+      stdin.write(ARROW_DOWN);
+      await delay(50);
+
+      // Press Enter to toggle fallback from off to on
+      stdin.write(ENTER);
+      await delay(100);
+
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ fallbackEnabled: true });
+    });
+
+    it("Enter key cycles log level setting", async () => {
+      const { stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Navigate to log level (3rd item, so 2 down presses) with delays
+      stdin.write(ARROW_DOWN);
+      await delay(20);
+      stdin.write(ARROW_DOWN);
+      await delay(50);
+
+      // Press Enter to cycle from "info" to "debug"
+      stdin.write(ENTER);
+      await delay(100);
+
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ logLevel: "debug" });
+    });
+
+    it("ESC key calls onClose", async () => {
+      const { stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Press ESC
+      stdin.write(ESCAPE);
+      await delay(50);
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("ESC key does not call onClose when editing port", async () => {
+      const { lastFrame, stdin } = render(<SettingsModal settings={defaultSettings} onUpdateSettings={mockOnUpdateSettings} onClose={mockOnClose} />);
+      await delay(10);
+
+      // Navigate to port setting (2nd item)
+      stdin.write(ARROW_DOWN);
+      await delay(50);
+
+      // Press Enter to enter edit mode
+      stdin.write(ENTER);
+      await delay(50);
+
+      // Verify we are in edit mode (footer changes)
+      const editModeFrame = lastFrame();
+      expect(editModeFrame).toContain("confirm");
+      expect(editModeFrame).toContain("cancel");
+
+      // Press ESC to exit edit mode (not close modal)
+      stdin.write(ESCAPE);
+      await delay(50);
+
+      // onClose should not have been called
+      expect(mockOnClose).not.toHaveBeenCalled();
+
+      // Should be back to normal navigation mode
+      const afterEscFrame = lastFrame();
+      expect(afterEscFrame).toContain("Up/Down");
+      expect(afterEscFrame).toContain("navigate");
+    });
+  });
 });

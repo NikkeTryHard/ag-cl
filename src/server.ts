@@ -8,7 +8,7 @@ import express, { type Request, type Response, type NextFunction, type Applicati
 import cors from "cors";
 import { sendMessage, sendMessageStream, listModels, getModelQuotas } from "./cloudcode/index.js";
 import { forceRefresh } from "./auth/token-extractor.js";
-import { getAllQuotaGroups, QUOTA_GROUPS } from "./cloudcode/quota-groups.js";
+import { getAllQuotaGroups, QUOTA_GROUPS, type QuotaGroupKey } from "./cloudcode/quota-groups.js";
 import { REQUEST_BODY_LIMIT } from "./constants.js";
 import { AccountManager } from "./account-manager/index.js";
 import { formatDuration } from "./utils/helpers.js";
@@ -533,6 +533,39 @@ app.post("/refresh-token", async (_req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({
       status: "error",
+      error: (error as Error).message,
+    });
+  }
+});
+
+/**
+ * POST /trigger-reset - Trigger quota reset for quota group(s)
+ * Body: { group?: "claude" | "geminiPro" | "geminiFlash" | "all" }
+ * Default: "all"
+ */
+app.post("/trigger-reset", async (req: Request, res: Response) => {
+  try {
+    await ensureInitialized();
+
+    const { group = "all" } = req.body as { group?: string };
+
+    // Validate group
+    const validGroups = [...getAllQuotaGroups(), "all"];
+    if (!validGroups.includes(group)) {
+      return res.status(400).json({
+        error: `Invalid group. Must be one of: ${validGroups.join(", ")}`,
+      });
+    }
+
+    const result = accountManager.triggerQuotaReset(group as QuotaGroupKey | "all");
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    logger.error({ error: (error as Error).message }, "[API] Error triggering quota reset");
+    res.status(500).json({
       error: (error as Error).message,
     });
   }

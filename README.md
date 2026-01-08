@@ -308,6 +308,28 @@ Or re-authenticate: `ag-cl accounts`
 
 With multiple accounts, the proxy auto-switches. Single account must wait for reset.
 
+### WebSearch Tool Returns 0 Results
+
+WebSearch is an Anthropic-only server-side tool that doesn't work through proxies. Disable it in Claude Code settings:
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "deny": ["WebSearch"]
+  }
+}
+```
+
+For web search functionality, use Brave Search MCP instead:
+
+```bash
+claude mcp add brave-search -s user \
+  -- env BRAVE_API_KEY=YOUR_KEY \
+  npx -y @modelcontextprotocol/server-brave-search
+```
+
 ### Account Shows as "Invalid"
 
 Re-authenticate the account:

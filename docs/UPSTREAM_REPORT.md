@@ -127,7 +127,7 @@ flowchart TD
 | [#57](https://github.com/badri-s2001/antigravity-claude-proxy/issues/57) | FEATURE: Let us disable sticky accounts          | @Blueemi      | 2026-01-05 | Feature Request | Not implemented          |
 | [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc    | 2026-01-04 | Feature Request | **IMPLEMENTED**          |
 | [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc | 2026-01-03 | Feature Request | TUI alternative          |
-| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC  | 2025-12-31 | Bug/Limitation  | Known limitation         |
+| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC  | 2025-12-31 | Bug/Limitation  | **DOCUMENTED**           |
 
 ### Issue #61: Empty API Response Retry (Same as PR #64)
 
@@ -204,11 +204,49 @@ DISABLE_STICKY=true npm start     # Environment variable
 
 ### Issue #27: WebSearch Tool Returns 0 Results
 
-**Status**: OPEN since 2025-12-31
+**Status**: Known limitation (expected behavior)
 
-**Limitation**: WebSearch tool always fails. If it uses Anthropic's APIs directly, it would make sense it fails through the proxy.
+**Root Cause**: WebSearch is an **Anthropic-only server-side tool** that requires direct connection to Anthropic's API. When using third-party proxies (like this proxy, Bedrock, or Vertex), Claude Code hides or disables the WebSearch tool because the server-side search infrastructure is unavailable.
 
-**Recommendation**: Document as known limitation or investigate workaround (e.g., proxy to Brave Search).
+**Solution**: Disable WebSearch in Claude Code settings and use an MCP-based search alternative.
+
+**Step 1: Disable WebSearch**
+
+Add to `~/.claude/settings.json` or `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "deny": ["WebSearch"]
+  }
+}
+```
+
+**Step 2 (Optional): Add Brave Search MCP**
+
+```bash
+claude mcp add brave-search -s user \
+  -- env BRAVE_API_KEY=YOUR_KEY \
+  npx -y @modelcontextprotocol/server-brave-search
+```
+
+Or add to settings:
+
+```json
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+**Our Status**: **DOCUMENTED** - This is expected behavior, not a bug we can fix.
 
 ---
 
@@ -326,15 +364,15 @@ DISABLE_STICKY=true npm start     # Environment variable
    - Prevents Claude Code from triggering unnecessary auto-compaction
    - Implemented in `src/cloudcode/model-api.ts`
 
+4. **WebSearch limitation** (from Issue #27) - **DOCUMENTED**
+   - WebSearch is Anthropic-only, doesn't work on proxies
+   - Documented workaround: deny in settings.json + use Brave Search MCP
+
 ### Immediate Actions (Next)
 
 1. **Add --no-sticky flag** (from Issue #57)
    - Configuration flexibility
    - Useful for high-throughput scenarios
-
-2. **Document WebSearch limitation** (Issue #27)
-   - Known limitation in README
-   - Potential future MCP integration
 
 ### Medium-Term (Future)
 

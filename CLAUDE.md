@@ -153,6 +153,8 @@ npm start -- --log-level debug         # Log level: silent|error|warn|info|debug
 npm start -- --log-file proxy.log      # Log to file
 npm start -- --json-logs               # JSON output for parsing
 npm start -- --silent                  # Suppress output except errors
+npm start -- --auto-refresh            # Auto-refresh quota every 5 hours
+AUTO_REFRESH=true npm start            # Via environment variable
 npm run start:prod                     # Production mode (from dist/)
 ```
 
@@ -168,10 +170,12 @@ MAX_EMPTY_RETRIES=3 npm start       # Via environment variable
 ### Quota Management
 
 ```bash
-npm run trigger-reset              # Reset quotas for all groups
+npm run trigger-reset              # Reset quotas for all groups (one-time)
 npm run trigger-reset -- -g claude # Reset only Claude group quotas
-npm start -- --trigger-reset       # Reset quotas on server startup
-TRIGGER_RESET=true npm start       # Via environment variable
+npm start -- --trigger-reset       # Reset quotas on server startup (one-time)
+npm start -- --auto-refresh        # Auto-refresh quota every 5 hours (recommended)
+TRIGGER_RESET=true npm start       # One-time reset via environment variable
+AUTO_REFRESH=true npm start        # Auto-refresh via environment variable
 ```
 
 Quota groups:

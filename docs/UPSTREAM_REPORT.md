@@ -118,6 +118,7 @@ flowchart TD
 - API endpoint: `POST /trigger-reset` with `?group=claude|geminiPro|geminiFlash|all`
 - CLI command: `npm run trigger-reset`
 - Startup flag: `--trigger-reset` or `TRIGGER_RESET=true`
+- **Auto-refresh:** `--auto-refresh` or `AUTO_REFRESH=true` (triggers every 5 hours)
 - Enhanced `/account-limits` with per-group reset times
 
 ---

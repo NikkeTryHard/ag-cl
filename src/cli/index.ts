@@ -32,6 +32,7 @@ export interface GlobalOptions {
   silent?: boolean;
   maxEmptyRetries?: string;
   triggerReset?: boolean;
+  autoRefresh?: boolean;
 }
 
 /**
@@ -52,7 +53,8 @@ function createProgram(): Command {
     .option("--json-logs", "output logs as JSON")
     .option("--silent", "suppress all output except errors")
     .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
-    .option("--trigger-reset", "trigger quota reset on startup");
+    .option("--trigger-reset", "trigger quota reset on startup")
+    .option("--auto-refresh", "automatically refresh quota every 5 hours");
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {
@@ -97,14 +99,43 @@ function createProgram(): Command {
         }
       }
 
-      // Trigger quota reset on startup if requested
+      // Trigger quota reset on startup if requested (FIXED: now sends to Google)
       if (opts.triggerReset || process.env.TRIGGER_RESET === "true") {
         const { default: chalk } = await import("chalk");
         const { AccountManager } = await import("../account-manager/index.js");
-        const accountManager = new AccountManager();
-        await accountManager.initialize();
-        const result = accountManager.triggerQuotaReset("all");
-        console.log(chalk.green(`Startup quota reset: cleared ${result.limitsCleared} limit(s) on ${result.accountsAffected} account(s)`));
+        const { triggerQuotaResetApi } = await import("../cloudcode/quota-reset-trigger.js");
+
+        try {
+          const accountManager = new AccountManager();
+          await accountManager.initialize();
+
+          // Get first OAuth account
+          const accounts = accountManager.getAllAccounts();
+          const oauthAccount = accounts.find((a: { source: string; refreshToken?: string }) => a.source === "oauth" && a.refreshToken);
+
+          if (oauthAccount) {
+            const token = await accountManager.getTokenForAccount(oauthAccount);
+            const projectId = await accountManager.getProjectForAccount(oauthAccount, token);
+
+            // Send actual requests to Google (the fix!)
+            const apiResult = await triggerQuotaResetApi(token, projectId, "all");
+
+            // Also clear local flags
+            const localResult = accountManager.triggerQuotaReset("all");
+
+            console.log(chalk.green(`Startup quota reset: triggered ${apiResult.successCount} group(s), cleared ${localResult.limitsCleared} local limit(s)`));
+          } else {
+            console.log(chalk.yellow("No OAuth accounts available for quota reset"));
+          }
+        } catch (error) {
+          console.log(chalk.yellow(`Startup quota reset failed: ${(error as Error).message}`));
+        }
+      }
+
+      // Start auto-refresh scheduler if requested
+      if (opts.autoRefresh || process.env.AUTO_REFRESH === "true") {
+        const { startAutoRefresh } = await import("../cloudcode/auto-refresh-scheduler.js");
+        await startAutoRefresh();
       }
 
       const { startCommand } = await import("./commands/start.js");

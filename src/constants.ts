@@ -113,6 +113,9 @@ export const MAX_EMPTY_RETRIES = ((): number => {
 // Rate limit wait thresholds
 export const MAX_WAIT_BEFORE_ERROR_MS = 120000; // 2 minutes - throw error if wait exceeds this
 
+// Auto-refresh interval for quota reset (5 hours in milliseconds)
+export const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000;
+
 // Thinking model constants
 export const MIN_SIGNATURE_LENGTH = 50; // Minimum valid thinking signature length
 

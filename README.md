@@ -1,5 +1,6 @@
-# Antigravity Claude Proxy
+# ag-cl
 
+The acronym ag-cl is short for **a**nti**g**ravity to (or hyphen) **cl**aude code.
 A proxy server exposing an **Anthropic-compatible API** backed by **Google Cloud Code** (Antigravity). Use Claude and Gemini models with Claude Code CLI.
 
 ## Prerequisites

@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { streamSSEResponse, type AnthropicSSEEvent } from "../../../src/cloudcode/sse-streamer.js";
+import { EmptyResponseError } from "../../../src/errors.js";
 import { createMockStream } from "../../helpers/mocks.js";
 
 /**
@@ -646,22 +647,56 @@ describe("streamSSEResponse", () => {
   });
 
   describe("empty response handling", () => {
-    it("emits fallback content when no parts received", async () => {
+    it("should throw EmptyResponseError when no content parts received", async () => {
       const chunks: string[] = [];
 
       const response = createSSEResponse(chunks);
-      const events = await collectEvents(response, "claude-sonnet-4-5-thinking");
+      const generator = streamSSEResponse(response, "claude-sonnet-4-5-thinking");
 
-      // Should still emit message_start
-      expect(events[0].type).toBe("message_start");
+      await expect(async () => {
+        const events = [];
+        for await (const event of generator) {
+          events.push(event);
+        }
+      }).rejects.toThrow(EmptyResponseError);
+    });
 
-      // Should emit fallback text block
-      const blockStart = events.find((e) => e.type === "content_block_start");
-      expect(blockStart).toBeDefined();
+    it("should throw EmptyResponseError with descriptive message", async () => {
+      const chunks: string[] = [];
 
-      // Should emit message_stop
-      const messageStop = events.find((e) => e.type === "message_stop");
-      expect(messageStop).toBeDefined();
+      const response = createSSEResponse(chunks);
+      const generator = streamSSEResponse(response, "claude-sonnet-4-5-thinking");
+
+      try {
+        for await (const _ of generator) {
+          // consume
+        }
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(EmptyResponseError);
+        expect((error as Error).message).toContain("No content parts received");
+      }
+    });
+
+    it("should throw EmptyResponseError when only empty SSE data received", async () => {
+      const emptySSE = "data: {}\n\n";
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(emptySSE));
+          controller.close();
+        },
+      });
+
+      const response = { body: stream };
+      const generator = streamSSEResponse(response, "claude-sonnet-4-5");
+
+      await expect(async () => {
+        const events = [];
+        for await (const event of generator) {
+          events.push(event);
+        }
+      }).rejects.toThrow(EmptyResponseError);
     });
   });
 

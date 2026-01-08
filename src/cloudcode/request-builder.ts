@@ -75,6 +75,10 @@ export function buildCloudCodeRequest(anthropicRequest: AnthropicRequest, projec
 
 /**
  * Antigravity identity text to inject into system instructions
+ * This helps avoid 429 errors by making requests appear more like genuine Antigravity IDE requests.
+ * Adds ~300 tokens to each request.
+ * 
+ * Can be disabled by setting AG_INJECT_IDENTITY=none (may cause 429 errors)
  */
 const ANTIGRAVITY_IDENTITY = `<identity>
 You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.
@@ -96,12 +100,30 @@ Call tools as you normally would. The following list provides additional guidanc
 </communication_style>`;
 
 /**
+ * Check if identity injection is disabled via environment variable
+ */
+function isIdentityInjectionDisabled(): boolean {
+  return process.env.AG_INJECT_IDENTITY?.toLowerCase() === "none";
+}
+
+/**
  * Inject Antigravity identity into the system instruction
  * Sets role to "user" and prepends identity text to parts
+ * 
+ * Can be disabled by setting AG_INJECT_IDENTITY=none
  *
  * @param googleRequest - The Google request to modify
  */
 function injectAntigravitySystemInstruction(googleRequest: CloudCodeGoogleRequest): void {
+  // Check if disabled via env var
+  if (isIdentityInjectionDisabled()) {
+    // Only set role if systemInstruction exists
+    if (googleRequest.systemInstruction) {
+      googleRequest.systemInstruction.role = "user";
+    }
+    return;
+  }
+
   const identityPart = { text: ANTIGRAVITY_IDENTITY };
 
   if (!googleRequest.systemInstruction) {

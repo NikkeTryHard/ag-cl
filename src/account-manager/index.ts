@@ -13,7 +13,7 @@ import { getLogger } from "../utils/logger.js";
 import type { Account, AccountSettings, TokenCacheEntry, AccountManagerStatus, AccountStatus, ShouldWaitResult } from "./types.js";
 
 // Re-export types for external consumers
-export type { Account, AccountSettings, AccountManagerStatus, AccountStatus, TokenCacheEntry } from "./types.js";
+export type { Account, AccountSettings, AccountManagerStatus, AccountStatus, TokenCacheEntry, LogLevel, IdentityMode } from "./types.js";
 
 /**
  * Result of pickStickyAccount method

@@ -10,6 +10,19 @@
 export type AccountSource = "oauth" | "database" | "manual";
 
 /**
+ * Log level for server output
+ */
+export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
+
+/**
+ * Identity injection mode for account display
+ * - "full": Show full email (e.g., "user@example.com")
+ * - "short": Show abbreviated form (e.g., "user@...")
+ * - "none": Don't inject identity into responses
+ */
+export type IdentityMode = "full" | "short" | "none";
+
+/**
  * Model-specific rate limit state
  */
 export interface ModelRateLimit {
@@ -44,7 +57,17 @@ export interface Account {
  * Account settings stored in config
  */
 export interface AccountSettings {
+  /** Cooldown duration in milliseconds between account switches */
   cooldownDurationMs?: number | undefined;
+  /** Identity injection mode for account display in responses */
+  identityMode?: IdentityMode | undefined;
+  /** Default server port */
+  defaultPort?: number | undefined;
+  /** Server log level */
+  logLevel?: LogLevel | undefined;
+  /** Enable model fallback on quota exhaustion */
+  fallbackEnabled?: boolean | undefined;
+  /** Allow additional unknown settings for extensibility */
   [key: string]: unknown;
 }
 

@@ -8,6 +8,7 @@ import express, { type Request, type Response, type NextFunction, type Applicati
 import cors from "cors";
 import { sendMessage, sendMessageStream, listModels, getModelQuotas } from "./cloudcode/index.js";
 import { forceRefresh } from "./auth/token-extractor.js";
+import { getAllQuotaGroups, QUOTA_GROUPS } from "./cloudcode/quota-groups.js";
 import { REQUEST_BODY_LIMIT } from "./constants.js";
 import { AccountManager } from "./account-manager/index.js";
 import { formatDuration } from "./utils/helpers.js";
@@ -136,6 +137,34 @@ function parseError(error: Error): ParsedError {
   }
 
   return { errorType, statusCode, errorMessage };
+}
+
+/**
+ * Get per-group quota reset times from model rate limits
+ * Returns the earliest reset time for each quota group (Claude, Gemini Pro, Gemini Flash)
+ * @param modelRateLimits - Rate limit info keyed by model ID
+ * @returns Object with reset times (ISO string) or null for each group
+ */
+export function getGroupResetTimes(modelRateLimits: Record<string, { isRateLimited: boolean; resetTime: number | null }>): Record<string, string | null> {
+  const resetTimes: Record<string, string | null> = {};
+
+  for (const groupKey of getAllQuotaGroups()) {
+    const group = QUOTA_GROUPS[groupKey];
+    let earliestReset: number | null = null;
+
+    for (const modelId of group.models) {
+      const limit = modelRateLimits[modelId];
+      if (limit?.isRateLimited && limit.resetTime) {
+        if (!earliestReset || limit.resetTime < earliestReset) {
+          earliestReset = limit.resetTime;
+        }
+      }
+    }
+
+    resetTimes[groupKey] = earliestReset ? new Date(earliestReset).toISOString() : null;
+  }
+
+  return resetTimes;
 }
 
 // Request logging middleware
@@ -448,27 +477,34 @@ app.get("/account-limits", async (req: Request, res: Response) => {
       timestamp: new Date().toLocaleString(),
       totalAccounts: allAccounts.length,
       models: sortedModels,
-      accounts: accountLimits.map((acc) => ({
-        email: acc.email,
-        status: acc.status,
-        error: acc.error ?? null,
-        limits: Object.fromEntries(
-          sortedModels.map((modelId) => {
-            const quota = acc.models?.[modelId];
-            if (!quota) {
-              return [modelId, null];
-            }
-            return [
-              modelId,
-              {
-                remaining: quota.remainingFraction !== null ? `${Math.round(quota.remainingFraction * 100)}%` : "N/A",
-                remainingFraction: quota.remainingFraction,
-                resetTime: quota.resetTime ?? null,
-              },
-            ];
-          }),
-        ),
-      })),
+      accounts: accountLimits.map((acc, index) => {
+        // Get the original account to access modelRateLimits
+        const originalAccount = allAccounts[index];
+        const quotaResetTimes = getGroupResetTimes(originalAccount.modelRateLimits ?? {});
+
+        return {
+          email: acc.email,
+          status: acc.status,
+          error: acc.error ?? null,
+          quotaResetTimes,
+          limits: Object.fromEntries(
+            sortedModels.map((modelId) => {
+              const quota = acc.models?.[modelId];
+              if (!quota) {
+                return [modelId, null];
+              }
+              return [
+                modelId,
+                {
+                  remaining: quota.remainingFraction !== null ? `${Math.round(quota.remainingFraction * 100)}%` : "N/A",
+                  remainingFraction: quota.remainingFraction,
+                  resetTime: quota.resetTime ?? null,
+                },
+              ];
+            }),
+          ),
+        };
+      }),
     });
   } catch (error) {
     res.status(500).json({

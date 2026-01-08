@@ -130,7 +130,7 @@ Create or edit `~/.claude/settings.json`:
 
 ```bash
 echo 'export ANTHROPIC_BASE_URL="http://localhost:8080"' >> ~/.zshrc
-echo 'export ANTHROPIC_API_KEY="test"' >> ~/.zshrc
+echo 'export ANTHROPIC_AUTH_TOKEN="test"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -138,7 +138,7 @@ source ~/.zshrc
 
 ```powershell
 Add-Content $PROFILE "`n`$env:ANTHROPIC_BASE_URL = 'http://localhost:8080'"
-Add-Content $PROFILE "`$env:ANTHROPIC_API_KEY = 'test'"
+Add-Content $PROFILE "`$env:ANTHROPIC_AUTH_TOKEN = 'test'"
 . $PROFILE
 ```
 

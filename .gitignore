@@ -40,3 +40,8 @@ error.md
 
 # Worktrees
 .worktrees/
+
+# issue-monitor
+issue-monitor
+scripts/monitor_429.sh
+scripts/monitor_output/latest_report.md

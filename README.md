@@ -1,7 +1,38 @@
 # ag-cl
 
+[![npm version](https://img.shields.io/npm/v/ag-cl.svg)](https://www.npmjs.com/package/ag-cl)
+[![npm downloads](https://img.shields.io/npm/dm/ag-cl.svg)](https://www.npmjs.com/package/ag-cl)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
+
 The acronym ag-cl is short for **a**nti**g**ravity to (or hyphen) **cl**aude code.
 A proxy server exposing an **Anthropic-compatible API** backed by **Google Cloud Code** (Antigravity). Use Claude and Gemini models with Claude Code CLI.
+
+## TUI Dashboard
+
+Launch the interactive terminal UI to manage your proxy:
+
+```bash
+ag-cl        # TUI is the default command
+ag-cl tui    # Explicit TUI launch
+ag-cl start  # Headless server mode
+```
+
+<p align="center">
+  <img src="assets/ag-cl-tui.png" alt="ag-cl TUI Dashboard" width="700">
+</p>
+
+### Keyboard Shortcuts
+
+| Key | Action                     |
+| --- | -------------------------- |
+| `a` | View/manage accounts       |
+| `s` | Toggle server (start/stop) |
+| `p` | Change port                |
+| `r` | Refresh capacity           |
+| `l` | View server logs           |
+| `q` | Quit                       |
+| `?` | Help (command palette)     |
 
 ## Prerequisites
 
@@ -13,14 +44,14 @@ A proxy server exposing an **Anthropic-compatible API** backed by **Google Cloud
 ### Option 1: npx (No Install)
 
 ```bash
-npx ag-cl start
+npx ag-cl
 ```
 
 ### Option 2: Global Install
 
 ```bash
 npm install -g ag-cl
-ag-cl start
+ag-cl
 ```
 
 ### Option 3: Clone Repository
@@ -29,7 +60,7 @@ ag-cl start
 git clone https://github.com/NikkeTryHard/ag-cl.git
 cd ag-cl
 npm install
-npm start
+npm run tui
 ```
 
 ## Quick Start
@@ -114,7 +145,10 @@ Add-Content $PROFILE "`$env:ANTHROPIC_API_KEY = 'test'"
 ### 4. Start the Proxy and Run Claude Code
 
 ```bash
-# Start proxy
+# Start proxy (TUI mode)
+ag-cl
+
+# Or headless mode
 ag-cl start
 
 # In another terminal
@@ -172,7 +206,8 @@ Gemini models include full thinking support with `thoughtSignature` handling for
 
 | Command                        | Description                               |
 | ------------------------------ | ----------------------------------------- |
-| `start`                        | Start proxy server                        |
+| `tui`                          | Launch TUI dashboard (default)            |
+| `start`                        | Start proxy server (headless)             |
 | `start --port 3000`            | Custom port (default: 8080)               |
 | `start --fallback`             | Enable model fallback on quota exhaustion |
 | `start --debug`                | Verbose logging                           |
@@ -321,7 +356,7 @@ This is a TypeScript rewrite of the [original proxy](https://github.com/badri-s2
 | ------- | -------------- | --------------------------- |
 | CLI     | Basic argparse | Commander + @clack/prompts  |
 | Logging | Console.log    | Pino structured logging     |
-| UI      | Plain text     | Colors, spinners, tables    |
+| UI      | Plain text     | TUI dashboard + colors      |
 | Setup   | Manual         | Interactive wizard (`init`) |
 
 ### Reliability

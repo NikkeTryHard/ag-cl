@@ -47,7 +47,7 @@ async function performRefresh(): Promise<void> {
     accountManager.triggerQuotaReset("all");
 
     if (result.successCount > 0) {
-      const nextReset = new Date(Date.now() + 5 * 60 * 60 * 1000);
+      const nextReset = new Date(Date.now() + AUTO_REFRESH_INTERVAL_MS);
       logger.info(`[AutoRefresh] Quota timer started for ${result.successCount} group(s). Quota will reset at ${nextReset.toLocaleTimeString()}`);
     } else {
       logger.warn(`[AutoRefresh] Failed to trigger quota reset for any group`);

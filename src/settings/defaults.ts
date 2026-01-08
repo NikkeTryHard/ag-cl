@@ -21,6 +21,8 @@ export const DEFAULTS = {
   logLevel: "info" as LogLevel,
   /** Default fallback enabled state */
   fallbackEnabled: false,
+  /** Default auto-refresh enabled state */
+  autoRefreshEnabled: false,
   /** Default cooldown duration - imported from constants.ts */
   cooldownDurationMs: DEFAULT_COOLDOWN_MS,
 } as const;
@@ -116,6 +118,32 @@ export function getFallbackEnabled(settings?: AccountSettings): boolean {
 
   // Fall back to default
   return DEFAULTS.fallbackEnabled;
+}
+
+/**
+ * Get whether auto-refresh is enabled.
+ *
+ * Priority:
+ * 1. settings.autoRefreshEnabled (if provided)
+ * 2. AUTO_REFRESH environment variable
+ * 3. Default: false
+ *
+ * @param settings - Optional account settings object
+ * @returns Whether auto-refresh is enabled
+ */
+export function getAutoRefreshEnabled(settings?: AccountSettings): boolean {
+  // Check settings object first
+  if (settings?.autoRefreshEnabled !== undefined) {
+    return settings.autoRefreshEnabled;
+  }
+
+  // Fall back to environment variable
+  if (process.env.AUTO_REFRESH === "true") {
+    return true;
+  }
+
+  // Fall back to default
+  return DEFAULTS.autoRefreshEnabled;
 }
 
 /**

@@ -31,6 +31,7 @@ export interface GlobalOptions {
   jsonLogs?: boolean;
   silent?: boolean;
   maxEmptyRetries?: string;
+  triggerReset?: boolean;
 }
 
 /**
@@ -50,7 +51,8 @@ function createProgram(): Command {
     .option("--log-file <path>", "write logs to file")
     .option("--json-logs", "output logs as JSON")
     .option("--silent", "suppress all output except errors")
-    .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)");
+    .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
+    .option("--trigger-reset", "trigger quota reset on startup");
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {
@@ -93,6 +95,16 @@ function createProgram(): Command {
         if (!isNaN(retries) && retries >= 0) {
           process.env.MAX_EMPTY_RETRIES = String(retries);
         }
+      }
+
+      // Trigger quota reset on startup if requested
+      if (opts.triggerReset || process.env.TRIGGER_RESET === "true") {
+        const { default: chalk } = await import("chalk");
+        const { AccountManager } = await import("../account-manager/index.js");
+        const accountManager = new AccountManager();
+        await accountManager.initialize();
+        const result = accountManager.triggerQuotaReset("all");
+        console.log(chalk.green(`Startup quota reset: cleared ${result.limitsCleared} limit(s) on ${result.accountsAffected} account(s)`));
       }
 
       const { startCommand } = await import("./commands/start.js");
@@ -158,6 +170,16 @@ function createProgram(): Command {
     .action(async () => {
       const { initCommand } = await import("./commands/init.js");
       await initCommand();
+    });
+
+  // Trigger quota reset command
+  program
+    .command("trigger-reset")
+    .description("Trigger quota reset for all accounts")
+    .option("-g, --group <group>", "Quota group to reset (claude, geminiPro, geminiFlash, all)", "all")
+    .action(async (options: { group: string }) => {
+      const { triggerResetCommand } = await import("./commands/trigger-reset.js");
+      await triggerResetCommand(options);
     });
 
   return program;

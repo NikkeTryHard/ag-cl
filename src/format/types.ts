@@ -248,6 +248,7 @@ export interface GoogleContent {
  * Google system instruction
  */
 export interface GoogleSystemInstruction {
+  role?: string;
   parts: GoogleTextPart[];
 }
 

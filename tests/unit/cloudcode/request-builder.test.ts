@@ -48,6 +48,14 @@ describe("buildCloudCodeRequest", () => {
       expect(result.requestId).toMatch(/^agent-/);
     });
 
+    it("includes requestType as agent", () => {
+      const anthropicRequest = createAnthropicRequest();
+
+      const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+      expect(result.requestType).toBe("agent");
+    });
+
     it("converts Anthropic request to Google format", () => {
       const anthropicRequest = createAnthropicRequest({
         model: "gemini-3-flash",
@@ -135,6 +143,44 @@ describe("buildCloudCodeRequest", () => {
       const result = buildCloudCodeRequest(anthropicRequest, "my-custom-project");
 
       expect(result.project).toBe("my-custom-project");
+    });
+  });
+
+  describe("Antigravity system instruction injection", () => {
+    it("sets systemInstruction.role to user", () => {
+      const anthropicRequest = createAnthropicRequest({
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+      expect(result.request.systemInstruction?.role).toBe("user");
+    });
+
+    it("injects Antigravity identity text", () => {
+      const anthropicRequest = createAnthropicRequest({
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+      const firstPart = result.request.systemInstruction?.parts[0];
+      expect(firstPart?.text).toContain("<identity>");
+      expect(firstPart?.text).toContain("Antigravity");
+    });
+
+    it("prepends identity to existing system instruction", () => {
+      const anthropicRequest = createAnthropicRequest({
+        messages: [{ role: "user", content: "Hello" }],
+        system: "You are a helpful assistant.",
+      });
+
+      const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+
+      // First part should be the injected identity
+      expect(result.request.systemInstruction?.parts[0]?.text).toContain("<identity>");
+      // Second part should be the original system instruction
+      expect(result.request.systemInstruction?.parts[1]?.text).toBe("You are a helpful assistant.");
     });
   });
 });

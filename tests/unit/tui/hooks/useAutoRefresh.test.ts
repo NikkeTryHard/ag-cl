@@ -208,5 +208,29 @@ describe("useAutoRefresh", () => {
 
       expect(result.current.isRunning).toBe(false);
     });
+
+    it("returns lastRefreshTime state", async () => {
+      const settings: AccountSettings = { autoRefreshEnabled: false };
+      const { result } = renderHook(() => useAutoRefresh({ settings }));
+
+      expect(result.current.lastRefreshTime).toBeNull();
+    });
+
+    it("syncs lastRefreshTime when running", async () => {
+      // Initially not running, so start() will set isRunning to true
+      mockIsAutoRefreshRunning.mockReturnValue(false);
+      mockGetLastRefreshTime.mockReturnValue(Date.now() - 60000); // 1 min ago
+
+      const settings: AccountSettings = { autoRefreshEnabled: true };
+      renderHook(() => useAutoRefresh({ settings }));
+
+      // Wait for initial render, start(), and sync
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 150));
+      });
+
+      // The hook should have synced lastRefreshTime after isRunning became true
+      expect(mockGetLastRefreshTime).toHaveBeenCalled();
+    });
   });
 });

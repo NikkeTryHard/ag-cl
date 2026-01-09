@@ -19,6 +19,7 @@ import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
 import { useCommands } from "./hooks/useCommands.js";
 import { useSettings } from "./hooks/useSettings.js";
+import { useAutoRefresh } from "./hooks/useAutoRefresh.js";
 import { createLogBufferDestination } from "./hooks/useLogBuffer.js";
 import { isDemoMode, getDemoAccounts, getDemoClaudeCapacity, getDemoGeminiCapacity, initDemoLogs } from "./demo.js";
 import { initLogger } from "../utils/logger.js";
@@ -53,6 +54,10 @@ function App(): React.ReactElement {
   // Hooks
   const { settings, updateSettings, loading: settingsLoading } = useSettings();
   const serverState = useServerState({ settings, demoMode });
+
+  // Auto-refresh scheduler (tied to app lifecycle, not server)
+  useAutoRefresh({ settings, demoMode });
+
   const realCapacity = useCapacity();
 
   // Use demo data if in demo mode

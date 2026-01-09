@@ -101,7 +101,7 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     });
 
     return { needsRefresh, reason };
-  } catch (error) {
+  } catch {
     // Update state with error
     const existing = accountStates.get(email);
     accountStates.set(email, {

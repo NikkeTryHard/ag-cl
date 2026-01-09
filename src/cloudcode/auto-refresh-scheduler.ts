@@ -1,10 +1,10 @@
 /**
  * Auto-Refresh Scheduler
  *
- * Smart auto-refresh that checks quota status every 10 minutes and triggers
- * reset for accounts that need it. Uses pre-warming strategy to start fresh
- * 5-hour reset timers proactively when quota is at 100%.
- * Processes ALL OAuth accounts, not just the first one.
+ * Smart auto-refresh that checks quota status every 5 minutes (clock-aligned to
+ * :00, :05, :10, etc.) and triggers reset for accounts that need it. Uses
+ * pre-warming strategy to start fresh 5-hour reset timers proactively when
+ * quota is at 100%. Processes ALL OAuth accounts, not just the first one.
  */
 
 import { AUTO_REFRESH_CHECK_INTERVAL_MS } from "../constants.js";
@@ -14,9 +14,35 @@ import { AccountManager } from "../account-manager/index.js";
 import { getLogger } from "../utils/logger.js";
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+
+let timeoutId: ReturnType<typeof setTimeout> | null = null;
 let nextRefreshTime: number | null = null;
 let accountManager: AccountManager | null = null;
 let lastRefreshTime: number | null = null;
+
+/**
+ * Calculate milliseconds until the next clock-aligned interval.
+ *
+ * Aligns intervals to wall-clock times (e.g., :00, :05, :10, etc. for 5-minute intervals).
+ * This ensures all instances check at predictable times regardless of when they started.
+ *
+ * @param intervalMs - The interval in milliseconds (e.g., 5 * 60 * 1000 for 5 minutes)
+ * @returns Milliseconds until the next aligned interval (0 if already at aligned time)
+ */
+export function getMillisUntilNextAligned(intervalMs: number): number {
+  const now = Date.now();
+  // Calculate milliseconds since the start of the current hour
+  const msIntoHour = now % (60 * 60 * 1000);
+
+  // Find the next aligned time within the hour
+  const remainder = msIntoHour % intervalMs;
+
+  // If remainder is 0, we're already at an aligned time
+  if (remainder === 0) return 0;
+
+  // Otherwise, return time until next aligned interval
+  return intervalMs - remainder;
+}
 
 /** Per-account refresh state */
 export interface AccountRefreshState {
@@ -305,28 +331,47 @@ async function performRefresh(): Promise<void> {
 
 /**
  * Start the auto-refresh scheduler
- * Triggers immediately, then checks every AUTO_REFRESH_CHECK_INTERVAL_MS (10 minutes)
+ * Triggers immediately, then aligns to clock times (every 5 minutes at :00, :05, :10, etc.)
  */
 export async function startAutoRefresh(): Promise<void> {
   const logger = getLogger();
 
-  if (intervalId !== null) {
+  if (intervalId !== null || timeoutId !== null) {
     logger.debug("[AutoRefresh] Already running, skipping start");
     return;
   }
 
-  logger.info(`[AutoRefresh] Starting smart auto-refresh (check every 10 minutes)`);
+  const intervalMinutes = AUTO_REFRESH_CHECK_INTERVAL_MS / 60000;
+  logger.info(`[AutoRefresh] Starting smart auto-refresh (check every ${intervalMinutes} minutes, clock-aligned)`);
 
   // Trigger immediately
   await performRefresh();
 
-  // Schedule frequent checks (smart refresh only triggers when needed)
-  nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
-  intervalId = setInterval(() => {
-    void performRefresh().then(() => {
-      nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
-    });
-  }, AUTO_REFRESH_CHECK_INTERVAL_MS);
+  // Calculate time until next clock-aligned interval
+  const msUntilAligned = getMillisUntilNextAligned(AUTO_REFRESH_CHECK_INTERVAL_MS);
+
+  if (msUntilAligned === 0) {
+    // Already at aligned time, start interval immediately
+    nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+    intervalId = setInterval(() => {
+      void performRefresh().then(() => {
+        nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+      });
+    }, AUTO_REFRESH_CHECK_INTERVAL_MS);
+  } else {
+    // Wait until next aligned time, then start regular interval
+    nextRefreshTime = Date.now() + msUntilAligned;
+    timeoutId = setTimeout(() => {
+      void performRefresh().then(() => {
+        nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+        intervalId = setInterval(() => {
+          void performRefresh().then(() => {
+            nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+          });
+        }, AUTO_REFRESH_CHECK_INTERVAL_MS);
+      });
+    }, msUntilAligned);
+  }
 
   logger.info(`[AutoRefresh] Next check scheduled for ${new Date(nextRefreshTime).toLocaleTimeString()}`);
 }
@@ -335,9 +380,15 @@ export async function startAutoRefresh(): Promise<void> {
  * Stop the auto-refresh scheduler
  */
 export function stopAutoRefresh(): void {
-  if (intervalId !== null) {
-    clearInterval(intervalId);
-    intervalId = null;
+  if (intervalId !== null || timeoutId !== null) {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (intervalId !== null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
     nextRefreshTime = null;
     lastRefreshTime = null;
     accountStates.clear();
@@ -349,7 +400,7 @@ export function stopAutoRefresh(): void {
  * Check if auto-refresh is currently running
  */
 export function isAutoRefreshRunning(): boolean {
-  return intervalId !== null;
+  return intervalId !== null || timeoutId !== null;
 }
 
 /**

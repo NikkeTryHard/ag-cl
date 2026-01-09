@@ -41,7 +41,7 @@ vi.mock("../../../src/utils/logger.js", () => ({
   }),
 }));
 
-import { startAutoRefresh, stopAutoRefresh, isAutoRefreshRunning, getNextRefreshTime, getLastRefreshTime, getAccountRefreshStates, isTimerStale } from "../../../src/cloudcode/auto-refresh-scheduler.js";
+import { startAutoRefresh, stopAutoRefresh, isAutoRefreshRunning, getNextRefreshTime, getLastRefreshTime, getAccountRefreshStates, isTimerStale, getMillisUntilNextAligned } from "../../../src/cloudcode/auto-refresh-scheduler.js";
 import { triggerQuotaResetApi } from "../../../src/cloudcode/quota-reset-trigger.js";
 import { fetchAccountCapacity } from "../../../src/cloudcode/quota-api.js";
 import { AccountManager } from "../../../src/account-manager/index.js";
@@ -71,11 +71,14 @@ describe("cloudcode/auto-refresh-scheduler", () => {
     });
 
     it("triggers again after interval", async () => {
+      // Set time to an aligned time (3:00) so interval starts immediately
+      vi.setSystemTime(new Date("2026-01-09T03:00:00.000Z"));
+
       await startAutoRefresh();
       expect(triggerQuotaResetApi).toHaveBeenCalledTimes(1);
 
-      // Advance time by 10 minutes (the new check interval)
-      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      // Advance time by 5 minutes (the check interval)
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
       expect(triggerQuotaResetApi).toHaveBeenCalledTimes(2);
     });
@@ -98,10 +101,13 @@ describe("cloudcode/auto-refresh-scheduler", () => {
     });
 
     it("prevents future triggers after stop", async () => {
+      // Set time to an aligned time (3:00) so interval starts immediately
+      vi.setSystemTime(new Date("2026-01-09T03:00:00.000Z"));
+
       await startAutoRefresh();
       stopAutoRefresh();
 
-      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
       // Should only have the initial trigger, not the interval one
       expect(triggerQuotaResetApi).toHaveBeenCalledTimes(1);
@@ -809,6 +815,206 @@ describe("cloudcode/auto-refresh-scheduler", () => {
     });
   });
 
+  describe("getMillisUntilNextAligned", () => {
+    it("returns 0 when already at aligned time (:00)", () => {
+      // Set time to exactly 3:00:00.000
+      vi.setSystemTime(new Date("2026-01-09T03:00:00.000Z"));
+      const intervalMs = 5 * 60 * 1000; // 5 minutes
+
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(0);
+    });
+
+    it("returns 0 when already at aligned time (:05)", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:05:00.000Z"));
+      const intervalMs = 5 * 60 * 1000;
+
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(0);
+    });
+
+    it("returns 0 when already at aligned time (:55)", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:55:00.000Z"));
+      const intervalMs = 5 * 60 * 1000;
+
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(0);
+    });
+
+    it("returns time until next :05 when at :03", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:03:00.000Z"));
+      const intervalMs = 5 * 60 * 1000;
+
+      // At 3:03, next aligned is 3:05 = 2 minutes away
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(2 * 60 * 1000);
+    });
+
+    it("returns time until next :10 when at :07", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:07:00.000Z"));
+      const intervalMs = 5 * 60 * 1000;
+
+      // At 3:07, next aligned is 3:10 = 3 minutes away
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(3 * 60 * 1000);
+    });
+
+    it("returns time until next :00 (hour boundary) when at :58", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:58:00.000Z"));
+      const intervalMs = 5 * 60 * 1000;
+
+      // At 3:58, next aligned is 4:00 = 2 minutes away
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(2 * 60 * 1000);
+    });
+
+    it("handles seconds and milliseconds correctly", () => {
+      // At 3:03:30.500
+      vi.setSystemTime(new Date("2026-01-09T03:03:30.500Z"));
+      const intervalMs = 5 * 60 * 1000;
+
+      // Next aligned is 3:05:00.000 = 1 min 29.5 seconds away
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(1 * 60 * 1000 + 29 * 1000 + 500);
+    });
+
+    it("works with 10-minute interval", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:17:00.000Z"));
+      const intervalMs = 10 * 60 * 1000;
+
+      // At 3:17, next aligned is 3:20 = 3 minutes away
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(3 * 60 * 1000);
+    });
+
+    it("returns 0 for 10-minute interval at aligned time", () => {
+      vi.setSystemTime(new Date("2026-01-09T03:20:00.000Z"));
+      const intervalMs = 10 * 60 * 1000;
+
+      expect(getMillisUntilNextAligned(intervalMs)).toBe(0);
+    });
+  });
+
+  describe("clock-aligned scheduling", () => {
+    it("waits until next aligned time before first interval check", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "test@example.com", source: "oauth", refreshToken: "token" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockResolvedValue({
+          claudePool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+        }),
+      }));
+
+      const mockTrigger = vi.fn().mockResolvedValue({
+        successCount: 3,
+        failureCount: 0,
+        groupsTriggered: [],
+      });
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: mockTrigger,
+      }));
+
+      // Set time to 3:17 - next aligned 5-min interval is 3:20 (3 minutes away)
+      vi.setSystemTime(new Date("2026-01-09T03:17:00.000Z"));
+
+      const { startAutoRefresh: startFresh, stopAutoRefresh: stopFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startFresh();
+
+      // Initial trigger happens immediately
+      expect(mockTrigger).toHaveBeenCalledTimes(1);
+
+      // Advance 2 minutes - still before aligned time
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+      expect(mockTrigger).toHaveBeenCalledTimes(1);
+
+      // Advance 1 more minute to reach 3:20 (aligned time)
+      await vi.advanceTimersByTimeAsync(1 * 60 * 1000);
+      expect(mockTrigger).toHaveBeenCalledTimes(2);
+
+      // Then advance another 5 minutes to 3:25
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(mockTrigger).toHaveBeenCalledTimes(3);
+
+      stopFresh();
+    });
+
+    it("starts interval immediately when already at aligned time", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "test@example.com", source: "oauth", refreshToken: "token" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockResolvedValue({
+          claudePool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+        }),
+      }));
+
+      const mockTrigger = vi.fn().mockResolvedValue({
+        successCount: 3,
+        failureCount: 0,
+        groupsTriggered: [],
+      });
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: mockTrigger,
+      }));
+
+      // Set time to exactly 3:15 - already at aligned time
+      vi.setSystemTime(new Date("2026-01-09T03:15:00.000Z"));
+
+      const { startAutoRefresh: startFresh, stopAutoRefresh: stopFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startFresh();
+
+      // Initial trigger
+      expect(mockTrigger).toHaveBeenCalledTimes(1);
+
+      // Advance 5 minutes to 3:20
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(mockTrigger).toHaveBeenCalledTimes(2);
+
+      // Advance another 5 minutes to 3:25
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(mockTrigger).toHaveBeenCalledTimes(3);
+
+      stopFresh();
+    });
+  });
+
   describe("isTimerStale", () => {
     it("returns false when currentResetTime is null", () => {
       const now = Date.now();
@@ -958,11 +1164,14 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
 
+      // Set time to an aligned time so interval starts immediately
+      vi.setSystemTime(new Date("2026-01-09T10:00:00.000Z"));
+
       // First refresh
       await startAutoRefreshFresh();
 
-      // Advance time and trigger second refresh
-      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      // Advance time and trigger second refresh (5-minute interval)
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
       // Check states - after second refresh, stale detection should kick in
       const states = getAccountRefreshStatesFresh();
@@ -1019,11 +1228,14 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
 
+      // Set time to an aligned time so interval starts immediately
+      vi.setSystemTime(new Date("2026-01-09T10:00:00.000Z"));
+
       // First refresh
       await startAutoRefreshFresh();
 
-      // Advance time and trigger second refresh
-      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      // Advance time and trigger second refresh (5-minute interval)
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
       // Check states - timer should NOT be stale because absolute time stayed same
       const states = getAccountRefreshStatesFresh();
@@ -1076,6 +1288,9 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
 
+      // Set time to an aligned time so interval starts immediately
+      vi.setSystemTime(new Date("2026-01-09T10:00:00.000Z"));
+
       await startAutoRefreshFresh();
 
       // First refresh - should have current data but no previous
@@ -1088,8 +1303,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       const firstFetchedAt = states[0].fetchedAt;
 
-      // Advance time and trigger second refresh
-      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      // Advance time and trigger second refresh (5-minute interval)
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
       // Second refresh - should have previous data populated
       states = getAccountRefreshStatesFresh();

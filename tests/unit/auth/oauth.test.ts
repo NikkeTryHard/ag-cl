@@ -4,8 +4,33 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createServer } from "net";
 import { getAuthorizationUrl, extractCodeFromInput, exchangeCode, refreshAccessToken, getUserEmail, discoverProjectId, completeOAuthFlow, validateRefreshToken, startCallbackServer } from "../../../src/auth/oauth.js";
 import { OAUTH_CONFIG, OAUTH_REDIRECT_URI } from "../../../src/constants.js";
+
+/**
+ * Wait for a port to become available by attempting to bind to it.
+ * More reliable than fixed timeouts for TCP TIME_WAIT scenarios.
+ */
+async function waitForPortFree(port: number, timeout = 30000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const isFree = await new Promise<boolean>((resolve) => {
+      const server = createServer();
+      server.once("error", () => {
+        server.close();
+        resolve(false);
+      });
+      server.listen(port, () => {
+        server.close(() => resolve(true));
+      });
+    });
+    if (isFree) return;
+    // Wait before retrying - use longer interval to allow TIME_WAIT to expire
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`Port ${String(port)} not available after ${String(timeout)}ms`);
+}
 
 // Save original fetch for tests that need real HTTP requests
 const originalFetch = global.fetch;
@@ -536,7 +561,7 @@ describe("auth/oauth", () => {
     });
   });
 
-  describe.sequential("startCallbackServer", { timeout: 60000 }, () => {
+  describe.sequential("startCallbackServer", { timeout: 120000, retry: 2 }, () => {
     // These tests need real HTTP requests to the local server
     // Use a helper function that disables keep-alive to prevent connection reuse
     const fetchNoKeepAlive = (url: string) =>
@@ -545,18 +570,19 @@ describe("auth/oauth", () => {
       });
 
     beforeEach(async () => {
-      // Ensure port is fully released from previous test
-      // Increased from 200ms to handle slower CI environments
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait for port to be actually available, not just a fixed timeout
+      // This handles TCP TIME_WAIT more reliably
+      await waitForPortFree(OAUTH_CONFIG.callbackPort, 30000);
       global.fetch = originalFetch;
     }, 35000); // Hook-specific timeout
 
     afterEach(async () => {
       // Restore mock fetch first to avoid any issues with pending requests
       global.fetch = mockFetch;
-      // Give time for server socket to fully close and port to be released
-      // Node.js TCP TIME_WAIT can take a while, especially under load
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      // Wait for port to be released before next test
+      await waitForPortFree(OAUTH_CONFIG.callbackPort, 30000).catch(() => {
+        // Ignore errors - next test's beforeEach will retry
+      });
     }, 35000); // Hook-specific timeout
 
     it("is a function that returns a promise", () => {
@@ -592,7 +618,7 @@ describe("auth/oauth", () => {
       // Attach a no-op catch handler to prevent unhandled rejection warning
       // The actual assertion happens below
       serverPromise.catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Increased wait
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const response = await fetchNoKeepAlive(`http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback?error=access_denied`);
 
@@ -602,9 +628,6 @@ describe("auth/oauth", () => {
       expect(html).toContain("access_denied");
 
       await expect(serverPromise).rejects.toThrow("OAuth error: access_denied");
-
-      // Extra wait for server to fully close
-      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("rejects with error when state does not match (CSRF protection)", async () => {
@@ -614,7 +637,7 @@ describe("auth/oauth", () => {
       const serverPromise = startCallbackServer(expectedState, 5000);
       // Attach a no-op catch handler to prevent unhandled rejection warning
       serverPromise.catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Increased wait
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const response = await fetchNoKeepAlive(`http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback?code=test-code&state=${wrongState}`);
 
@@ -623,9 +646,6 @@ describe("auth/oauth", () => {
       expect(html).toContain("State mismatch");
 
       await expect(serverPromise).rejects.toThrow("State mismatch");
-
-      // Extra wait for server to fully close
-      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("rejects with error when no authorization code is provided", async () => {
@@ -634,7 +654,7 @@ describe("auth/oauth", () => {
       const serverPromise = startCallbackServer(expectedState, 5000);
       // Attach a no-op catch handler to prevent unhandled rejection warning
       serverPromise.catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Increased wait
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const response = await fetchNoKeepAlive(`http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback?state=${expectedState}`);
 
@@ -643,9 +663,6 @@ describe("auth/oauth", () => {
       expect(html).toContain("No authorization code");
 
       await expect(serverPromise).rejects.toThrow("No authorization code");
-
-      // Extra wait for server to fully close
-      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("returns 404 for non-callback paths", async () => {
@@ -675,9 +692,6 @@ describe("auth/oauth", () => {
       serverPromise.catch(() => {});
 
       await expect(serverPromise).rejects.toThrow("OAuth callback timeout");
-
-      // Give extra time for server socket to fully close after timeout
-      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("rejects with port in use error when port is already bound", async () => {

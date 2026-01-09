@@ -16,37 +16,83 @@ let nextRefreshTime: number | null = null;
 let accountManager: AccountManager | null = null;
 let lastRefreshTime: number | null = null;
 
+/** Per-account refresh state */
+export interface AccountRefreshState {
+  email: string;
+  lastChecked: number | null;
+  lastTriggered: number | null;
+  claudePercentage: number;
+  geminiPercentage: number;
+  claudeResetTime: string | null;
+  geminiResetTime: string | null;
+  status: "ok" | "exhausted" | "pending_reset" | "error";
+}
+
+const accountStates = new Map<string, AccountRefreshState>();
+
 /**
- * Check if an account needs quota refresh trigger
+ * Check if an account needs quota refresh trigger and update state
  * @returns true if account is exhausted and has no pending reset timer
  */
-async function accountNeedsRefresh(token: string, email: string): Promise<{ needsRefresh: boolean; reason: string }> {
+async function checkAndUpdateAccountState(token: string, email: string): Promise<{ needsRefresh: boolean; reason: string }> {
+  const now = Date.now();
+
   try {
     const capacity = await fetchAccountCapacity(token, email);
 
-    // Check Claude pool
-    const claudeExhausted = capacity.claudePool.aggregatedPercentage === 0;
-    const claudeHasReset = capacity.claudePool.earliestReset !== null;
+    const claudePct = capacity.claudePool.aggregatedPercentage;
+    const geminiPct = capacity.geminiPool.aggregatedPercentage;
+    const claudeReset = capacity.claudePool.earliestReset;
+    const geminiReset = capacity.geminiPool.earliestReset;
 
-    // Check Gemini pool (use minimum percentage across models)
-    const geminiExhausted = capacity.geminiPool.aggregatedPercentage === 0;
-    const geminiHasReset = capacity.geminiPool.earliestReset !== null;
+    // Determine status
+    let status: AccountRefreshState["status"] = "ok";
+    let needsRefresh = false;
+    let reason = "Has remaining quota";
 
-    // Need refresh if exhausted AND no reset timer running
-    if (claudeExhausted && !claudeHasReset) {
-      return { needsRefresh: true, reason: "Claude exhausted, no reset timer" };
+    const claudeExhausted = claudePct === 0;
+    const geminiExhausted = geminiPct === 0;
+
+    if (claudeExhausted && !claudeReset) {
+      needsRefresh = true;
+      status = "exhausted";
+      reason = "Claude exhausted, no reset timer";
+    } else if (geminiExhausted && !geminiReset) {
+      needsRefresh = true;
+      status = "exhausted";
+      reason = "Gemini exhausted, no reset timer";
+    } else if (claudeReset || geminiReset) {
+      status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
+      reason = "Reset timer already running";
     }
-    if (geminiExhausted && !geminiHasReset) {
-      return { needsRefresh: true, reason: "Gemini exhausted, no reset timer" };
-    }
 
-    // Already has capacity or reset timer is running
-    if (claudeHasReset || geminiHasReset) {
-      return { needsRefresh: false, reason: "Reset timer already running" };
-    }
+    // Update state
+    accountStates.set(email, {
+      email,
+      lastChecked: now,
+      lastTriggered: accountStates.get(email)?.lastTriggered ?? null,
+      claudePercentage: claudePct,
+      geminiPercentage: geminiPct,
+      claudeResetTime: claudeReset,
+      geminiResetTime: geminiReset,
+      status,
+    });
 
-    return { needsRefresh: false, reason: "Has remaining quota" };
+    return { needsRefresh, reason };
   } catch (error) {
+    // Update state with error
+    const existing = accountStates.get(email);
+    accountStates.set(email, {
+      email,
+      lastChecked: now,
+      lastTriggered: existing?.lastTriggered ?? null,
+      claudePercentage: existing?.claudePercentage ?? 0,
+      geminiPercentage: existing?.geminiPercentage ?? 0,
+      claudeResetTime: existing?.claudeResetTime ?? null,
+      geminiResetTime: existing?.geminiResetTime ?? null,
+      status: "error",
+    });
+
     // If we can't check, trigger anyway to be safe
     return { needsRefresh: true, reason: "Could not check quota status" };
   }
@@ -85,7 +131,7 @@ async function performRefresh(): Promise<void> {
         const token = await accountManager.getTokenForAccount(account);
 
         // Check if this account actually needs a refresh trigger
-        const { needsRefresh, reason } = await accountNeedsRefresh(token, account.email);
+        const { needsRefresh, reason } = await checkAndUpdateAccountState(token, account.email);
 
         if (!needsRefresh) {
           logger.debug(`[AutoRefresh] ${account.email}: skipped - ${reason}`);
@@ -101,6 +147,12 @@ async function performRefresh(): Promise<void> {
 
         if (result.successCount > 0) {
           totalSuccess++;
+          // Update lastTriggered timestamp
+          const state = accountStates.get(account.email);
+          if (state) {
+            state.lastTriggered = Date.now();
+            state.status = "pending_reset";
+          }
           logger.info(`[AutoRefresh] ${account.email}: triggered ${result.successCount} group(s)`);
         } else {
           totalFailed++;
@@ -166,6 +218,7 @@ export function stopAutoRefresh(): void {
     intervalId = null;
     nextRefreshTime = null;
     lastRefreshTime = null;
+    accountStates.clear();
     getLogger().info("[AutoRefresh] Scheduler stopped");
   }
 }
@@ -191,4 +244,21 @@ export function getNextRefreshTime(): number | null {
  */
 export function getLastRefreshTime(): number | null {
   return lastRefreshTime;
+}
+
+/**
+ * Get the current state of all tracked accounts
+ * @returns Array of account refresh states
+ */
+export function getAccountRefreshStates(): AccountRefreshState[] {
+  return Array.from(accountStates.values());
+}
+
+/**
+ * Get state for a specific account
+ * @param email - Account email
+ * @returns Account state or undefined if not tracked
+ */
+export function getAccountRefreshState(email: string): AccountRefreshState | undefined {
+  return accountStates.get(email);
 }

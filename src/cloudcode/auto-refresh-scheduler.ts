@@ -5,7 +5,7 @@
  * This starts the Google quota countdown timer so quota resets on a known schedule.
  */
 
-import { AUTO_REFRESH_INTERVAL_MS } from "../constants.js";
+import { AUTO_REFRESH_INTERVAL_MS, AUTO_REFRESH_CHECK_INTERVAL_MS } from "../constants.js";
 import { triggerQuotaResetApi } from "./quota-reset-trigger.js";
 import { fetchAccountCapacity } from "./quota-api.js";
 import { AccountManager } from "../account-manager/index.js";
@@ -131,7 +131,7 @@ async function performRefresh(): Promise<void> {
 
 /**
  * Start the auto-refresh scheduler
- * Triggers immediately, then every AUTO_REFRESH_INTERVAL_MS (5 hours)
+ * Triggers immediately, then checks every AUTO_REFRESH_CHECK_INTERVAL_MS (10 minutes)
  */
 export async function startAutoRefresh(): Promise<void> {
   const logger = getLogger();
@@ -141,20 +141,20 @@ export async function startAutoRefresh(): Promise<void> {
     return;
   }
 
-  logger.info(`[AutoRefresh] Starting auto-refresh scheduler (interval: 5 hours)`);
+  logger.info(`[AutoRefresh] Starting smart auto-refresh (check every 10 minutes)`);
 
   // Trigger immediately
   await performRefresh();
 
-  // Schedule future triggers
-  nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL_MS;
+  // Schedule frequent checks (smart refresh only triggers when needed)
+  nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
   intervalId = setInterval(() => {
     void performRefresh().then(() => {
-      nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL_MS;
+      nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
     });
-  }, AUTO_REFRESH_INTERVAL_MS);
+  }, AUTO_REFRESH_CHECK_INTERVAL_MS);
 
-  logger.info(`[AutoRefresh] Next refresh scheduled for ${new Date(nextRefreshTime).toLocaleTimeString()}`);
+  logger.info(`[AutoRefresh] Next check scheduled for ${new Date(nextRefreshTime).toLocaleTimeString()}`);
 }
 
 /**

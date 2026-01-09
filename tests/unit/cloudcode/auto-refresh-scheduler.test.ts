@@ -13,6 +13,13 @@ vi.mock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
   }),
 }));
 
+vi.mock("../../../src/cloudcode/quota-api.js", () => ({
+  fetchAccountCapacity: vi.fn().mockResolvedValue({
+    claudePool: { aggregatedPercentage: 0, earliestReset: null },
+    geminiPool: { aggregatedPercentage: 100, earliestReset: null },
+  }),
+}));
+
 vi.mock("../../../src/account-manager/index.js", () => {
   class MockAccountManager {
     initialize = vi.fn().mockResolvedValue(undefined);
@@ -60,8 +67,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       await startAutoRefresh();
       expect(triggerQuotaResetApi).toHaveBeenCalledTimes(1);
 
-      // Advance time by 5 hours
-      await vi.advanceTimersByTimeAsync(5 * 60 * 60 * 1000);
+      // Advance time by 10 minutes (the new check interval)
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
 
       expect(triggerQuotaResetApi).toHaveBeenCalledTimes(2);
     });
@@ -87,7 +94,7 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       await startAutoRefresh();
       stopAutoRefresh();
 
-      await vi.advanceTimersByTimeAsync(5 * 60 * 60 * 1000);
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
 
       // Should only have the initial trigger, not the interval one
       expect(triggerQuotaResetApi).toHaveBeenCalledTimes(1);

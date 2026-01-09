@@ -1,11 +1,12 @@
 /**
  * Auto-Refresh Scheduler
  *
- * Automatically triggers quota reset every 5 hours to ensure predictable quota cycles.
- * This starts the Google quota countdown timer so quota resets on a known schedule.
+ * Smart auto-refresh that checks quota status every 10 minutes and triggers
+ * reset only for accounts that are exhausted AND have no reset timer running.
+ * Processes ALL OAuth accounts, not just the first one.
  */
 
-import { AUTO_REFRESH_INTERVAL_MS, AUTO_REFRESH_CHECK_INTERVAL_MS } from "../constants.js";
+import { AUTO_REFRESH_CHECK_INTERVAL_MS } from "../constants.js";
 import { triggerQuotaResetApi } from "./quota-reset-trigger.js";
 import { fetchAccountCapacity } from "./quota-api.js";
 import { AccountManager } from "../account-manager/index.js";
@@ -175,8 +176,8 @@ async function performRefresh(): Promise<void> {
 
     if (totalSuccess > 0) {
       lastRefreshTime = Date.now();
-      const nextReset = new Date(Date.now() + AUTO_REFRESH_INTERVAL_MS);
-      logger.info(`[AutoRefresh] Completed: ${totalSuccess} triggered, ${totalSkipped} skipped, ${totalFailed} failed. Next check at ${nextReset.toLocaleTimeString()}`);
+      const nextCheck = new Date(Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS);
+      logger.info(`[AutoRefresh] Completed: ${totalSuccess} triggered, ${totalSkipped} skipped, ${totalFailed} failed. Next check at ${nextCheck.toLocaleTimeString()}`);
     } else if (totalSkipped > 0) {
       logger.info(`[AutoRefresh] No accounts needed refresh (${totalSkipped} skipped - already have reset timers or quota remaining)`);
     } else {

@@ -4,17 +4,17 @@
  * automatic failover, and smart cooldown for rate-limited accounts.
  */
 
-import { ACCOUNT_CONFIG_PATH } from "../constants.js";
+import { ACCOUNT_CONFIG_PATH, DEFAULT_SCHEDULING_MODE } from "../constants.js";
 import { loadAccounts, loadDefaultAccount, saveAccounts } from "./storage.js";
 import { isAllRateLimited as checkAllRateLimited, getAvailableAccounts as getAvailable, getInvalidAccounts as getInvalid, clearExpiredLimits as clearLimits, resetAllRateLimits as resetLimits, markRateLimited as markLimited, markInvalid as markAccountInvalid, getMinWaitTimeMs as getMinWait, triggerQuotaReset as triggerReset, type QuotaResetResult } from "./rate-limits.js";
 import type { QuotaGroupKey } from "../cloudcode/quota-groups.js";
 import { getTokenForAccount as fetchToken, getProjectForAccount as fetchProject, clearProjectCache as clearProject, clearTokenCache as clearToken } from "./credentials.js";
-import { pickNext as selectNext, getCurrentStickyAccount as getSticky, shouldWaitForCurrentAccount as shouldWait, pickStickyAccount as selectSticky } from "./selection.js";
+import { pickNext as selectNext, getCurrentStickyAccount as getSticky, shouldWaitForCurrentAccount as shouldWait, pickStickyAccount as selectSticky, pickByMode } from "./selection.js";
 import { getLogger } from "../utils/logger.js";
-import type { Account, AccountSettings, TokenCacheEntry, AccountManagerStatus, AccountStatus, ShouldWaitResult } from "./types.js";
+import type { Account, AccountSettings, TokenCacheEntry, AccountManagerStatus, AccountStatus, ShouldWaitResult, SchedulingMode } from "./types.js";
 
 // Re-export types for external consumers
-export type { Account, AccountSettings, AccountManagerStatus, AccountStatus, TokenCacheEntry, LogLevel, IdentityMode } from "./types.js";
+export type { Account, AccountSettings, AccountManagerStatus, AccountStatus, TokenCacheEntry, LogLevel, IdentityMode, SchedulingMode } from "./types.js";
 export type { QuotaResetResult } from "./rate-limits.js";
 
 /**
@@ -289,6 +289,70 @@ export class AccountManager {
    */
   getSettings(): AccountSettings {
     return { ...this.#settings };
+  }
+
+  /**
+   * Valid scheduling modes for validation
+   */
+  static readonly #validSchedulingModes: readonly SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
+
+  /**
+   * Get the current scheduling mode for account selection.
+   * Priority: CLI flag (--scheduling) > SCHEDULING_MODE env var > settings.schedulingMode > default
+   *
+   * Hot reload: Changes to settings.json take effect on next request without restart.
+   *
+   * @returns The current scheduling mode
+   */
+  getSchedulingMode(): SchedulingMode {
+    // Priority 1: SCHEDULING_MODE environment variable (CLI flag will be added in Task 7)
+    const envMode = process.env.SCHEDULING_MODE;
+    if (envMode && AccountManager.#validSchedulingModes.includes(envMode as SchedulingMode)) {
+      return envMode as SchedulingMode;
+    }
+
+    // Priority 2: Settings from config (hot reloaded)
+    const settingsMode = this.#settings.schedulingMode;
+    if (settingsMode && AccountManager.#validSchedulingModes.includes(settingsMode)) {
+      return settingsMode;
+    }
+
+    // Priority 3: Default
+    return DEFAULT_SCHEDULING_MODE;
+  }
+
+  /**
+   * Pick an account based on the configured scheduling mode.
+   * Uses the scheduling mode from getSchedulingMode() to select the best account.
+   *
+   * @param modelId - Optional model ID for rate limit checking and quota group selection
+   * @returns The selected account or null if none available
+   */
+  pickAccount(modelId?: string): Account | null {
+    const mode = this.getSchedulingMode();
+
+    // Get current account email for sticky mode context
+    const currentAccountEmail = this.#accounts[this.#currentIndex]?.email;
+
+    // Use pickByMode for mode-aware selection
+    const selected = pickByMode(mode, this.#accounts, modelId ?? "", currentAccountEmail);
+
+    if (selected) {
+      // Update the current index to track the selected account
+      const newIndex = this.#accounts.findIndex((a) => a.email === selected.email);
+      if (newIndex !== -1) {
+        this.#currentIndex = newIndex;
+      }
+
+      // Log the selection with mode and quota details
+      const logger = getLogger();
+      logger.debug(`[AccountManager] Mode: ${mode} | Selected: ${selected.email}`);
+
+      // Trigger save (don't await to avoid blocking)
+      void this.saveToDisk();
+    }
+
+    return selected;
   }
 
   /**

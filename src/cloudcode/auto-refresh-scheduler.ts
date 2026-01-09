@@ -7,6 +7,7 @@
 
 import { AUTO_REFRESH_INTERVAL_MS } from "../constants.js";
 import { triggerQuotaResetApi } from "./quota-reset-trigger.js";
+import { fetchAccountCapacity } from "./quota-api.js";
 import { AccountManager } from "../account-manager/index.js";
 import { getLogger } from "../utils/logger.js";
 
@@ -14,6 +15,42 @@ let intervalId: ReturnType<typeof setInterval> | null = null;
 let nextRefreshTime: number | null = null;
 let accountManager: AccountManager | null = null;
 let lastRefreshTime: number | null = null;
+
+/**
+ * Check if an account needs quota refresh trigger
+ * @returns true if account is exhausted and has no pending reset timer
+ */
+async function accountNeedsRefresh(token: string, email: string): Promise<{ needsRefresh: boolean; reason: string }> {
+  try {
+    const capacity = await fetchAccountCapacity(token, email);
+
+    // Check Claude pool
+    const claudeExhausted = capacity.claudePool.aggregatedPercentage === 0;
+    const claudeHasReset = capacity.claudePool.earliestReset !== null;
+
+    // Check Gemini pool (use minimum percentage across models)
+    const geminiExhausted = capacity.geminiPool.aggregatedPercentage === 0;
+    const geminiHasReset = capacity.geminiPool.earliestReset !== null;
+
+    // Need refresh if exhausted AND no reset timer running
+    if (claudeExhausted && !claudeHasReset) {
+      return { needsRefresh: true, reason: "Claude exhausted, no reset timer" };
+    }
+    if (geminiExhausted && !geminiHasReset) {
+      return { needsRefresh: true, reason: "Gemini exhausted, no reset timer" };
+    }
+
+    // Already has capacity or reset timer is running
+    if (claudeHasReset || geminiHasReset) {
+      return { needsRefresh: false, reason: "Reset timer already running" };
+    }
+
+    return { needsRefresh: false, reason: "Has remaining quota" };
+  } catch (error) {
+    // If we can't check, trigger anyway to be safe
+    return { needsRefresh: true, reason: "Could not check quota status" };
+  }
+}
 
 /**
  * Perform quota refresh for ALL OAuth accounts
@@ -46,6 +83,17 @@ async function performRefresh(): Promise<void> {
     for (const account of oauthAccounts) {
       try {
         const token = await accountManager.getTokenForAccount(account);
+
+        // Check if this account actually needs a refresh trigger
+        const { needsRefresh, reason } = await accountNeedsRefresh(token, account.email);
+
+        if (!needsRefresh) {
+          logger.debug(`[AutoRefresh] ${account.email}: skipped - ${reason}`);
+          continue;
+        }
+
+        logger.info(`[AutoRefresh] ${account.email}: triggering - ${reason}`);
+
         const projectId = await accountManager.getProjectForAccount(account, token);
 
         // Trigger quota reset for all groups using this account's credentials

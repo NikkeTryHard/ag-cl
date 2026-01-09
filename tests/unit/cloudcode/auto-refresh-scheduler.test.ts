@@ -452,6 +452,62 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       stopAutoRefreshFresh();
     });
+
+    it("triggers pre-warming when account is at 100% quota with stale reset timer", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "prewarm@test.com", source: "oauth", refreshToken: "token1" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Account at 100% with stale reset timers (previous cycle completed)
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockResolvedValue({
+          claudePool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T09:00:00Z", models: [] },
+          geminiPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T09:00:00Z", models: [] },
+        }),
+      }));
+
+      const mockTriggerQuotaResetApiLocal = vi.fn().mockResolvedValue({
+        successCount: 3,
+        failureCount: 0,
+        groupsTriggered: [],
+      });
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: mockTriggerQuotaResetApiLocal,
+      }));
+
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startAutoRefreshFresh();
+
+      // Should TRIGGER - pre-warming at 100% even though reset timer shows
+      expect(mockTriggerQuotaResetApiLocal).toHaveBeenCalledTimes(1);
+
+      // Verify account state
+      const states = getAccountRefreshStatesFresh();
+      expect(states).toHaveLength(1);
+      expect(states[0].claudePercentage).toBe(100);
+      expect(states[0].geminiPercentage).toBe(100);
+
+      stopAutoRefreshFresh();
+    });
   });
 
   describe("getAccountRefreshStates", () => {

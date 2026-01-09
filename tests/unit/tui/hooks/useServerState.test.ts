@@ -9,13 +9,6 @@ import { useServerState } from "../../../../src/tui/hooks/useServerState.js";
 import type { AccountSettings } from "../../../../src/account-manager/types.js";
 import { DEFAULT_PORT } from "../../../../src/constants.js";
 
-// Mock auto-refresh-scheduler
-vi.mock("../../../../src/cloudcode/auto-refresh-scheduler.js", () => ({
-  startAutoRefresh: vi.fn().mockResolvedValue(undefined),
-  stopAutoRefresh: vi.fn(),
-  isAutoRefreshRunning: vi.fn().mockReturnValue(false),
-}));
-
 // Mock server module for non-demoMode tests
 const mockServer = {
   listen: vi.fn().mockReturnThis(),
@@ -181,64 +174,11 @@ describe("useServerState", () => {
         fallbackEnabled: true,
         identityMode: "short",
         cooldownDurationMs: 5000,
-        autoRefreshEnabled: true,
       };
 
       const { result } = renderHook(() => useServerState({ settings, demoMode: true }));
       expect(result.current.port).toBe(8888);
       expect(result.current.error).toBeNull();
-    });
-  });
-
-  describe("auto-refresh integration", () => {
-    it("starts auto-refresh when server starts and autoRefreshEnabled is true", async () => {
-      const { startAutoRefresh } = await import("../../../../src/cloudcode/auto-refresh-scheduler.js");
-      vi.mocked(startAutoRefresh).mockClear();
-
-      const settingsWithAutoRefresh = { autoRefreshEnabled: true };
-      const { result } = renderHook(() => useServerState({ settings: settingsWithAutoRefresh }));
-
-      await act(async () => {
-        await result.current.start();
-      });
-
-      expect(result.current.running).toBe(true);
-      expect(startAutoRefresh).toHaveBeenCalled();
-    });
-
-    it("does not start auto-refresh when autoRefreshEnabled is false", async () => {
-      const { startAutoRefresh } = await import("../../../../src/cloudcode/auto-refresh-scheduler.js");
-      vi.mocked(startAutoRefresh).mockClear();
-
-      const settingsWithoutAutoRefresh = { autoRefreshEnabled: false };
-      const { result } = renderHook(() => useServerState({ settings: settingsWithoutAutoRefresh }));
-
-      await act(async () => {
-        await result.current.start();
-      });
-
-      expect(result.current.running).toBe(true);
-      expect(startAutoRefresh).not.toHaveBeenCalled();
-    });
-
-    it("stops auto-refresh when server stops", async () => {
-      const { stopAutoRefresh, isAutoRefreshRunning } = await import("../../../../src/cloudcode/auto-refresh-scheduler.js");
-      vi.mocked(isAutoRefreshRunning).mockReturnValue(true);
-      vi.mocked(stopAutoRefresh).mockClear();
-
-      const settingsWithAutoRefresh = { autoRefreshEnabled: true };
-      const { result } = renderHook(() => useServerState({ settings: settingsWithAutoRefresh }));
-
-      await act(async () => {
-        await result.current.start();
-      });
-
-      await act(async () => {
-        await result.current.stop();
-      });
-
-      expect(result.current.running).toBe(false);
-      expect(stopAutoRefresh).toHaveBeenCalled();
     });
   });
 });

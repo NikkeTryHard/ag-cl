@@ -45,6 +45,9 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     const claudeReset = capacity.claudePool.earliestReset;
     const geminiReset = capacity.geminiPool.earliestReset;
 
+    // Log quota status for this account
+    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}), Gemini ${geminiPct}% (reset: ${geminiReset ?? "none"})`);
+
     // Determine status
     let status: AccountRefreshState["status"] = "ok";
     let needsRefresh = false;
@@ -124,6 +127,7 @@ async function performRefresh(): Promise<void> {
 
     let totalSuccess = 0;
     let totalFailed = 0;
+    let totalSkipped = 0;
 
     // Process each account
     for (const account of oauthAccounts) {
@@ -134,7 +138,8 @@ async function performRefresh(): Promise<void> {
         const { needsRefresh, reason } = await checkAndUpdateAccountState(token, account.email);
 
         if (!needsRefresh) {
-          logger.debug(`[AutoRefresh] ${account.email}: skipped - ${reason}`);
+          logger.info(`[AutoRefresh] ${account.email}: skipped - ${reason}`);
+          totalSkipped++;
           continue;
         }
 
@@ -171,7 +176,9 @@ async function performRefresh(): Promise<void> {
     if (totalSuccess > 0) {
       lastRefreshTime = Date.now();
       const nextReset = new Date(Date.now() + AUTO_REFRESH_INTERVAL_MS);
-      logger.info(`[AutoRefresh] Completed: ${totalSuccess} succeeded, ${totalFailed} failed. Next refresh at ${nextReset.toLocaleTimeString()}`);
+      logger.info(`[AutoRefresh] Completed: ${totalSuccess} triggered, ${totalSkipped} skipped, ${totalFailed} failed. Next check at ${nextReset.toLocaleTimeString()}`);
+    } else if (totalSkipped > 0) {
+      logger.info(`[AutoRefresh] No accounts needed refresh (${totalSkipped} skipped - already have reset timers or quota remaining)`);
     } else {
       logger.warn(`[AutoRefresh] All ${totalFailed} account(s) failed to trigger quota reset`);
     }

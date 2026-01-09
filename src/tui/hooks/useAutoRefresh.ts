@@ -5,7 +5,7 @@
  * Starts/stops the scheduler when the setting changes or on mount/unmount.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getAutoRefreshEnabled } from "../../settings/defaults.js";
 import type { AccountSettings } from "../../account-manager/types.js";
 
@@ -29,8 +29,12 @@ export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshRe
   const { settings, demoMode = false } = options;
   const [isRunning, setIsRunning] = useState(false);
 
+  // Store isRunning in a ref so callbacks don't depend on the state
+  const isRunningRef = useRef(isRunning);
+  isRunningRef.current = isRunning;
+
   const start = useCallback(async () => {
-    if (demoMode || isRunning) return;
+    if (demoMode || isRunningRef.current) return;
 
     const { startAutoRefresh, isAutoRefreshRunning } = await import("../../cloudcode/auto-refresh-scheduler.js");
 
@@ -38,7 +42,7 @@ export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshRe
       await startAutoRefresh();
       setIsRunning(true);
     }
-  }, [demoMode, isRunning]);
+  }, [demoMode]);
 
   const stop = useCallback(() => {
     if (demoMode) return;
@@ -56,6 +60,7 @@ export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshRe
   }, [demoMode]);
 
   // Start/stop based on setting changes
+  // start/stop are now stable (only depend on demoMode), preventing effect loops
   useEffect(() => {
     const enabled = getAutoRefreshEnabled(settings);
 

@@ -9,18 +9,18 @@ exports[`SettingsModal snapshots > renders with all settings configured 1`] = `
                             │                                           │
                             │ Settings                                  │
                             │                                           │
-                            │  > Identity Mode  [short]                 │
-                            │    Default Port   [3000]                  │
-                            │    Log Level      [debug]                 │
-                            │    Model Fallback [on]                    │
-                            │    Auto Refresh   [off]                   │
+                            │  > Identity Mode   [short]                │
+                            │    Default Port    [3000]                 │
+                            │    Log Level       [debug]                │
+                            │    Model Fallback  [on]                   │
+                            │    Auto Refresh    [off]                  │
+                            │    Scheduling Mode [sticky]               │
                             │                                           │
                             │ Changes take effect after server restart  │
                             │                                           │
                             │ ESC close | Enter edit | Up/Down navigate │
                             │                                           │
                             ╰───────────────────────────────────────────╯
-
 
 
 "
@@ -35,18 +35,18 @@ exports[`SettingsModal snapshots > renders with default settings 1`] = `
                             │                                           │
                             │ Settings                                  │
                             │                                           │
-                            │  > Identity Mode  [full]                  │
-                            │    Default Port   [8080]                  │
-                            │    Log Level      [info]                  │
-                            │    Model Fallback [off]                   │
-                            │    Auto Refresh   [off]                   │
+                            │  > Identity Mode   [full]                 │
+                            │    Default Port    [8080]                 │
+                            │    Log Level       [info]                 │
+                            │    Model Fallback  [off]                  │
+                            │    Auto Refresh    [off]                  │
+                            │    Scheduling Mode [sticky]               │
                             │                                           │
                             │ Changes take effect after server restart  │
                             │                                           │
                             │ ESC close | Enter edit | Up/Down navigate │
                             │                                           │
                             ╰───────────────────────────────────────────╯
-
 
 
 "
@@ -61,18 +61,18 @@ exports[`SettingsModal snapshots > renders with identity mode none 1`] = `
                             │                                           │
                             │ Settings                                  │
                             │                                           │
-                            │  > Identity Mode  [none]                  │
-                            │    Default Port   [8080]                  │
-                            │    Log Level      [info]                  │
-                            │    Model Fallback [off]                   │
-                            │    Auto Refresh   [off]                   │
+                            │  > Identity Mode   [none]                 │
+                            │    Default Port    [8080]                 │
+                            │    Log Level       [info]                 │
+                            │    Model Fallback  [off]                  │
+                            │    Auto Refresh    [off]                  │
+                            │    Scheduling Mode [sticky]               │
                             │                                           │
                             │ Changes take effect after server restart  │
                             │                                           │
                             │ ESC close | Enter edit | Up/Down navigate │
                             │                                           │
                             ╰───────────────────────────────────────────╯
-
 
 
 "

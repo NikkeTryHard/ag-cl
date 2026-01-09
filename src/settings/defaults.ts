@@ -6,7 +6,7 @@
  * then fall back to hardcoded defaults.
  */
 
-import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS } from "../constants.js";
+import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS, DEFAULT_SCHEDULING_MODE } from "../constants.js";
 import type { AccountSettings, IdentityMode, LogLevel } from "../account-manager/types.js";
 
 /**
@@ -25,6 +25,8 @@ export const DEFAULTS = {
   autoRefreshEnabled: false,
   /** Default cooldown duration - imported from constants.ts */
   cooldownDurationMs: DEFAULT_COOLDOWN_MS,
+  /** Default scheduling mode - imported from constants.ts */
+  schedulingMode: DEFAULT_SCHEDULING_MODE,
 } as const;
 
 /**

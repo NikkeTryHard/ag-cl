@@ -6,6 +6,8 @@
  * - Default Port: inline number input
  * - Log Level: cycles through "silent" | "error" | "warn" | "info" | "debug" | "trace"
  * - Fallback Enabled: toggles on/off
+ * - Auto Refresh: toggles on/off
+ * - Scheduling Mode: cycles through "sticky" | "refresh-priority" | "drain-highest" | "round-robin"
  */
 
 import React, { useState } from "react";
@@ -14,7 +16,7 @@ import TextInput from "ink-text-input";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { validatePort } from "../utils/portValidation.js";
 import { DEFAULTS } from "../../settings/defaults.js";
-import type { AccountSettings, IdentityMode, LogLevel } from "../../account-manager/types.js";
+import type { AccountSettings, IdentityMode, LogLevel, SchedulingMode } from "../../account-manager/types.js";
 
 interface SettingsModalProps {
   settings: AccountSettings;
@@ -22,7 +24,7 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type SettingKey = "identityMode" | "defaultPort" | "logLevel" | "fallbackEnabled" | "autoRefreshEnabled";
+type SettingKey = "identityMode" | "defaultPort" | "logLevel" | "fallbackEnabled" | "autoRefreshEnabled" | "schedulingMode";
 
 interface SettingItem {
   key: SettingKey;
@@ -35,10 +37,12 @@ const SETTINGS_LIST: SettingItem[] = [
   { key: "logLevel", label: "Log Level" },
   { key: "fallbackEnabled", label: "Model Fallback" },
   { key: "autoRefreshEnabled", label: "Auto Refresh" },
+  { key: "schedulingMode", label: "Scheduling Mode" },
 ];
 
 const IDENTITY_MODES: IdentityMode[] = ["full", "short", "none"];
 const LOG_LEVELS: LogLevel[] = ["silent", "error", "warn", "info", "debug", "trace"];
+const SCHEDULING_MODES: SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
 
 /**
  * Get display value for a setting
@@ -55,6 +59,8 @@ function getDisplayValue(key: SettingKey, settings: AccountSettings): string {
       return (settings.fallbackEnabled ?? DEFAULTS.fallbackEnabled) ? "on" : "off";
     case "autoRefreshEnabled":
       return (settings.autoRefreshEnabled ?? DEFAULTS.autoRefreshEnabled) ? "on" : "off";
+    case "schedulingMode":
+      return settings.schedulingMode ?? DEFAULTS.schedulingMode;
   }
 }
 
@@ -124,6 +130,12 @@ export function SettingsModal({ settings, onUpdateSettings, onClose }: SettingsM
         // Enter edit mode for port
         setEditingPort(true);
         setPortValue(String(settings.defaultPort ?? DEFAULTS.defaultPort));
+        break;
+      }
+      case "schedulingMode": {
+        const current = settings.schedulingMode ?? DEFAULTS.schedulingMode;
+        const next = getNextEnumValue(current, SCHEDULING_MODES);
+        await handleSave({ schedulingMode: next });
         break;
       }
     }

@@ -111,20 +111,21 @@ describe("cloudcode/quota-reset-trigger", () => {
       expect(call[1].headers.Authorization).toBe("Bearer test-token");
     });
 
-    it("includes correct model for each group", async () => {
+    it("uses designated trigger models for each group", async () => {
       mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
       const { triggerQuotaResetApi } = await import("../../../src/cloudcode/quota-reset-trigger.js");
       const result = await triggerQuotaResetApi("token", "project", "all");
 
-      // Each group should use its first model
+      // Each group should use its designated trigger model (not necessarily the first)
       const claudeResult = result.groupsTriggered.find((r) => r.group === "claude");
       const geminiProResult = result.groupsTriggered.find((r) => r.group === "geminiPro");
       const geminiFlashResult = result.groupsTriggered.find((r) => r.group === "geminiFlash");
 
-      expect(claudeResult?.model).toContain("claude");
-      expect(geminiProResult?.model).toContain("gemini");
-      expect(geminiFlashResult?.model).toContain("gemini");
+      // Claude uses Opus for triggers (user preference - less contention)
+      expect(claudeResult?.model).toBe("claude-opus-4-5-thinking");
+      expect(geminiProResult?.model).toBe("gemini-3-pro-high");
+      expect(geminiFlashResult?.model).toBe("gemini-3-flash");
     });
 
     it("uses the generateContent endpoint", async () => {

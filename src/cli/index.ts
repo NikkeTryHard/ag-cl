@@ -99,7 +99,7 @@ function createProgram(): Command {
         }
       }
 
-      // Trigger quota reset on startup if requested (FIXED: now sends to Google)
+      // Trigger quota reset on startup if requested (processes ALL OAuth accounts)
       if (opts.triggerReset || process.env.TRIGGER_RESET === "true") {
         const { default: chalk } = await import("chalk");
         const { AccountManager } = await import("../account-manager/index.js");
@@ -109,23 +109,41 @@ function createProgram(): Command {
           const accountManager = new AccountManager();
           await accountManager.initialize();
 
-          // Get first OAuth account
+          // Get ALL OAuth accounts
           const accounts = accountManager.getAllAccounts();
-          const oauthAccount = accounts.find((a: { source: string; refreshToken?: string }) => a.source === "oauth" && a.refreshToken);
+          const oauthAccounts = accounts.filter((a: { source: string; refreshToken?: string }) => a.source === "oauth" && a.refreshToken);
 
-          if (oauthAccount) {
-            const token = await accountManager.getTokenForAccount(oauthAccount);
-            const projectId = await accountManager.getProjectForAccount(oauthAccount, token);
+          if (oauthAccounts.length === 0) {
+            console.log(chalk.yellow("No OAuth accounts found for quota reset"));
+          } else {
+            console.log(chalk.blue(`Triggering quota reset for ${oauthAccounts.length} account(s)...`));
 
-            // Send actual requests to Google (the fix!)
-            const apiResult = await triggerQuotaResetApi(token, projectId, "all");
+            let successCount = 0;
+            let failCount = 0;
 
-            // Also clear local flags
+            for (const account of oauthAccounts) {
+              try {
+                const token = await accountManager.getTokenForAccount(account);
+                const projectId = await accountManager.getProjectForAccount(account, token);
+                const apiResult = await triggerQuotaResetApi(token, projectId, "all");
+
+                if (apiResult.successCount > 0) {
+                  successCount++;
+                  console.log(chalk.green(`  ${account.email}: ${apiResult.successCount} group(s) triggered`));
+                } else {
+                  failCount++;
+                  console.log(chalk.yellow(`  ${account.email}: failed to trigger`));
+                }
+              } catch (err) {
+                failCount++;
+                console.log(chalk.red(`  ${account.email}: ${(err as Error).message}`));
+              }
+            }
+
+            // Clear local flags for all accounts
             const localResult = accountManager.triggerQuotaReset("all");
 
-            console.log(chalk.green(`Startup quota reset: triggered ${apiResult.successCount} group(s), cleared ${localResult.limitsCleared} local limit(s)`));
-          } else {
-            console.log(chalk.yellow("No OAuth accounts available for quota reset"));
+            console.log(chalk.green(`Startup quota reset: ${successCount} succeeded, ${failCount} failed, ${localResult.limitsCleared} local limit(s) cleared`));
           }
         } catch (error) {
           console.log(chalk.yellow(`Startup quota reset failed: ${(error as Error).message}`));

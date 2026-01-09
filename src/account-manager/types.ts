@@ -23,6 +23,15 @@ export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
 export type IdentityMode = "full" | "short" | "none";
 
 /**
+ * Scheduling mode for account selection
+ * - "sticky": Stay on current account until rate-limited (default, current behavior)
+ * - "refresh-priority": Pick account with soonest resetTime first
+ * - "drain-highest": Pick account with highest quota % (100% first)
+ * - "round-robin": Simple rotation through available accounts
+ */
+export type SchedulingMode = "sticky" | "refresh-priority" | "drain-highest" | "round-robin";
+
+/**
  * Model-specific rate limit state
  */
 export interface ModelRateLimit {
@@ -69,6 +78,8 @@ export interface AccountSettings {
   fallbackEnabled?: boolean | undefined;
   /** Enable auto-refresh of quota every 5 hours */
   autoRefreshEnabled?: boolean | undefined;
+  /** Account selection scheduling mode */
+  schedulingMode?: SchedulingMode | undefined;
   /** Allow additional unknown settings for extensibility */
   [key: string]: unknown;
 }

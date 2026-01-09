@@ -45,10 +45,12 @@ export function initDemoLogs(): void {
  */
 export function getDemoAccounts(): AccountCapacityInfo[] {
   const claudeReset1 = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-  const geminiReset1 = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+  const geminiProReset1 = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+  const geminiFlashReset1 = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
   const claudeReset2 = new Date(Date.now() + 1.5 * 60 * 60 * 1000).toISOString();
   const claudeReset3 = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
-  const geminiReset3 = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+  const geminiProReset3 = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+  const geminiFlashReset3 = new Date(Date.now() + 4.5 * 60 * 60 * 1000).toISOString();
 
   return [
     {
@@ -58,12 +60,11 @@ export function getDemoAccounts(): AccountCapacityInfo[] {
         { name: "claude-sonnet-4-5-thinking", percentage: 72, resetTime: claudeReset1 },
         { name: "claude-opus-4-5-thinking", percentage: 72, resetTime: claudeReset1 },
       ],
-      geminiModels: [
-        { name: "gemini-3-flash", percentage: 95, resetTime: geminiReset1 },
-        { name: "gemini-3-pro-high", percentage: 88, resetTime: geminiReset1 },
-      ],
+      geminiProModels: [{ name: "gemini-3-pro-high", percentage: 88, resetTime: geminiProReset1 }],
+      geminiFlashModels: [{ name: "gemini-3-flash", percentage: 95, resetTime: geminiFlashReset1 }],
       claudeReset: claudeReset1,
-      geminiReset: geminiReset1,
+      geminiProReset: geminiProReset1,
+      geminiFlashReset: geminiFlashReset1,
       error: null,
     },
     {
@@ -73,12 +74,11 @@ export function getDemoAccounts(): AccountCapacityInfo[] {
         { name: "claude-sonnet-4-5-thinking", percentage: 45, resetTime: claudeReset2 },
         { name: "claude-opus-4-5-thinking", percentage: 45, resetTime: claudeReset2 },
       ],
-      geminiModels: [
-        { name: "gemini-3-flash", percentage: 100, resetTime: null },
-        { name: "gemini-3-pro-high", percentage: 100, resetTime: null },
-      ],
+      geminiProModels: [{ name: "gemini-3-pro-high", percentage: 100, resetTime: null }],
+      geminiFlashModels: [{ name: "gemini-3-flash", percentage: 100, resetTime: null }],
       claudeReset: claudeReset2,
-      geminiReset: null,
+      geminiProReset: null,
+      geminiFlashReset: null,
       error: null,
     },
     {
@@ -88,12 +88,11 @@ export function getDemoAccounts(): AccountCapacityInfo[] {
         { name: "claude-sonnet-4-5-thinking", percentage: 89, resetTime: claudeReset3 },
         { name: "claude-opus-4-5-thinking", percentage: 89, resetTime: claudeReset3 },
       ],
-      geminiModels: [
-        { name: "gemini-3-flash", percentage: 76, resetTime: geminiReset3 },
-        { name: "gemini-3-pro-high", percentage: 62, resetTime: geminiReset3 },
-      ],
+      geminiProModels: [{ name: "gemini-3-pro-high", percentage: 62, resetTime: geminiProReset3 }],
+      geminiFlashModels: [{ name: "gemini-3-flash", percentage: 76, resetTime: geminiFlashReset3 }],
       claudeReset: claudeReset3,
-      geminiReset: geminiReset3,
+      geminiProReset: geminiProReset3,
+      geminiFlashReset: geminiFlashReset3,
       error: null,
     },
   ];
@@ -114,7 +113,7 @@ export function getDemoClaudeCapacity(): AggregatedCapacity {
 }
 
 /**
- * Get demo Gemini capacity
+ * Get demo Gemini capacity (combined for display purposes)
  */
 export function getDemoGeminiCapacity(): AggregatedCapacity {
   return {

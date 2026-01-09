@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, expectTypeOf } from "vitest";
-import type { AccountSettings, LogLevel, IdentityMode } from "../../../src/account-manager/types.js";
+import type { AccountSettings, LogLevel, IdentityMode, SchedulingMode } from "../../../src/account-manager/types.js";
 
 describe("AccountSettings types", () => {
   describe("LogLevel type", () => {
@@ -27,6 +27,17 @@ describe("AccountSettings types", () => {
 
     it("has correct type shape", () => {
       expectTypeOf<IdentityMode>().toEqualTypeOf<"full" | "short" | "none">();
+    });
+  });
+
+  describe("SchedulingMode type", () => {
+    it("accepts all valid scheduling modes", () => {
+      const modes: SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
+      expect(modes).toHaveLength(4);
+    });
+
+    it("has correct type shape", () => {
+      expectTypeOf<SchedulingMode>().toEqualTypeOf<"sticky" | "refresh-priority" | "drain-highest" | "round-robin">();
     });
   });
 
@@ -61,6 +72,12 @@ describe("AccountSettings types", () => {
       expect(settings.fallbackEnabled).toBe(true);
     });
 
+    it("has schedulingMode as optional SchedulingMode", () => {
+      expectTypeOf<AccountSettings>().toHaveProperty("schedulingMode");
+      const settings: AccountSettings = { schedulingMode: "sticky" };
+      expect(settings.schedulingMode).toBe("sticky");
+    });
+
     it("allows empty settings object", () => {
       const settings: AccountSettings = {};
       expect(settings).toEqual({});
@@ -73,12 +90,14 @@ describe("AccountSettings types", () => {
         defaultPort: 3000,
         logLevel: "info",
         fallbackEnabled: false,
+        schedulingMode: "round-robin",
       };
       expect(settings.cooldownDurationMs).toBe(10000);
       expect(settings.identityMode).toBe("short");
       expect(settings.defaultPort).toBe(3000);
       expect(settings.logLevel).toBe("info");
       expect(settings.fallbackEnabled).toBe(false);
+      expect(settings.schedulingMode).toBe("round-robin");
     });
 
     it("allows unknown properties via index signature", () => {
@@ -96,12 +115,14 @@ describe("AccountSettings types", () => {
         defaultPort: undefined,
         logLevel: undefined,
         fallbackEnabled: undefined,
+        schedulingMode: undefined,
       };
       expect(settings.cooldownDurationMs).toBeUndefined();
       expect(settings.identityMode).toBeUndefined();
       expect(settings.defaultPort).toBeUndefined();
       expect(settings.logLevel).toBeUndefined();
       expect(settings.fallbackEnabled).toBeUndefined();
+      expect(settings.schedulingMode).toBeUndefined();
     });
   });
 
@@ -123,6 +144,15 @@ describe("AccountSettings types", () => {
       const debug: LogLevel = "debug";
       const trace: LogLevel = "trace";
       expect([silent, error, warn, info, debug, trace]).toEqual(["silent", "error", "warn", "info", "debug", "trace"]);
+    });
+
+    it("enforces correct SchedulingMode values at compile time", () => {
+      // These should compile without error
+      const sticky: SchedulingMode = "sticky";
+      const refreshPriority: SchedulingMode = "refresh-priority";
+      const drainHighest: SchedulingMode = "drain-highest";
+      const roundRobin: SchedulingMode = "round-robin";
+      expect([sticky, refreshPriority, drainHighest, roundRobin]).toEqual(["sticky", "refresh-priority", "drain-highest", "round-robin"]);
     });
   });
 });

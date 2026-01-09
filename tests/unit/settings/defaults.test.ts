@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { DEFAULTS, getIdentityMode, getDefaultPort, getLogLevel, getFallbackEnabled, getCooldownDurationMs, getAutoRefreshEnabled } from "../../../src/settings/defaults.js";
-import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS } from "../../../src/constants.js";
+import { DEFAULTS, getIdentityMode, getDefaultPort, getLogLevel, getFallbackEnabled, getCooldownDurationMs, getAutoRefreshEnabled, getSchedulingMode } from "../../../src/settings/defaults.js";
+import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS, DEFAULT_SCHEDULING_MODE } from "../../../src/constants.js";
 import type { AccountSettings } from "../../../src/account-manager/types.js";
 
 describe("settings/defaults", () => {
@@ -19,6 +19,7 @@ describe("settings/defaults", () => {
       expect(DEFAULTS.fallbackEnabled).toBe(false);
       expect(DEFAULTS.cooldownDurationMs).toBe(DEFAULT_COOLDOWN_MS);
       expect(DEFAULTS.autoRefreshEnabled).toBe(false);
+      expect(DEFAULTS.schedulingMode).toBe(DEFAULT_SCHEDULING_MODE);
     });
 
     it("uses DEFAULT_PORT from constants.ts", () => {
@@ -354,6 +355,100 @@ describe("settings/defaults", () => {
       expect(getLogLevel(settings)).toBe("error");
       expect(getFallbackEnabled(settings)).toBe(false);
       expect(getCooldownDurationMs(settings)).toBe(10000);
+    });
+  });
+
+  describe("getSchedulingMode", () => {
+    const originalCliMode = process.env.CLI_SCHEDULING_MODE;
+    const originalEnvMode = process.env.SCHEDULING_MODE;
+
+    beforeEach(() => {
+      delete process.env.CLI_SCHEDULING_MODE;
+      delete process.env.SCHEDULING_MODE;
+    });
+
+    afterEach(() => {
+      if (originalCliMode !== undefined) {
+        process.env.CLI_SCHEDULING_MODE = originalCliMode;
+      } else {
+        delete process.env.CLI_SCHEDULING_MODE;
+      }
+      if (originalEnvMode !== undefined) {
+        process.env.SCHEDULING_MODE = originalEnvMode;
+      } else {
+        delete process.env.SCHEDULING_MODE;
+      }
+    });
+
+    describe("priority: CLI_SCHEDULING_MODE first", () => {
+      it("returns CLI_SCHEDULING_MODE when set", () => {
+        process.env.CLI_SCHEDULING_MODE = "drain-highest";
+        expect(getSchedulingMode()).toBe("drain-highest");
+      });
+
+      it("CLI_SCHEDULING_MODE takes priority over SCHEDULING_MODE", () => {
+        process.env.CLI_SCHEDULING_MODE = "refresh-priority";
+        process.env.SCHEDULING_MODE = "round-robin";
+        expect(getSchedulingMode()).toBe("refresh-priority");
+      });
+
+      it("CLI_SCHEDULING_MODE takes priority over settings", () => {
+        process.env.CLI_SCHEDULING_MODE = "drain-highest";
+        const settings: AccountSettings = { schedulingMode: "round-robin" };
+        expect(getSchedulingMode(settings)).toBe("drain-highest");
+      });
+    });
+
+    describe("priority: SCHEDULING_MODE second", () => {
+      it("returns SCHEDULING_MODE when set", () => {
+        process.env.SCHEDULING_MODE = "round-robin";
+        expect(getSchedulingMode()).toBe("round-robin");
+      });
+
+      it("SCHEDULING_MODE takes priority over settings", () => {
+        process.env.SCHEDULING_MODE = "refresh-priority";
+        const settings: AccountSettings = { schedulingMode: "drain-highest" };
+        expect(getSchedulingMode(settings)).toBe("refresh-priority");
+      });
+
+      it("ignores invalid SCHEDULING_MODE values", () => {
+        process.env.SCHEDULING_MODE = "invalid-mode";
+        expect(getSchedulingMode()).toBe(DEFAULT_SCHEDULING_MODE);
+      });
+    });
+
+    describe("priority: settings object third", () => {
+      it("returns settings.schedulingMode when provided", () => {
+        const settings: AccountSettings = { schedulingMode: "drain-highest" };
+        expect(getSchedulingMode(settings)).toBe("drain-highest");
+      });
+
+      it("ignores invalid settings.schedulingMode values", () => {
+        const settings: AccountSettings = { schedulingMode: "invalid" as any };
+        expect(getSchedulingMode(settings)).toBe(DEFAULT_SCHEDULING_MODE);
+      });
+
+      it("supports all valid modes", () => {
+        expect(getSchedulingMode({ schedulingMode: "sticky" })).toBe("sticky");
+        expect(getSchedulingMode({ schedulingMode: "refresh-priority" })).toBe("refresh-priority");
+        expect(getSchedulingMode({ schedulingMode: "drain-highest" })).toBe("drain-highest");
+        expect(getSchedulingMode({ schedulingMode: "round-robin" })).toBe("round-robin");
+      });
+    });
+
+    describe("priority: default fourth", () => {
+      it("returns default when nothing is set", () => {
+        expect(getSchedulingMode()).toBe(DEFAULT_SCHEDULING_MODE);
+      });
+
+      it("returns default when settings is empty", () => {
+        expect(getSchedulingMode({})).toBe(DEFAULT_SCHEDULING_MODE);
+      });
+
+      it("default is sticky", () => {
+        expect(DEFAULT_SCHEDULING_MODE).toBe("sticky");
+        expect(getSchedulingMode()).toBe("sticky");
+      });
     });
   });
 });

@@ -181,7 +181,8 @@ describe("accountsListCommand", () => {
           successful: 0,
           failed: 0,
           combinedClaudeCapacity: 0,
-          combinedGeminiCapacity: 0,
+          combinedGeminiProCapacity: 0,
+          combinedGeminiFlashCapacity: 0,
         },
       });
     });
@@ -244,9 +245,14 @@ describe("accountsListCommand", () => {
         aggregatedPercentage: 75,
         earliestReset: null,
       },
-      geminiPool: {
-        models: [{ name: "gemini-3-flash", percentage: 50, resetTime: null }],
+      geminiProPool: {
+        models: [{ name: "gemini-3-pro-high", percentage: 50, resetTime: null }],
         aggregatedPercentage: 50,
+        earliestReset: null,
+      },
+      geminiFlashPool: {
+        models: [{ name: "gemini-3-flash", percentage: 60, resetTime: null }],
+        aggregatedPercentage: 60,
         earliestReset: null,
       },
       projectId: "project-123",
@@ -299,7 +305,8 @@ describe("accountsListCommand", () => {
       await accountsListCommand();
 
       expect(mocks.recordSnapshot).toHaveBeenCalledWith("test@example.com", "claude", 75);
-      expect(mocks.recordSnapshot).toHaveBeenCalledWith("test@example.com", "gemini", 50);
+      expect(mocks.recordSnapshot).toHaveBeenCalledWith("test@example.com", "geminiPro", 50);
+      expect(mocks.recordSnapshot).toHaveBeenCalledWith("test@example.com", "geminiFlash", 60);
     });
 
     it("should calculate burn rates for each pool", async () => {
@@ -322,7 +329,8 @@ describe("accountsListCommand", () => {
       await accountsListCommand();
 
       expect(mocks.calculateBurnRate).toHaveBeenCalledWith("test@example.com", "claude", 75, null);
-      expect(mocks.calculateBurnRate).toHaveBeenCalledWith("test@example.com", "gemini", 50, null);
+      expect(mocks.calculateBurnRate).toHaveBeenCalledWith("test@example.com", "geminiPro", 50, null);
+      expect(mocks.calculateBurnRate).toHaveBeenCalledWith("test@example.com", "geminiFlash", 60, null);
     });
 
     it("should render account capacity with burn rates", async () => {
@@ -351,7 +359,8 @@ describe("accountsListCommand", () => {
 
       expect(mocks.renderAccountCapacity).toHaveBeenCalledWith(mockCapacity, {
         claude: expect.objectContaining({ status: "burning" }),
-        gemini: expect.objectContaining({ status: "burning" }),
+        geminiPro: expect.objectContaining({ status: "burning" }),
+        geminiFlash: expect.objectContaining({ status: "burning" }),
       });
     });
   });
@@ -448,10 +457,11 @@ describe("accountsListCommand", () => {
 
     it("should continue processing other accounts after failure", async () => {
       const mockCapacity = {
-        email: "valid@example.com",
+        email: "test@example.com",
         tier: "PRO" as const,
         claudePool: { models: [], aggregatedPercentage: 100, earliestReset: null },
-        geminiPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+        geminiProPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+        geminiFlashPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
         projectId: null,
         lastUpdated: Date.now(),
         isForbidden: false,
@@ -492,7 +502,8 @@ describe("accountsListCommand", () => {
         email: "test@example.com",
         tier: "PRO" as const,
         claudePool: { models: [], aggregatedPercentage: 100, earliestReset: null },
-        geminiPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+        geminiProPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+        geminiFlashPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
         projectId: null,
         lastUpdated: Date.now(),
         isForbidden: false,
@@ -533,9 +544,14 @@ describe("accountsListCommand", () => {
         aggregatedPercentage: 75,
         earliestReset: null,
       },
-      geminiPool: {
-        models: [{ name: "gemini-3-flash", percentage: 50, resetTime: null }],
+      geminiProPool: {
+        models: [{ name: "gemini-3-pro-high", percentage: 50, resetTime: null }],
         aggregatedPercentage: 50,
+        earliestReset: null,
+      },
+      geminiFlashPool: {
+        models: [{ name: "gemini-3-flash", percentage: 60, resetTime: null }],
+        aggregatedPercentage: 60,
         earliestReset: null,
       },
       projectId: "project-123",
@@ -623,7 +639,8 @@ describe("accountsListCommand", () => {
         successful: 1,
         failed: 0,
         combinedClaudeCapacity: 75,
-        combinedGeminiCapacity: 50,
+        combinedGeminiProCapacity: 50,
+        combinedGeminiFlashCapacity: 60,
       });
     });
 
@@ -659,7 +676,8 @@ describe("accountsListCommand", () => {
       email: "test@example.com",
       tier: "PRO" as const,
       claudePool: { models: [], aggregatedPercentage: 100, earliestReset: null },
-      geminiPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+      geminiProPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+      geminiFlashPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
       projectId: null,
       lastUpdated: Date.now(),
       isForbidden: false,
@@ -690,7 +708,8 @@ describe("accountsListCommand", () => {
         expect.arrayContaining([
           expect.objectContaining({
             claude: expect.any(Object),
-            gemini: expect.any(Object),
+            geminiPro: expect.any(Object),
+            geminiFlash: expect.any(Object),
           }),
         ]),
       );
@@ -746,7 +765,8 @@ describe("accountsListCommand", () => {
         email: "user1@example.com",
         tier: "PRO" as const,
         claudePool: { models: [], aggregatedPercentage: 100, earliestReset: null },
-        geminiPool: { models: [], aggregatedPercentage: 50, earliestReset: null },
+        geminiProPool: { models: [], aggregatedPercentage: 50, earliestReset: null },
+        geminiFlashPool: { models: [], aggregatedPercentage: 40, earliestReset: null },
         projectId: null,
         lastUpdated: Date.now(),
         isForbidden: false,
@@ -755,7 +775,8 @@ describe("accountsListCommand", () => {
         email: "user2@example.com",
         tier: "ULTRA" as const,
         claudePool: { models: [], aggregatedPercentage: 75, earliestReset: null },
-        geminiPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+        geminiProPool: { models: [], aggregatedPercentage: 100, earliestReset: null },
+        geminiFlashPool: { models: [], aggregatedPercentage: 80, earliestReset: null },
         projectId: null,
         lastUpdated: Date.now(),
         isForbidden: false,
@@ -791,7 +812,8 @@ describe("accountsListCommand", () => {
       expect(jsonOutput.summary.total).toBe(2);
       expect(jsonOutput.summary.successful).toBe(2);
       expect(jsonOutput.summary.combinedClaudeCapacity).toBe(175); // 100 + 75
-      expect(jsonOutput.summary.combinedGeminiCapacity).toBe(150); // 50 + 100
+      expect(jsonOutput.summary.combinedGeminiProCapacity).toBe(150); // 50 + 100
+      expect(jsonOutput.summary.combinedGeminiFlashCapacity).toBe(120); // 40 + 80
     });
   });
 });

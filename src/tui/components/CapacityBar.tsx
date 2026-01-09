@@ -10,7 +10,7 @@ import { Box, Text } from "ink";
 import type { BurnRateStatus } from "../../cloudcode/burn-rate.js";
 
 interface CapacityBarProps {
-  family: "claude" | "gemini";
+  family: "claude" | "gemini" | "geminiPro" | "geminiFlash";
   percentage: number;
   status: BurnRateStatus;
   hoursToExhaustion: number | null;
@@ -39,21 +39,39 @@ function getStatusText(status: BurnRateStatus, hoursToExhaustion: number | null)
 }
 
 /**
- * Get the family-specific color (Claude = orange, Gemini = blue)
+ * Get the family-specific color (Claude = orange, Gemini variants = blue)
  */
-function getFamilyColor(family: "claude" | "gemini"): string {
+function getFamilyColor(family: "claude" | "gemini" | "geminiPro" | "geminiFlash"): string {
   return family === "claude" ? "#FF6600" : "blue";
 }
 
 /**
  * Get dimmed version based on percentage (for low capacity warning)
  */
-function getBarColor(family: "claude" | "gemini", percentage: number, status: BurnRateStatus): string {
+function getBarColor(family: "claude" | "gemini" | "geminiPro" | "geminiFlash", percentage: number, status: BurnRateStatus): string {
   // If exhausted or very low, show red regardless of family
   if (status === "exhausted" || percentage === 0) return "red";
   if (percentage < 20) return "yellow";
   // Otherwise use family color
   return getFamilyColor(family);
+}
+
+/**
+ * Get display name for family
+ */
+function getFamilyDisplayName(family: "claude" | "gemini" | "geminiPro" | "geminiFlash"): string {
+  switch (family) {
+    case "claude":
+      return "Claude";
+    case "gemini":
+      return "Gemini";
+    case "geminiPro":
+      return "GemPro";
+    case "geminiFlash":
+      return "GemFlash";
+    default:
+      return family;
+  }
 }
 
 export function CapacityBar({ family, percentage, status, hoursToExhaustion, barWidth = DEFAULT_BAR_WIDTH }: CapacityBarProps): React.ReactElement {
@@ -63,7 +81,7 @@ export function CapacityBar({ family, percentage, status, hoursToExhaustion, bar
   const filled = "█".repeat(Math.min(filledCount, barWidth));
   const empty = "░".repeat(Math.max(0, emptyCount));
 
-  const familyName = family.charAt(0).toUpperCase() + family.slice(1);
+  const familyName = getFamilyDisplayName(family);
   const statusText = getStatusText(status, hoursToExhaustion);
   const familyColor = getFamilyColor(family);
   const barColor = getBarColor(family, percentage, status);

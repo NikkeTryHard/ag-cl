@@ -84,7 +84,8 @@ interface UseCapacityResult {
   refreshing: boolean;
   error: string | null;
   claudeCapacity: AggregatedCapacity;
-  geminiCapacity: AggregatedCapacity;
+  geminiProCapacity: AggregatedCapacity;
+  geminiFlashCapacity: AggregatedCapacity;
   accountCount: number;
   accounts: AccountCapacityInfo[];
   refresh: () => Promise<void>;
@@ -104,7 +105,8 @@ export function useCapacity(): UseCapacityResult {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claudeCapacity, setClaudeCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "claude" });
-  const [geminiCapacity, setGeminiCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "gemini" });
+  const [geminiProCapacity, setGeminiProCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "geminiPro" });
+  const [geminiFlashCapacity, setGeminiFlashCapacity] = useState<AggregatedCapacity>({ ...defaultCapacity, family: "geminiFlash" });
   const [accountCount, setAccountCount] = useState(0);
   const [accounts, setAccounts] = useState<AccountCapacityInfo[]>([]);
   const storageInitialized = useRef(false);
@@ -145,7 +147,8 @@ export function useCapacity(): UseCapacityResult {
 
       if (oauthAccounts.length === 0) {
         setClaudeCapacity({ ...defaultCapacity, family: "claude" });
-        setGeminiCapacity({ ...defaultCapacity, family: "gemini" });
+        setGeminiProCapacity({ ...defaultCapacity, family: "geminiPro" });
+        setGeminiFlashCapacity({ ...defaultCapacity, family: "geminiFlash" });
         setAccounts([]);
         setLoading(false);
         return;
@@ -163,12 +166,12 @@ export function useCapacity(): UseCapacityResult {
 
       const results = await Promise.allSettled(fetchPromises);
 
-      let claudeSum = 0;
-      let geminiSum = 0;
-      let claudeAccountsWithData = 0;
-      let geminiAccountsWithData = 0;
+      // Use objects to avoid eslint preferring const for simple let assignments
+      const sums = { claude: 0, geminiPro: 0, geminiFlash: 0 };
+      const dataCounts = { claude: 0, geminiPro: 0, geminiFlash: 0 };
       const claudeBurnRates: BurnRateInfo[] = [];
-      const geminiBurnRates: BurnRateInfo[] = [];
+      const geminiProBurnRates: BurnRateInfo[] = [];
+      const geminiFlashBurnRates: BurnRateInfo[] = [];
       const accountInfos: AccountCapacityInfo[] = [];
 
       for (let i = 0; i < results.length; i++) {
@@ -179,34 +182,43 @@ export function useCapacity(): UseCapacityResult {
           const { account, capacity } = result.value;
 
           // Sum percentages for averaging later (each account's percentage is already 0-100)
-          claudeSum += capacity.claudePool.aggregatedPercentage;
-          geminiSum += capacity.geminiPool.aggregatedPercentage;
-          if (capacity.claudePool.models.length > 0) claudeAccountsWithData++;
-          if (capacity.geminiPool.models.length > 0) geminiAccountsWithData++;
+          sums.claude += capacity.claudePool.aggregatedPercentage;
+          sums.geminiPro += capacity.geminiProPool.aggregatedPercentage;
+          sums.geminiFlash += capacity.geminiFlashPool.aggregatedPercentage;
+          if (capacity.claudePool.models.length > 0) dataCounts.claude++;
+          if (capacity.geminiProPool.models.length > 0) dataCounts.geminiPro++;
+          if (capacity.geminiFlashPool.models.length > 0) dataCounts.geminiFlash++;
 
           // Record snapshots for burn rate calculation
           try {
             recordSnapshot(account.email, "claude", capacity.claudePool.aggregatedPercentage);
-            recordSnapshot(account.email, "gemini", capacity.geminiPool.aggregatedPercentage);
+            recordSnapshot(account.email, "geminiPro", capacity.geminiProPool.aggregatedPercentage);
+            recordSnapshot(account.email, "geminiFlash", capacity.geminiFlashPool.aggregatedPercentage);
           } catch {
             // Ignore snapshot recording errors
           }
 
           const claudeBurn = calculateBurnRate(account.email, "claude", capacity.claudePool.aggregatedPercentage, capacity.claudePool.earliestReset);
-          const geminiBurn = calculateBurnRate(account.email, "gemini", capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.earliestReset);
+          const geminiProBurn = calculateBurnRate(account.email, "geminiPro", capacity.geminiProPool.aggregatedPercentage, capacity.geminiProPool.earliestReset);
+          const geminiFlashBurn = calculateBurnRate(account.email, "geminiFlash", capacity.geminiFlashPool.aggregatedPercentage, capacity.geminiFlashPool.earliestReset);
 
           claudeBurnRates.push(claudeBurn);
-          geminiBurnRates.push(geminiBurn);
+          geminiProBurnRates.push(geminiProBurn);
+          geminiFlashBurnRates.push(geminiFlashBurn);
 
           // Build per-account info with per-model quotas
+          const fetchedAt = Date.now();
           accountInfos.push({
             email: account.email,
             tier: capacity.tier,
             claudeModels: capacity.claudePool.models.map(toModelQuotaDisplay),
-            geminiModels: capacity.geminiPool.models.map(toModelQuotaDisplay),
+            geminiProModels: capacity.geminiProPool.models.map(toModelQuotaDisplay),
+            geminiFlashModels: capacity.geminiFlashPool.models.map(toModelQuotaDisplay),
             claudeReset: capacity.claudePool.earliestReset,
-            geminiReset: capacity.geminiPool.earliestReset,
+            geminiProReset: capacity.geminiProPool.earliestReset,
+            geminiFlashReset: capacity.geminiFlashPool.earliestReset,
             error: null,
+            fetchedAt,
           });
         } else {
           // Add error entry for this account
@@ -214,9 +226,11 @@ export function useCapacity(): UseCapacityResult {
             email: accountEmail,
             tier: "UNKNOWN",
             claudeModels: [],
-            geminiModels: [],
+            geminiProModels: [],
+            geminiFlashModels: [],
             claudeReset: null,
-            geminiReset: null,
+            geminiProReset: null,
+            geminiFlashReset: null,
             error: (result.reason as Error).message,
           });
         }
@@ -225,8 +239,9 @@ export function useCapacity(): UseCapacityResult {
       setAccounts(accountInfos);
 
       // Calculate average percentage across accounts (0-100% range)
-      const avgClaudePct = claudeAccountsWithData > 0 ? Math.round(claudeSum / claudeAccountsWithData) : 0;
-      const avgGeminiPct = geminiAccountsWithData > 0 ? Math.round(geminiSum / geminiAccountsWithData) : 0;
+      const avgClaudePct = dataCounts.claude > 0 ? Math.round(sums.claude / dataCounts.claude) : 0;
+      const avgGeminiProPct = dataCounts.geminiPro > 0 ? Math.round(sums.geminiPro / dataCounts.geminiPro) : 0;
+      const avgGeminiFlashPct = dataCounts.geminiFlash > 0 ? Math.round(sums.geminiFlash / dataCounts.geminiFlash) : 0;
 
       setClaudeCapacity({
         family: "claude",
@@ -237,13 +252,22 @@ export function useCapacity(): UseCapacityResult {
         ratePerHour: getAvgBurnRate(claudeBurnRates),
       });
 
-      setGeminiCapacity({
-        family: "gemini",
-        totalPercentage: avgGeminiPct,
+      setGeminiProCapacity({
+        family: "geminiPro",
+        totalPercentage: avgGeminiProPct,
         accountCount: oauthAccounts.length,
-        status: getOverallStatus(geminiBurnRates, avgGeminiPct),
-        hoursToExhaustion: getHoursToExhaustion(geminiBurnRates, avgGeminiPct),
-        ratePerHour: getAvgBurnRate(geminiBurnRates),
+        status: getOverallStatus(geminiProBurnRates, avgGeminiProPct),
+        hoursToExhaustion: getHoursToExhaustion(geminiProBurnRates, avgGeminiProPct),
+        ratePerHour: getAvgBurnRate(geminiProBurnRates),
+      });
+
+      setGeminiFlashCapacity({
+        family: "geminiFlash",
+        totalPercentage: avgGeminiFlashPct,
+        accountCount: oauthAccounts.length,
+        status: getOverallStatus(geminiFlashBurnRates, avgGeminiFlashPct),
+        hoursToExhaustion: getHoursToExhaustion(geminiFlashBurnRates, avgGeminiFlashPct),
+        ratePerHour: getAvgBurnRate(geminiFlashBurnRates),
       });
     } catch (err) {
       setError((err as Error).message);
@@ -263,7 +287,8 @@ export function useCapacity(): UseCapacityResult {
     refreshing,
     error,
     claudeCapacity,
-    geminiCapacity,
+    geminiProCapacity,
+    geminiFlashCapacity,
     accountCount,
     accounts,
     refresh,

@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 
 import { DEFAULT_PORT } from "../constants.js";
 import { initLogger, setLogLevel, type LogLevel } from "../utils/logger.js";
+import type { SchedulingMode } from "../account-manager/types.js";
 
 // Resolve package.json path for version
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +34,7 @@ export interface GlobalOptions {
   maxEmptyRetries?: string;
   triggerReset?: boolean;
   autoRefresh?: boolean;
+  scheduling?: SchedulingMode;
 }
 
 /**
@@ -54,7 +56,8 @@ function createProgram(): Command {
     .option("--silent", "suppress all output except errors")
     .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
     .option("--trigger-reset", "trigger quota reset on startup")
-    .option("--auto-refresh", "automatically refresh quota every 5 hours");
+    .option("--auto-refresh", "automatically refresh quota every 5 hours")
+    .addOption(new Option("--scheduling <mode>", "account selection scheduling mode").choices(["sticky", "refresh-priority", "drain-highest", "round-robin"]));
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {
@@ -97,6 +100,11 @@ function createProgram(): Command {
         if (!isNaN(retries) && retries >= 0) {
           process.env.MAX_EMPTY_RETRIES = String(retries);
         }
+      }
+
+      // Set scheduling mode from CLI flag (takes priority over SCHEDULING_MODE env var)
+      if (opts.scheduling !== undefined) {
+        process.env.CLI_SCHEDULING_MODE = opts.scheduling;
       }
 
       // Trigger quota reset on startup if requested (processes ALL OAuth accounts)

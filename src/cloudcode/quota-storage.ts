@@ -17,7 +17,7 @@ import { mkdirSync, existsSync } from "fs";
 /**
  * Model family type for quota tracking
  */
-export type QuotaModelFamily = "claude" | "gemini";
+export type QuotaModelFamily = "claude" | "geminiPro" | "geminiFlash";
 
 /**
  * Quota snapshot record

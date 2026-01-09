@@ -6,8 +6,8 @@
  * then fall back to hardcoded defaults.
  */
 
-import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS } from "../constants.js";
-import type { AccountSettings, IdentityMode, LogLevel } from "../account-manager/types.js";
+import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS, DEFAULT_SCHEDULING_MODE } from "../constants.js";
+import type { AccountSettings, IdentityMode, LogLevel, SchedulingMode } from "../account-manager/types.js";
 
 /**
  * Default values for account settings
@@ -25,6 +25,8 @@ export const DEFAULTS = {
   autoRefreshEnabled: false,
   /** Default cooldown duration - imported from constants.ts */
   cooldownDurationMs: DEFAULT_COOLDOWN_MS,
+  /** Default scheduling mode - imported from constants.ts */
+  schedulingMode: DEFAULT_SCHEDULING_MODE,
 } as const;
 
 /**
@@ -164,4 +166,46 @@ export function getCooldownDurationMs(settings?: AccountSettings): number {
 
   // Fall back to default
   return DEFAULTS.cooldownDurationMs;
+}
+
+/**
+ * Valid scheduling modes for validation.
+ */
+const VALID_SCHEDULING_MODES: readonly SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
+
+/**
+ * Get the account scheduling mode.
+ *
+ * Priority:
+ * 1. CLI_SCHEDULING_MODE environment variable (set by --scheduling flag)
+ * 2. SCHEDULING_MODE environment variable
+ * 3. settings.schedulingMode (if provided)
+ * 4. Default: "sticky"
+ *
+ * Note: This is a standalone getter for use outside AccountManager.
+ * AccountManager has its own getSchedulingMode() method that follows this priority.
+ *
+ * @param settings - Optional account settings object
+ * @returns The scheduling mode to use
+ */
+export function getSchedulingMode(settings?: AccountSettings): SchedulingMode {
+  // Priority 1: CLI flag via CLI_SCHEDULING_MODE environment variable
+  const cliMode = process.env.CLI_SCHEDULING_MODE;
+  if (cliMode && VALID_SCHEDULING_MODES.includes(cliMode as SchedulingMode)) {
+    return cliMode as SchedulingMode;
+  }
+
+  // Priority 2: SCHEDULING_MODE environment variable
+  const envMode = process.env.SCHEDULING_MODE;
+  if (envMode && VALID_SCHEDULING_MODES.includes(envMode as SchedulingMode)) {
+    return envMode as SchedulingMode;
+  }
+
+  // Priority 3: Check settings object
+  if (settings?.schedulingMode !== undefined && VALID_SCHEDULING_MODES.includes(settings.schedulingMode)) {
+    return settings.schedulingMode;
+  }
+
+  // Priority 4: Fall back to default
+  return DEFAULTS.schedulingMode;
 }

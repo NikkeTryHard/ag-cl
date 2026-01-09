@@ -20,15 +20,18 @@ export interface AccountCapacityInfo {
   email: string;
   tier: string;
   claudeModels: ModelQuotaDisplay[]; // Per-model quotas
-  geminiModels: ModelQuotaDisplay[]; // Per-model quotas
+  geminiProModels: ModelQuotaDisplay[]; // Per-model quotas for Gemini Pro
+  geminiFlashModels: ModelQuotaDisplay[]; // Per-model quotas for Gemini Flash
   claudeReset: string | null; // Earliest reset (for summary)
-  geminiReset: string | null; // Earliest reset (for summary)
+  geminiProReset: string | null; // Earliest reset (for summary)
+  geminiFlashReset: string | null; // Earliest reset (for summary)
   error: string | null;
+  fetchedAt?: number; // Timestamp (ms) when this data was fetched
 }
 
 /** Aggregated capacity for a model family */
 export interface AggregatedCapacity {
-  family: "claude" | "gemini";
+  family: "claude" | "gemini" | "geminiPro" | "geminiFlash";
   totalPercentage: number; // Sum across all accounts (can exceed 100%)
   accountCount: number;
   status: "burning" | "stable" | "recovering" | "exhausted" | "calculating";

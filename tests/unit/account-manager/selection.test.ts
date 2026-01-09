@@ -2,13 +2,57 @@
  * Unit tests for selection.ts
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { pickNext, getCurrentStickyAccount, shouldWaitForCurrentAccount, pickStickyAccount } from "../../../src/account-manager/selection.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { pickNext, getCurrentStickyAccount, shouldWaitForCurrentAccount, pickStickyAccount, pickByMode, resetRoundRobinIndex, getRoundRobinIndex } from "../../../src/account-manager/selection.js";
 import { createAccount } from "../../helpers/factories.js";
+import type { AccountRefreshState } from "../../../src/cloudcode/auto-refresh-scheduler.js";
+
+// Mock the auto-refresh-scheduler module
+vi.mock("../../../src/cloudcode/auto-refresh-scheduler.js", () => ({
+  getAccountRefreshStates: vi.fn(() => []),
+}));
+
+// Import the mocked function
+import { getAccountRefreshStates } from "../../../src/cloudcode/auto-refresh-scheduler.js";
+const mockGetAccountRefreshStates = vi.mocked(getAccountRefreshStates);
+
+/**
+ * Helper to create an AccountRefreshState for testing
+ */
+function createRefreshState(overrides: Partial<AccountRefreshState> = {}): AccountRefreshState {
+  return {
+    email: "test@example.com",
+    lastChecked: Date.now(),
+    lastTriggered: null,
+    fetchedAt: Date.now(),
+    claudePercentage: 100,
+    geminiProPercentage: 100,
+    geminiFlashPercentage: 100,
+    claudeResetTime: null,
+    geminiProResetTime: null,
+    geminiFlashResetTime: null,
+    prevClaudeResetTime: null,
+    prevGeminiProResetTime: null,
+    prevGeminiFlashResetTime: null,
+    prevFetchedAt: null,
+    isClaudeTimerStale: false,
+    isGeminiProTimerStale: false,
+    isGeminiFlashTimerStale: false,
+    status: "ok",
+    ...overrides,
+  };
+}
 
 describe("selection", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockGetAccountRefreshStates.mockReturnValue([]);
+    resetRoundRobinIndex();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.resetAllMocks();
   });
 
   describe("pickNext", () => {
@@ -361,6 +405,426 @@ describe("selection", () => {
       expect(account?.email).toBe("a@example.com");
       expect(waitMs).toBe(0);
       expect(newIndex).toBe(0);
+    });
+  });
+
+  describe("pickByMode", () => {
+    describe("sticky mode", () => {
+      it("returns current account when available", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        const account = pickByMode("sticky", accounts, "claude-sonnet-4-5", "a@example.com");
+        expect(account?.email).toBe("a@example.com");
+      });
+
+      it("fails over to first available account when current is unavailable", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [
+          createAccount({
+            email: "a@example.com",
+            modelRateLimits: {
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+            },
+          }),
+          createAccount({ email: "b@example.com" }),
+        ];
+
+        const account = pickByMode("sticky", accounts, "claude-sonnet-4-5", "a@example.com");
+        expect(account?.email).toBe("b@example.com");
+      });
+
+      it("returns first available account when no current account specified", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        const account = pickByMode("sticky", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("a@example.com");
+      });
+
+      it("returns null when all accounts unavailable", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [
+          createAccount({
+            email: "a@example.com",
+            modelRateLimits: {
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+            },
+          }),
+        ];
+
+        const account = pickByMode("sticky", accounts, "claude-sonnet-4-5");
+        expect(account).toBeNull();
+      });
+    });
+
+    describe("refresh-priority mode", () => {
+      it("selects account with soonest resetTime", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" }), createAccount({ email: "c@example.com" })];
+
+        // Set up quota states: b has soonest reset, a has later reset, c has no reset (fresh)
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 50,
+            claudeResetTime: new Date(now + 3600000).toISOString(), // 1 hour
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            claudePercentage: 30,
+            claudeResetTime: new Date(now + 1800000).toISOString(), // 30 minutes (soonest)
+          }),
+          createRefreshState({
+            email: "c@example.com",
+            claudePercentage: 100,
+            claudeResetTime: null, // Fresh account
+          }),
+        ]);
+
+        const account = pickByMode("refresh-priority", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("b@example.com");
+      });
+
+      it("sorts fresh accounts (no resetTime) last", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        // a is fresh (no resetTime), b has a reset time
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 100,
+            claudeResetTime: null,
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            claudePercentage: 50,
+            claudeResetTime: new Date(now + 3600000).toISOString(),
+          }),
+        ]);
+
+        const account = pickByMode("refresh-priority", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("b@example.com");
+      });
+
+      it("returns first available when no quota states exist", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        mockGetAccountRefreshStates.mockReturnValue([]);
+
+        const account = pickByMode("refresh-priority", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("a@example.com");
+      });
+
+      it("skips rate-limited accounts", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [
+          createAccount({
+            email: "a@example.com",
+            modelRateLimits: {
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+            },
+          }),
+          createAccount({ email: "b@example.com" }),
+        ];
+
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 30,
+            claudeResetTime: new Date(now + 1800000).toISOString(), // Soonest but rate-limited
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            claudePercentage: 50,
+            claudeResetTime: new Date(now + 3600000).toISOString(),
+          }),
+        ]);
+
+        const account = pickByMode("refresh-priority", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("b@example.com");
+      });
+
+      it("uses correct quota group for gemini models", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        // For gemini-2.5-pro (geminiPro group), b has soonest reset
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            geminiProPercentage: 50,
+            geminiProResetTime: new Date(now + 3600000).toISOString(),
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            geminiProPercentage: 30,
+            geminiProResetTime: new Date(now + 1800000).toISOString(), // Soonest
+          }),
+        ]);
+
+        const account = pickByMode("refresh-priority", accounts, "gemini-2.5-pro");
+        expect(account?.email).toBe("b@example.com");
+      });
+    });
+
+    describe("drain-highest mode", () => {
+      it("selects account with highest quota percentage", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" }), createAccount({ email: "c@example.com" })];
+
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 50,
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            claudePercentage: 100, // Highest
+          }),
+          createRefreshState({
+            email: "c@example.com",
+            claudePercentage: 25,
+          }),
+        ]);
+
+        const account = pickByMode("drain-highest", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("b@example.com");
+      });
+
+      it("treats accounts without state as 0%", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        // Only a has state, b should be treated as 0%
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 50,
+          }),
+        ]);
+
+        const account = pickByMode("drain-highest", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("a@example.com");
+      });
+
+      it("skips rate-limited accounts", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [
+          createAccount({
+            email: "a@example.com",
+            modelRateLimits: {
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+            },
+          }),
+          createAccount({ email: "b@example.com" }),
+        ];
+
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 100, // Highest but rate-limited
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            claudePercentage: 50,
+          }),
+        ]);
+
+        const account = pickByMode("drain-highest", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("b@example.com");
+      });
+
+      it("uses correct quota group for gemini flash models", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            geminiFlashPercentage: 100, // Highest for flash
+          }),
+          createRefreshState({
+            email: "b@example.com",
+            geminiFlashPercentage: 50,
+          }),
+        ]);
+
+        const account = pickByMode("drain-highest", accounts, "gemini-3-flash");
+        expect(account?.email).toBe("a@example.com");
+      });
+
+      it("returns first available when all have no state", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        mockGetAccountRefreshStates.mockReturnValue([]);
+
+        const account = pickByMode("drain-highest", accounts, "claude-sonnet-4-5");
+        expect(account?.email).toBe("a@example.com");
+      });
+    });
+
+    describe("round-robin mode", () => {
+      it("cycles through available accounts in order", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" }), createAccount({ email: "c@example.com" })];
+
+        const first = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(first?.email).toBe("a@example.com");
+
+        const second = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(second?.email).toBe("b@example.com");
+
+        const third = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(third?.email).toBe("c@example.com");
+
+        const fourth = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(fourth?.email).toBe("a@example.com"); // Wraps around
+      });
+
+      it("skips rate-limited accounts in rotation", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [
+          createAccount({ email: "a@example.com" }),
+          createAccount({
+            email: "b@example.com",
+            modelRateLimits: {
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+            },
+          }),
+          createAccount({ email: "c@example.com" }),
+        ];
+
+        // Available accounts are [a, c] (b is rate-limited)
+        const first = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(first?.email).toBe("a@example.com");
+
+        const second = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(second?.email).toBe("c@example.com");
+
+        const third = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(third?.email).toBe("a@example.com"); // Wraps around to a
+      });
+
+      it("clamps index when available accounts change", () => {
+        // Start with 3 accounts
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" }), createAccount({ email: "c@example.com" })];
+
+        // Pick twice to advance index to 2
+        pickByMode("round-robin", accounts, "claude-sonnet-4-5"); // returns a, index -> 1
+        pickByMode("round-robin", accounts, "claude-sonnet-4-5"); // returns b, index -> 2
+
+        expect(getRoundRobinIndex()).toBe(2);
+
+        // Now remove c and b (simulate them becoming rate-limited)
+        const now = Date.now();
+        vi.setSystemTime(now);
+        accounts[1]!.modelRateLimits = { "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 } };
+        accounts[2]!.modelRateLimits = { "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 } };
+
+        // Available is now just [a], index should clamp to 0
+        const next = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(next?.email).toBe("a@example.com");
+      });
+
+      it("returns null when no accounts available", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [
+          createAccount({
+            email: "a@example.com",
+            modelRateLimits: {
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+            },
+          }),
+        ];
+
+        const account = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+        expect(account).toBeNull();
+      });
+    });
+
+    describe("unknown mode", () => {
+      it("defaults to sticky mode for unknown mode", () => {
+        const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+        // Using type assertion to test unknown mode behavior
+        const account = pickByMode("unknown-mode" as never, accounts, "claude-sonnet-4-5", "b@example.com");
+        expect(account?.email).toBe("b@example.com");
+      });
+    });
+
+    describe("edge cases", () => {
+      it("returns null for empty accounts array", () => {
+        const account = pickByMode("sticky", [], "claude-sonnet-4-5");
+        expect(account).toBeNull();
+      });
+
+      it("handles single account correctly in all modes", () => {
+        const accounts = [createAccount({ email: "a@example.com" })];
+
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "a@example.com",
+            claudePercentage: 50,
+            claudeResetTime: new Date(Date.now() + 3600000).toISOString(),
+          }),
+        ]);
+
+        expect(pickByMode("sticky", accounts, "claude-sonnet-4-5")?.email).toBe("a@example.com");
+        expect(pickByMode("refresh-priority", accounts, "claude-sonnet-4-5")?.email).toBe("a@example.com");
+        expect(pickByMode("drain-highest", accounts, "claude-sonnet-4-5")?.email).toBe("a@example.com");
+        expect(pickByMode("round-robin", accounts, "claude-sonnet-4-5")?.email).toBe("a@example.com");
+      });
+
+      it("updates lastUsed timestamp on selected account", () => {
+        const now = Date.now();
+        vi.setSystemTime(now);
+
+        const accounts = [createAccount({ email: "a@example.com", lastUsed: null })];
+
+        pickByMode("sticky", accounts, "claude-sonnet-4-5");
+        expect(accounts[0]?.lastUsed).toBe(now);
+      });
+    });
+  });
+
+  describe("round-robin index management", () => {
+    it("resetRoundRobinIndex resets the index to 0", () => {
+      const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" })];
+
+      pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+      expect(getRoundRobinIndex()).toBe(1);
+
+      resetRoundRobinIndex();
+      expect(getRoundRobinIndex()).toBe(0);
+    });
+
+    it("getRoundRobinIndex returns current index", () => {
+      expect(getRoundRobinIndex()).toBe(0);
+
+      const accounts = [createAccount({ email: "a@example.com" }), createAccount({ email: "b@example.com" }), createAccount({ email: "c@example.com" })];
+
+      pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+      expect(getRoundRobinIndex()).toBe(1);
+
+      pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+      expect(getRoundRobinIndex()).toBe(2);
+
+      pickByMode("round-robin", accounts, "claude-sonnet-4-5");
+      expect(getRoundRobinIndex()).toBe(0); // Wrapped around
     });
   });
 });

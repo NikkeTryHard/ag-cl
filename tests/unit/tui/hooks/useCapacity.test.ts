@@ -29,9 +29,14 @@ vi.mock("../../../../src/cloudcode/quota-api.js", () => ({
       aggregatedPercentage: 75,
       earliestReset: null,
     },
-    geminiPool: {
+    geminiProPool: {
       models: [{ name: "gemini-pro", percentage: 100, resetTime: null }],
       aggregatedPercentage: 100,
+      earliestReset: null,
+    },
+    geminiFlashPool: {
+      models: [{ name: "gemini-flash", percentage: 80, resetTime: null }],
+      aggregatedPercentage: 80,
       earliestReset: null,
     },
     projectId: null,
@@ -67,7 +72,8 @@ describe("useCapacity", () => {
     });
 
     expect(result.current.claudeCapacity.totalPercentage).toBe(75);
-    expect(result.current.geminiCapacity.totalPercentage).toBe(100);
+    expect(result.current.geminiProCapacity.totalPercentage).toBe(100);
+    expect(result.current.geminiFlashCapacity.totalPercentage).toBe(80);
     expect(result.current.accountCount).toBe(1);
   });
 

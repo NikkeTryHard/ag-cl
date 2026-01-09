@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getModelFamily, isThinkingModel } from "../../src/constants.js";
+import { getModelFamily, isThinkingModel, DEFAULT_SCHEDULING_MODE } from "../../src/constants.js";
 
 describe("getModelFamily", () => {
   describe("claude family", () => {
@@ -198,5 +198,16 @@ describe("MAX_EMPTY_RETRIES constant", () => {
     process.env.MAX_EMPTY_RETRIES = "0";
     const { MAX_EMPTY_RETRIES } = await import("../../src/constants.js");
     expect(MAX_EMPTY_RETRIES).toBe(0);
+  });
+});
+
+describe("DEFAULT_SCHEDULING_MODE constant", () => {
+  it("should be 'sticky' by default", () => {
+    expect(DEFAULT_SCHEDULING_MODE).toBe("sticky");
+  });
+
+  it("should be a valid SchedulingMode value", () => {
+    const validModes = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
+    expect(validModes).toContain(DEFAULT_SCHEDULING_MODE);
   });
 });

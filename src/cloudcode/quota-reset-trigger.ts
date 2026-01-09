@@ -16,6 +16,26 @@ import { QUOTA_GROUPS, getAllQuotaGroups, type QuotaGroupKey } from "./quota-gro
 import { getLogger } from "../utils/logger.js";
 
 /**
+ * Models to use for triggering quota reset timers.
+ *
+ * Any model in a quota group starts the timer for all models in that group,
+ * so we choose specific models for trigger requests:
+ *
+ * - Claude: Use Opus instead of Sonnet. Opus has lower rate limits but higher
+ *   per-request quota cost, making it less likely to be actively used when
+ *   we want to trigger. Using a less-frequently-used model reduces the chance
+ *   of quota contention during trigger.
+ *
+ * - Gemini Pro/Flash: Use the primary variants (gemini-3-*) which are already
+ *   the first models in their respective groups.
+ */
+const TRIGGER_MODELS: Record<QuotaGroupKey, string> = {
+  claude: "claude-opus-4-5-thinking",
+  geminiPro: "gemini-3-pro-high",
+  geminiFlash: "gemini-3-flash",
+};
+
+/**
  * Result of triggering quota reset for a single group
  */
 export interface GroupTriggerResult {
@@ -159,8 +179,8 @@ export async function triggerQuotaResetApi(token: string, projectId: string, gro
       continue;
     }
 
-    // Use first model from each group (any model in the group starts the timer for all)
-    const modelId = quotaGroup.models[0];
+    // Use the designated trigger model for this group
+    const modelId = TRIGGER_MODELS[groupKey];
 
     getLogger().info(`[QuotaTrigger] Triggering ${quotaGroup.name} with model: ${modelId}`);
 

@@ -64,7 +64,19 @@ function App(): React.ReactElement {
   const loading = demoMode ? false : realCapacity.loading || settingsLoading;
   const refreshing = demoMode ? false : realCapacity.refreshing;
   const claudeCapacity = demoMode ? getDemoClaudeCapacity() : realCapacity.claudeCapacity;
-  const geminiCapacity = demoMode ? getDemoGeminiCapacity() : realCapacity.geminiCapacity;
+
+  // For display purposes, combine Gemini Pro and Flash into a single aggregate
+  const geminiCapacity = demoMode
+    ? getDemoGeminiCapacity()
+    : {
+        family: "gemini" as const,
+        totalPercentage: Math.round((realCapacity.geminiProCapacity.totalPercentage + realCapacity.geminiFlashCapacity.totalPercentage) / 2),
+        accountCount: realCapacity.geminiProCapacity.accountCount,
+        status: realCapacity.geminiProCapacity.status === "exhausted" || realCapacity.geminiFlashCapacity.status === "exhausted" ? ("exhausted" as const) : realCapacity.geminiProCapacity.status,
+        hoursToExhaustion: realCapacity.geminiProCapacity.hoursToExhaustion ?? realCapacity.geminiFlashCapacity.hoursToExhaustion,
+        ratePerHour: realCapacity.geminiProCapacity.ratePerHour !== null && realCapacity.geminiFlashCapacity.ratePerHour !== null ? (realCapacity.geminiProCapacity.ratePerHour + realCapacity.geminiFlashCapacity.ratePerHour) / 2 : (realCapacity.geminiProCapacity.ratePerHour ?? realCapacity.geminiFlashCapacity.ratePerHour),
+      };
+
   const accounts = demoMode ? getDemoAccounts() : realCapacity.accounts;
   const accountCount = demoMode ? 3 : realCapacity.accountCount;
   const refresh = realCapacity.refresh;

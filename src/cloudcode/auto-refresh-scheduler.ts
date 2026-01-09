@@ -1,10 +1,10 @@
 /**
  * Auto-Refresh Scheduler
  *
- * Smart auto-refresh that checks quota status every 10 minutes and triggers
- * reset for accounts that need it. Uses pre-warming strategy to start fresh
- * 5-hour reset timers proactively when quota is at 100%.
- * Processes ALL OAuth accounts, not just the first one.
+ * Smart auto-refresh that checks quota status every 5 minutes (clock-aligned to
+ * :00, :05, :10, etc.) and triggers reset for accounts that need it. Uses
+ * pre-warming strategy to start fresh 5-hour reset timers proactively when
+ * quota is at 100%. Processes ALL OAuth accounts, not just the first one.
  */
 
 import { AUTO_REFRESH_CHECK_INTERVAL_MS } from "../constants.js";
@@ -14,23 +14,104 @@ import { AccountManager } from "../account-manager/index.js";
 import { getLogger } from "../utils/logger.js";
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+
+let timeoutId: ReturnType<typeof setTimeout> | null = null;
 let nextRefreshTime: number | null = null;
 let accountManager: AccountManager | null = null;
 let lastRefreshTime: number | null = null;
+
+/**
+ * Calculate milliseconds until the next clock-aligned interval.
+ *
+ * Aligns intervals to wall-clock times (e.g., :00, :05, :10, etc. for 5-minute intervals).
+ * This ensures all instances check at predictable times regardless of when they started.
+ *
+ * @param intervalMs - The interval in milliseconds (e.g., 5 * 60 * 1000 for 5 minutes)
+ * @returns Milliseconds until the next aligned interval (0 if already at aligned time)
+ */
+export function getMillisUntilNextAligned(intervalMs: number): number {
+  const now = Date.now();
+  // Calculate milliseconds since the start of the current hour
+  const msIntoHour = now % (60 * 60 * 1000);
+
+  // Find the next aligned time within the hour
+  const remainder = msIntoHour % intervalMs;
+
+  // If remainder is 0, we're already at an aligned time
+  if (remainder === 0) return 0;
+
+  // Otherwise, return time until next aligned interval
+  return intervalMs - remainder;
+}
 
 /** Per-account refresh state */
 export interface AccountRefreshState {
   email: string;
   lastChecked: number | null;
   lastTriggered: number | null;
+  /** Timestamp when quota data was fetched (for stale timer detection) */
+  fetchedAt: number | null;
   claudePercentage: number;
-  geminiPercentage: number;
+  geminiProPercentage: number;
+  geminiFlashPercentage: number;
   claudeResetTime: string | null;
-  geminiResetTime: string | null;
+  geminiProResetTime: string | null;
+  geminiFlashResetTime: string | null;
+  /** Previous reset times for stale detection */
+  prevClaudeResetTime: string | null;
+  prevGeminiProResetTime: string | null;
+  prevGeminiFlashResetTime: string | null;
+  prevFetchedAt: number | null;
+  /** Whether the reset timer appears stale (not actively ticking) */
+  isClaudeTimerStale: boolean;
+  isGeminiProTimerStale: boolean;
+  isGeminiFlashTimerStale: boolean;
   status: "ok" | "exhausted" | "pending_reset" | "error";
 }
 
 const accountStates = new Map<string, AccountRefreshState>();
+
+/**
+ * Tolerance in milliseconds for timer staleness detection.
+ * Allows for API latency and timing differences between refreshes.
+ */
+const STALE_TOLERANCE_MS = 60 * 1000; // 60 seconds
+
+/**
+ * Detect if a reset timer is stale (not actively ticking down).
+ *
+ * A stale timer means the resetTime is left over from a completed reset cycle.
+ * The quota is at 100% but the old resetTime hasn't been cleared by the API.
+ *
+ * Detection strategy:
+ * - Calculate time remaining at each fetch point (resetTime - fetchedAt)
+ * - If timer is ticking: time remaining should decrease by approximately the elapsed time
+ * - If timer is stale: the time remaining won't decrease as expected (absolute resetTime may have changed/jumped)
+ *
+ * @param currentResetTime - The current reset time from the API (ISO string)
+ * @param prevResetTime - The previous reset time from the last check (ISO string)
+ * @param currentFetchedAt - Timestamp when we fetched the current data
+ * @param prevFetchedAt - Timestamp when we fetched the previous data
+ * @returns true if the timer appears stale, false otherwise
+ */
+export function isTimerStale(currentResetTime: string | null, prevResetTime: string | null, currentFetchedAt: number, prevFetchedAt: number | null): boolean {
+  // Cannot determine staleness without both reset times and previous fetch time
+  if (!currentResetTime || !prevResetTime || !prevFetchedAt) return false;
+
+  const expectedElapsedMs = currentFetchedAt - prevFetchedAt;
+  const currentResetMs = new Date(currentResetTime).getTime();
+  const previousResetMs = new Date(prevResetTime).getTime();
+
+  // Calculate time remaining at each fetch point
+  // For an active timer, time remaining should decrease by the elapsed time
+  const prevTimeRemaining = previousResetMs - prevFetchedAt;
+  const currentTimeRemaining = currentResetMs - currentFetchedAt;
+  const actualDecreaseMs = prevTimeRemaining - currentTimeRemaining;
+
+  // If timer is ticking, time remaining should decrease by ~expectedElapsedMs
+  // Allow tolerance for API latency and timing differences
+  return Math.abs(actualDecreaseMs - expectedElapsedMs) > STALE_TOLERANCE_MS;
+}
 
 /**
  * Check if an account needs quota refresh trigger and update state
@@ -43,12 +124,23 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     const capacity = await fetchAccountCapacity(token, email);
 
     const claudePct = capacity.claudePool.aggregatedPercentage;
-    const geminiPct = capacity.geminiPool.aggregatedPercentage;
+    const geminiProPct = capacity.geminiProPool.aggregatedPercentage;
+    const geminiFlashPct = capacity.geminiFlashPool.aggregatedPercentage;
     const claudeReset = capacity.claudePool.earliestReset;
-    const geminiReset = capacity.geminiPool.earliestReset;
+    const geminiProReset = capacity.geminiProPool.earliestReset;
+    const geminiFlashReset = capacity.geminiFlashPool.earliestReset;
+
+    // Get existing state for stale timer detection
+    const existing = accountStates.get(email);
+    const prevFetchedAt = existing?.fetchedAt ?? null;
+
+    // Calculate stale status for each pool
+    const isClaudeTimerStale = isTimerStale(claudeReset, existing?.claudeResetTime ?? null, now, prevFetchedAt);
+    const isGeminiProTimerStale = isTimerStale(geminiProReset, existing?.geminiProResetTime ?? null, now, prevFetchedAt);
+    const isGeminiFlashTimerStale = isTimerStale(geminiFlashReset, existing?.geminiFlashResetTime ?? null, now, prevFetchedAt);
 
     // Log quota status for this account
-    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}), Gemini ${geminiPct}% (reset: ${geminiReset ?? "none"})`);
+    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}${isClaudeTimerStale ? ", stale" : ""}), Gemini Pro ${geminiProPct}% (reset: ${geminiProReset ?? "none"}${isGeminiProTimerStale ? ", stale" : ""}), Gemini Flash ${geminiFlashPct}% (reset: ${geminiFlashReset ?? "none"}${isGeminiFlashTimerStale ? ", stale" : ""})`);
 
     // Determine status using pre-warming strategy:
     // 1. At 100% quota: reset timer is stale (from completed cycle) → trigger to pre-warm
@@ -60,44 +152,63 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     let reason = "Has remaining quota";
 
     const claudeExhausted = claudePct === 0;
-    const geminiExhausted = geminiPct === 0;
+    const geminiProExhausted = geminiProPct === 0;
+    const geminiFlashExhausted = geminiFlashPct === 0;
     const claudeFresh = claudePct === 100;
-    const geminiFresh = geminiPct === 100;
-    const anyFresh = claudeFresh || geminiFresh;
-    const anyExhaustedWithoutTimer = (claudeExhausted && !claudeReset) || (geminiExhausted && !geminiReset);
-    const bothExhaustedWithTimer = claudeExhausted && geminiExhausted && !!claudeReset && !!geminiReset;
+    const geminiProFresh = geminiProPct === 100;
+    const geminiFlashFresh = geminiFlashPct === 100;
+    const anyFresh = claudeFresh || geminiProFresh || geminiFlashFresh;
+    const anyExhaustedWithoutTimer = (claudeExhausted && !claudeReset) || (geminiProExhausted && !geminiProReset) || (geminiFlashExhausted && !geminiFlashReset);
+    const allExhaustedWithTimer = claudeExhausted && geminiProExhausted && geminiFlashExhausted && !!claudeReset && !!geminiProReset && !!geminiFlashReset;
 
     if (anyExhaustedWithoutTimer) {
       // Priority 1: Must trigger - need to start a reset timer
       needsRefresh = true;
       status = "exhausted";
-      reason = claudeExhausted && !claudeReset ? "Claude exhausted, no reset timer" : "Gemini exhausted, no reset timer";
-    } else if (bothExhaustedWithTimer) {
-      // Priority 2: Both waiting for reset - skip
+      if (claudeExhausted && !claudeReset) {
+        reason = "Claude exhausted, no reset timer";
+      } else if (geminiProExhausted && !geminiProReset) {
+        reason = "Gemini Pro exhausted, no reset timer";
+      } else {
+        reason = "Gemini Flash exhausted, no reset timer";
+      }
+    } else if (allExhaustedWithTimer) {
+      // Priority 2: All waiting for reset - skip
       needsRefresh = false;
       status = "pending_reset";
       reason = "Waiting for reset timers";
     } else if (anyFresh) {
       // Priority 3: Pre-warm - at least one pool at 100% (stale timer)
       needsRefresh = true;
-      status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
+      status = claudeExhausted || geminiProExhausted || geminiFlashExhausted ? "pending_reset" : "ok";
       reason = "Pre-warming: refreshing reset timer";
     } else {
       // Priority 4: Partial quota or one waiting + one in use
       needsRefresh = false;
-      status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
-      reason = claudeExhausted || geminiExhausted ? "Waiting for reset timer" : "Has remaining quota";
+      status = claudeExhausted || geminiProExhausted || geminiFlashExhausted ? "pending_reset" : "ok";
+      reason = claudeExhausted || geminiProExhausted || geminiFlashExhausted ? "Waiting for reset timer" : "Has remaining quota";
     }
 
     // Update state
     accountStates.set(email, {
       email,
       lastChecked: now,
-      lastTriggered: accountStates.get(email)?.lastTriggered ?? null,
+      lastTriggered: existing?.lastTriggered ?? null,
+      fetchedAt: now,
       claudePercentage: claudePct,
-      geminiPercentage: geminiPct,
+      geminiProPercentage: geminiProPct,
+      geminiFlashPercentage: geminiFlashPct,
       claudeResetTime: claudeReset,
-      geminiResetTime: geminiReset,
+      geminiProResetTime: geminiProReset,
+      geminiFlashResetTime: geminiFlashReset,
+      // Store current values as previous for next stale detection
+      prevClaudeResetTime: existing?.claudeResetTime ?? null,
+      prevGeminiProResetTime: existing?.geminiProResetTime ?? null,
+      prevGeminiFlashResetTime: existing?.geminiFlashResetTime ?? null,
+      prevFetchedAt: existing?.fetchedAt ?? null,
+      isClaudeTimerStale,
+      isGeminiProTimerStale,
+      isGeminiFlashTimerStale,
       status,
     });
 
@@ -109,10 +220,20 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
       email,
       lastChecked: now,
       lastTriggered: existing?.lastTriggered ?? null,
+      fetchedAt: existing?.fetchedAt ?? null,
       claudePercentage: existing?.claudePercentage ?? 0,
-      geminiPercentage: existing?.geminiPercentage ?? 0,
+      geminiProPercentage: existing?.geminiProPercentage ?? 0,
+      geminiFlashPercentage: existing?.geminiFlashPercentage ?? 0,
       claudeResetTime: existing?.claudeResetTime ?? null,
-      geminiResetTime: existing?.geminiResetTime ?? null,
+      geminiProResetTime: existing?.geminiProResetTime ?? null,
+      geminiFlashResetTime: existing?.geminiFlashResetTime ?? null,
+      prevClaudeResetTime: existing?.prevClaudeResetTime ?? null,
+      prevGeminiProResetTime: existing?.prevGeminiProResetTime ?? null,
+      prevGeminiFlashResetTime: existing?.prevGeminiFlashResetTime ?? null,
+      prevFetchedAt: existing?.prevFetchedAt ?? null,
+      isClaudeTimerStale: existing?.isClaudeTimerStale ?? false,
+      isGeminiProTimerStale: existing?.isGeminiProTimerStale ?? false,
+      isGeminiFlashTimerStale: existing?.isGeminiFlashTimerStale ?? false,
       status: "error",
     });
 
@@ -210,28 +331,47 @@ async function performRefresh(): Promise<void> {
 
 /**
  * Start the auto-refresh scheduler
- * Triggers immediately, then checks every AUTO_REFRESH_CHECK_INTERVAL_MS (10 minutes)
+ * Triggers immediately, then aligns to clock times (every 5 minutes at :00, :05, :10, etc.)
  */
 export async function startAutoRefresh(): Promise<void> {
   const logger = getLogger();
 
-  if (intervalId !== null) {
+  if (intervalId !== null || timeoutId !== null) {
     logger.debug("[AutoRefresh] Already running, skipping start");
     return;
   }
 
-  logger.info(`[AutoRefresh] Starting smart auto-refresh (check every 10 minutes)`);
+  const intervalMinutes = AUTO_REFRESH_CHECK_INTERVAL_MS / 60000;
+  logger.info(`[AutoRefresh] Starting smart auto-refresh (check every ${intervalMinutes} minutes, clock-aligned)`);
 
   // Trigger immediately
   await performRefresh();
 
-  // Schedule frequent checks (smart refresh only triggers when needed)
-  nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
-  intervalId = setInterval(() => {
-    void performRefresh().then(() => {
-      nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
-    });
-  }, AUTO_REFRESH_CHECK_INTERVAL_MS);
+  // Calculate time until next clock-aligned interval
+  const msUntilAligned = getMillisUntilNextAligned(AUTO_REFRESH_CHECK_INTERVAL_MS);
+
+  if (msUntilAligned === 0) {
+    // Already at aligned time, start interval immediately
+    nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+    intervalId = setInterval(() => {
+      void performRefresh().then(() => {
+        nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+      });
+    }, AUTO_REFRESH_CHECK_INTERVAL_MS);
+  } else {
+    // Wait until next aligned time, then start regular interval
+    nextRefreshTime = Date.now() + msUntilAligned;
+    timeoutId = setTimeout(() => {
+      void performRefresh().then(() => {
+        nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+        intervalId = setInterval(() => {
+          void performRefresh().then(() => {
+            nextRefreshTime = Date.now() + AUTO_REFRESH_CHECK_INTERVAL_MS;
+          });
+        }, AUTO_REFRESH_CHECK_INTERVAL_MS);
+      });
+    }, msUntilAligned);
+  }
 
   logger.info(`[AutoRefresh] Next check scheduled for ${new Date(nextRefreshTime).toLocaleTimeString()}`);
 }
@@ -240,9 +380,15 @@ export async function startAutoRefresh(): Promise<void> {
  * Stop the auto-refresh scheduler
  */
 export function stopAutoRefresh(): void {
-  if (intervalId !== null) {
-    clearInterval(intervalId);
-    intervalId = null;
+  if (intervalId !== null || timeoutId !== null) {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (intervalId !== null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
     nextRefreshTime = null;
     lastRefreshTime = null;
     accountStates.clear();
@@ -254,7 +400,7 @@ export function stopAutoRefresh(): void {
  * Check if auto-refresh is currently running
  */
 export function isAutoRefreshRunning(): boolean {
-  return intervalId !== null;
+  return intervalId !== null || timeoutId !== null;
 }
 
 /**

@@ -5,6 +5,7 @@
 
 import { homedir, platform, arch } from "os";
 import { join } from "path";
+import type { SchedulingMode } from "./account-manager/types.js";
 
 /**
  * Model family type
@@ -87,6 +88,7 @@ export const ACCOUNT_CONFIG_PATH = join(homedir(), ".config/antigravity-proxy/ac
 export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();
 
 export const DEFAULT_COOLDOWN_MS = 10 * 1000; // 10 second default cooldown
+export const DEFAULT_SCHEDULING_MODE: SchedulingMode = "sticky"; // Default account selection strategy
 export const MAX_RETRIES = 5; // Max retry attempts across accounts
 export const MAX_ACCOUNTS = 10; // Maximum number of accounts allowed
 
@@ -116,9 +118,9 @@ export const MAX_WAIT_BEFORE_ERROR_MS = 120000; // 2 minutes - throw error if wa
 // Auto-refresh interval for quota reset (5 hours in milliseconds)
 export const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000;
 
-// Smart auto-refresh check interval (10 minutes)
-// Checks quota status frequently, but only triggers reset when needed
-export const AUTO_REFRESH_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+// Smart auto-refresh check interval (5 minutes, clock-aligned)
+// Checks quota status at :00, :05, :10, etc. and triggers reset when needed
+export const AUTO_REFRESH_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 // Thinking model constants
 export const MIN_SIGNATURE_LENGTH = 50; // Minimum valid thinking signature length

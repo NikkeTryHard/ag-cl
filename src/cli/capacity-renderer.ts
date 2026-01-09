@@ -150,11 +150,12 @@ export function formatProgressBar(percentage: number, options?: RenderOptions): 
  * Calculate hours and minutes until a timestamp.
  *
  * @param isoTimestamp - ISO timestamp string
+ * @param referenceTime - Reference time in milliseconds (defaults to Date.now())
  * @returns Object with hours and minutes, or null if past
  */
-function getTimeUntil(isoTimestamp: string): { hours: number; minutes: number } | null {
+function getTimeUntil(isoTimestamp: string, referenceTime?: number): { hours: number; minutes: number } | null {
   const resetMs = new Date(isoTimestamp).getTime();
-  const nowMs = Date.now();
+  const nowMs = referenceTime ?? Date.now();
   const deltaMs = resetMs - nowMs;
 
   if (deltaMs <= 0) return null;
@@ -180,6 +181,9 @@ function getResetTimeColor(hours: number): (s: string) => string {
   return pc.dim;
 }
 
+/** Threshold in milliseconds after which data is considered stale (60 seconds) */
+const STALE_THRESHOLD_MS = 60 * 1000;
+
 /**
  * Format reset time for display.
  *
@@ -188,16 +192,23 @@ function getResetTimeColor(hours: number): (s: string) => string {
  * - 1-6h: Yellow
  * - > 6h: Gray/Dim
  *
+ * When `fetchedAt` is provided:
+ * - Time remaining is calculated from when data was fetched, not current time
+ * - A stale indicator (*) is shown if data was fetched more than 60 seconds ago
+ *
  * @param resetTime - ISO timestamp or null
  * @param options - Render options
+ * @param fetchedAt - Optional timestamp (ms) when data was fetched. If provided, time is calculated from this point.
  * @returns Formatted reset time string
  */
-export function formatResetTime(resetTime: string | null, options?: RenderOptions): string {
+export function formatResetTime(resetTime: string | null, options?: RenderOptions, fetchedAt?: number): string {
   if (!resetTime) {
     return options?.noColor ? "-" : pc.dim("-");
   }
 
-  const timeUntil = getTimeUntil(resetTime);
+  // Use fetchedAt for calculation if provided, otherwise use Date.now()
+  const referenceTime = fetchedAt ?? Date.now();
+  const timeUntil = getTimeUntil(resetTime, referenceTime);
   if (!timeUntil) {
     return options?.noColor ? "now" : pc.green("now");
   }
@@ -210,6 +221,12 @@ export function formatResetTime(resetTime: string | null, options?: RenderOption
     timeStr = `${hours}h ${minutes}m`;
   } else {
     timeStr = `${minutes}m`;
+  }
+
+  // Add stale indicator if data was fetched more than STALE_THRESHOLD_MS ago
+  const isStale = fetchedAt !== undefined && Date.now() - fetchedAt > STALE_THRESHOLD_MS;
+  if (isStale) {
+    timeStr += "*";
   }
 
   // Apply color if enabled

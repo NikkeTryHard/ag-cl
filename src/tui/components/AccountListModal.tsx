@@ -25,24 +25,43 @@ interface AccountListModalProps {
   lastAutoRefresh?: number | null;
 }
 
+/** Threshold in milliseconds after which data is considered stale (60 seconds) */
+const STALE_THRESHOLD_MS = 60 * 1000;
+
 /**
- * Format reset time as relative duration
+ * Format reset time as relative duration.
+ * When `fetchedAt` is provided, calculates time from that reference point
+ * and adds a stale indicator (*) if data is older than 60 seconds.
  */
-function formatResetTime(isoTimestamp: string | null): string {
+function formatResetTime(isoTimestamp: string | null, fetchedAt?: number): string {
   if (!isoTimestamp) return "-";
   const resetDate = new Date(isoTimestamp);
-  const now = new Date();
-  const diffMs = resetDate.getTime() - now.getTime();
+  // Use fetchedAt as reference time if provided, otherwise use current time
+  const referenceTime = fetchedAt ?? Date.now();
+  const diffMs = resetDate.getTime() - referenceTime;
 
   if (diffMs <= 0) return "now";
 
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 60) return `${String(diffMins)}m`;
+  let result: string;
+  if (diffMins < 60) {
+    result = `${String(diffMins)}m`;
+  } else {
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    if (mins > 0) {
+      result = `${String(hours)}h ${String(mins)}m`;
+    } else {
+      result = `${String(hours)}h`;
+    }
+  }
 
-  const hours = Math.floor(diffMins / 60);
-  const mins = diffMins % 60;
-  if (mins > 0) return `${String(hours)}h ${String(mins)}m`;
-  return `${String(hours)}h`;
+  // Add stale indicator if data was fetched more than STALE_THRESHOLD_MS ago
+  if (fetchedAt !== undefined && Date.now() - fetchedAt > STALE_THRESHOLD_MS) {
+    result += "*";
+  }
+
+  return result;
 }
 
 /**
@@ -251,7 +270,7 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, ref
               <Text color={isSelected ? "cyan" : undefined}>{truncatedEmail.padEnd(emailWidth)}</Text>
               <Text dimColor>{account.tier.substring(0, tierWidth - 1).padEnd(tierWidth)}</Text>
               <Text color={getPercentageColor(claudePct)}>{`${String(claudePct)}%`.padEnd(claudeWidth)}</Text>
-              <Text dimColor>{formatResetTime(resetTime).padEnd(resetWidth)}</Text>
+              <Text dimColor>{formatResetTime(resetTime, account.fetchedAt).padEnd(resetWidth)}</Text>
               <Text color={getPercentageColor(geminiLowest)}>{geminiText}</Text>
             </Box>
           );

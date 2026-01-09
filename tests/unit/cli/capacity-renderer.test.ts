@@ -234,6 +234,49 @@ describe("formatResetTime", () => {
       expect(result).toBe("now");
     });
   });
+
+  describe("fetchedAt parameter", () => {
+    it("calculates time remaining from fetchedAt instead of Date.now()", () => {
+      // resetTime is 5 hours from fetchedAt
+      const fetchedAt = Date.now() - 10 * 60 * 1000; // 10 minutes ago
+      const resetTime = new Date(fetchedAt + 5 * 60 * 60 * 1000).toISOString(); // 5 hours from fetchedAt
+
+      const result = formatResetTime(resetTime, { noColor: true }, fetchedAt);
+      // Should show 5h (the time remaining at the moment of fetch), not 4h50m (current)
+      expect(result).toMatch(/5h\s*0?m?\*?/);
+    });
+
+    it("adds stale indicator (*) when data is older than 60 seconds", () => {
+      const fetchedAt = Date.now() - 2 * 60 * 1000; // 2 minutes ago (stale)
+      const resetTime = new Date(fetchedAt + 3 * 60 * 60 * 1000).toISOString();
+
+      const result = formatResetTime(resetTime, { noColor: true }, fetchedAt);
+      expect(result).toContain("*");
+    });
+
+    it("does not add stale indicator when data is fresh (< 60 seconds)", () => {
+      const fetchedAt = Date.now() - 30 * 1000; // 30 seconds ago (fresh)
+      const resetTime = new Date(fetchedAt + 3 * 60 * 60 * 1000).toISOString();
+
+      const result = formatResetTime(resetTime, { noColor: true }, fetchedAt);
+      expect(result).not.toContain("*");
+    });
+
+    it("does not add stale indicator when fetchedAt is undefined", () => {
+      const resetTime = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+
+      const result = formatResetTime(resetTime, { noColor: true });
+      expect(result).not.toContain("*");
+    });
+
+    it("shows 'now' for past reset times even with fetchedAt", () => {
+      const fetchedAt = Date.now() - 60 * 1000;
+      const resetTime = new Date(fetchedAt - 60 * 60 * 1000).toISOString(); // Already past at fetchedAt
+
+      const result = formatResetTime(resetTime, { noColor: true }, fetchedAt);
+      expect(result).toBe("now");
+    });
+  });
 });
 
 // ============================================================================

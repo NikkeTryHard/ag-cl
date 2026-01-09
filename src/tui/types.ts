@@ -26,6 +26,7 @@ export interface AccountCapacityInfo {
   geminiProReset: string | null; // Earliest reset (for summary)
   geminiFlashReset: string | null; // Earliest reset (for summary)
   error: string | null;
+  fetchedAt?: number; // Timestamp (ms) when this data was fetched
 }
 
 /** Aggregated capacity for a model family */

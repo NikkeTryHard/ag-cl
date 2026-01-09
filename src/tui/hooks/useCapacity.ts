@@ -207,6 +207,7 @@ export function useCapacity(): UseCapacityResult {
           geminiFlashBurnRates.push(geminiFlashBurn);
 
           // Build per-account info with per-model quotas
+          const fetchedAt = Date.now();
           accountInfos.push({
             email: account.email,
             tier: capacity.tier,
@@ -217,6 +218,7 @@ export function useCapacity(): UseCapacityResult {
             geminiProReset: capacity.geminiProPool.earliestReset,
             geminiFlashReset: capacity.geminiFlashPool.earliestReset,
             error: null,
+            fetchedAt,
           });
         } else {
           // Add error entry for this account

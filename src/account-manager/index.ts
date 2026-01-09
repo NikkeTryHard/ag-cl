@@ -350,9 +350,9 @@ export class AccountManager {
         this.#currentIndex = newIndex;
       }
 
-      // Log the selection with mode and quota details
+      // Log the selection with mode (consistent with selector-level logging)
       const logger = getLogger();
-      logger.debug(`[AccountManager] Mode: ${mode} | Selected: ${selected.email}`);
+      logger.info(`[AccountManager] Mode: ${mode} | Selected: ${selected.email}`);
 
       // Trigger save (don't await to avoid blocking)
       void this.saveToDisk();

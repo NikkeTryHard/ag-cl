@@ -197,7 +197,7 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       await startAutoRefreshFresh();
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to trigger quota reset"));
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("failed to trigger"));
 
       stopAutoRefreshFresh();
     });
@@ -239,7 +239,7 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       await startAutoRefreshFresh();
 
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining("Error during quota refresh"));
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining("API Error"));
       expect(isAutoRefreshRunningFresh()).toBe(true); // Should still be running
 
       stopAutoRefreshFresh();

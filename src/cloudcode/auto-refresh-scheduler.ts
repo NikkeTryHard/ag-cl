@@ -16,7 +16,7 @@ let accountManager: AccountManager | null = null;
 let lastRefreshTime: number | null = null;
 
 /**
- * Perform a single quota refresh trigger
+ * Perform quota refresh for ALL OAuth accounts
  * Sends minimal requests to Google to start the 5-hour countdown timer
  */
 async function performRefresh(): Promise<void> {
@@ -28,31 +28,52 @@ async function performRefresh(): Promise<void> {
       await accountManager.initialize();
     }
 
-    // Get first available OAuth account
+    // Get ALL OAuth accounts, not just the first one
     const accounts = accountManager.getAllAccounts();
-    const oauthAccount = accounts.find((a: { source: string; refreshToken?: string }) => a.source === "oauth" && a.refreshToken);
+    const oauthAccounts = accounts.filter((a: { source: string; refreshToken?: string }) => a.source === "oauth" && a.refreshToken);
 
-    if (!oauthAccount) {
+    if (oauthAccounts.length === 0) {
       logger.warn("[AutoRefresh] No OAuth accounts available for quota refresh");
       return;
     }
 
-    // Get token and project
-    const token = await accountManager.getTokenForAccount(oauthAccount);
-    const projectId = await accountManager.getProjectForAccount(oauthAccount, token);
+    logger.info(`[AutoRefresh] Processing ${oauthAccounts.length} account(s)...`);
 
-    // Trigger quota reset for all groups
-    const result = await triggerQuotaResetApi(token, projectId, "all");
+    let totalSuccess = 0;
+    let totalFailed = 0;
 
-    // Also clear local rate limit flags
+    // Process each account
+    for (const account of oauthAccounts) {
+      try {
+        const token = await accountManager.getTokenForAccount(account);
+        const projectId = await accountManager.getProjectForAccount(account, token);
+
+        // Trigger quota reset for all groups using this account's credentials
+        const result = await triggerQuotaResetApi(token, projectId, "all");
+
+        if (result.successCount > 0) {
+          totalSuccess++;
+          logger.info(`[AutoRefresh] ${account.email}: triggered ${result.successCount} group(s)`);
+        } else {
+          totalFailed++;
+          logger.warn(`[AutoRefresh] ${account.email}: failed to trigger any groups`);
+        }
+      } catch (error) {
+        totalFailed++;
+        const err = error as Error;
+        logger.error(`[AutoRefresh] ${account.email}: ${err.message}`);
+      }
+    }
+
+    // Clear local rate limit flags for all accounts
     accountManager.triggerQuotaReset("all");
 
-    if (result.successCount > 0) {
+    if (totalSuccess > 0) {
       lastRefreshTime = Date.now();
       const nextReset = new Date(Date.now() + AUTO_REFRESH_INTERVAL_MS);
-      logger.info(`[AutoRefresh] Quota timer started for ${result.successCount} group(s). Quota will reset at ${nextReset.toLocaleTimeString()}`);
+      logger.info(`[AutoRefresh] Completed: ${totalSuccess} succeeded, ${totalFailed} failed. Next refresh at ${nextReset.toLocaleTimeString()}`);
     } else {
-      logger.warn(`[AutoRefresh] Failed to trigger quota reset for any group`);
+      logger.warn(`[AutoRefresh] All ${totalFailed} account(s) failed to trigger quota reset`);
     }
   } catch (error) {
     const err = error as Error;

@@ -49,25 +49,43 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     // Log quota status for this account
     getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}), Gemini ${geminiPct}% (reset: ${geminiReset ?? "none"})`);
 
-    // Determine status
+    // Determine status using pre-warming strategy:
+    // 1. At 100% quota: reset timer is stale (from completed cycle) → trigger to pre-warm
+    // 2. At 0% with timer: actively waiting for reset → skip
+    // 3. At 0% without timer: need to start timer → trigger
+    // 4. Partial quota (1-99%): in use → skip
     let status: AccountRefreshState["status"] = "ok";
     let needsRefresh = false;
     let reason = "Has remaining quota";
 
     const claudeExhausted = claudePct === 0;
     const geminiExhausted = geminiPct === 0;
+    const claudeFresh = claudePct === 100;
+    const geminiFresh = geminiPct === 100;
+    const anyFresh = claudeFresh || geminiFresh;
+    const anyExhaustedWithoutTimer = (claudeExhausted && !claudeReset) || (geminiExhausted && !geminiReset);
+    const bothExhaustedWithTimer = claudeExhausted && geminiExhausted && !!claudeReset && !!geminiReset;
 
-    if (claudeExhausted && !claudeReset) {
+    if (anyExhaustedWithoutTimer) {
+      // Priority 1: Must trigger - need to start a reset timer
       needsRefresh = true;
       status = "exhausted";
-      reason = "Claude exhausted, no reset timer";
-    } else if (geminiExhausted && !geminiReset) {
+      reason = claudeExhausted && !claudeReset ? "Claude exhausted, no reset timer" : "Gemini exhausted, no reset timer";
+    } else if (bothExhaustedWithTimer) {
+      // Priority 2: Both waiting for reset - skip
+      needsRefresh = false;
+      status = "pending_reset";
+      reason = "Waiting for reset timers";
+    } else if (anyFresh) {
+      // Priority 3: Pre-warm - at least one pool at 100% (stale timer)
       needsRefresh = true;
-      status = "exhausted";
-      reason = "Gemini exhausted, no reset timer";
-    } else if (claudeReset || geminiReset) {
       status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
-      reason = "Reset timer already running";
+      reason = "Pre-warming: refreshing reset timer";
+    } else {
+      // Priority 4: Partial quota or one waiting + one in use
+      needsRefresh = false;
+      status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
+      reason = claudeExhausted || geminiExhausted ? "Waiting for reset timer" : "Has remaining quota";
     }
 
     // Update state

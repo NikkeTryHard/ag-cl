@@ -44,6 +44,13 @@ const IDENTITY_MODES: IdentityMode[] = ["full", "short", "none"];
 const LOG_LEVELS: LogLevel[] = ["silent", "error", "warn", "info", "debug", "trace"];
 const SCHEDULING_MODES: SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
 
+const SCHEDULING_MODE_DESCRIPTIONS: Record<SchedulingMode, string> = {
+  sticky: "Stay on current account until rate-limited",
+  "refresh-priority": "Pick account with soonest reset time",
+  "drain-highest": "Pick account with highest quota % (100% first)",
+  "round-robin": "Simple rotation through available accounts",
+};
+
 /**
  * Get display value for a setting
  */
@@ -241,6 +248,13 @@ export function SettingsModal({ settings, onUpdateSettings, onClose }: SettingsM
             </Box>
           );
         })}
+
+        {/* Scheduling mode description */}
+        {currentSetting.key === "schedulingMode" && (
+          <Box marginTop={1}>
+            <Text dimColor>{SCHEDULING_MODE_DESCRIPTIONS[settings.schedulingMode ?? DEFAULTS.schedulingMode]}</Text>
+          </Box>
+        )}
 
         {/* Validation error for port */}
         {editingPort && portValidationError && (

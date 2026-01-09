@@ -305,19 +305,25 @@ export class AccountManager {
    * @returns The current scheduling mode
    */
   getSchedulingMode(): SchedulingMode {
-    // Priority 1: SCHEDULING_MODE environment variable (CLI flag will be added in Task 7)
+    // Priority 1: CLI flag via CLI_SCHEDULING_MODE environment variable
+    const cliMode = process.env.CLI_SCHEDULING_MODE;
+    if (cliMode && AccountManager.#validSchedulingModes.includes(cliMode as SchedulingMode)) {
+      return cliMode as SchedulingMode;
+    }
+
+    // Priority 2: SCHEDULING_MODE environment variable
     const envMode = process.env.SCHEDULING_MODE;
     if (envMode && AccountManager.#validSchedulingModes.includes(envMode as SchedulingMode)) {
       return envMode as SchedulingMode;
     }
 
-    // Priority 2: Settings from config (hot reloaded)
+    // Priority 3: Settings from config (hot reloaded)
     const settingsMode = this.#settings.schedulingMode;
     if (settingsMode && AccountManager.#validSchedulingModes.includes(settingsMode)) {
       return settingsMode;
     }
 
-    // Priority 3: Default
+    // Priority 4: Default
     return DEFAULT_SCHEDULING_MODE;
   }
 

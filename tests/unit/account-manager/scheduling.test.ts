@@ -68,6 +68,7 @@ describe("AccountManager scheduling", () => {
     // Reset environment variables
     process.env = { ...originalEnv };
     delete process.env.SCHEDULING_MODE;
+    delete process.env.CLI_SCHEDULING_MODE;
     vi.resetAllMocks();
   });
 
@@ -121,6 +122,56 @@ describe("AccountManager scheduling", () => {
 
       const mode = manager.getSchedulingMode();
       expect(mode).toBe("drain-highest");
+    });
+
+    it("uses CLI_SCHEDULING_MODE over SCHEDULING_MODE env var", async () => {
+      // CLI flag takes highest priority
+      process.env.CLI_SCHEDULING_MODE = "refresh-priority";
+      process.env.SCHEDULING_MODE = "drain-highest";
+
+      mockLoadAccounts.mockResolvedValue({
+        accounts: [],
+        settings: { schedulingMode: "round-robin" },
+        activeIndex: 0,
+      });
+
+      const manager = new AccountManager("/tmp/test-accounts.json");
+      await manager.initialize();
+
+      const mode = manager.getSchedulingMode();
+      expect(mode).toBe("refresh-priority");
+    });
+
+    it("uses CLI_SCHEDULING_MODE over settings and default", async () => {
+      process.env.CLI_SCHEDULING_MODE = "drain-highest";
+
+      mockLoadAccounts.mockResolvedValue({
+        accounts: [],
+        settings: { schedulingMode: "sticky" },
+        activeIndex: 0,
+      });
+
+      const manager = new AccountManager("/tmp/test-accounts.json");
+      await manager.initialize();
+
+      const mode = manager.getSchedulingMode();
+      expect(mode).toBe("drain-highest");
+    });
+
+    it("returns default for invalid CLI_SCHEDULING_MODE value", async () => {
+      process.env.CLI_SCHEDULING_MODE = "invalid-cli-mode";
+
+      mockLoadAccounts.mockResolvedValue({
+        accounts: [],
+        settings: {},
+        activeIndex: 0,
+      });
+
+      const manager = new AccountManager("/tmp/test-accounts.json");
+      await manager.initialize();
+
+      const mode = manager.getSchedulingMode();
+      expect(mode).toBe(DEFAULT_SCHEDULING_MODE);
     });
 
     it("returns default for invalid env var value", async () => {

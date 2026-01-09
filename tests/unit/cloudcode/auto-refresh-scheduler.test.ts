@@ -508,6 +508,56 @@ describe("cloudcode/auto-refresh-scheduler", () => {
 
       stopAutoRefreshFresh();
     });
+
+    it("triggers pre-warming when one pool at 100% while other is in use", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "partial@test.com", source: "oauth", refreshToken: "token1" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Claude at 100%, Gemini at 50%
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockResolvedValue({
+          claudePool: { aggregatedPercentage: 100, earliestReset: null, models: [] },
+          geminiPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
+        }),
+      }));
+
+      const mockTriggerQuotaResetApiLocal = vi.fn().mockResolvedValue({
+        successCount: 3,
+        failureCount: 0,
+        groupsTriggered: [],
+      });
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: mockTriggerQuotaResetApiLocal,
+      }));
+
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startAutoRefreshFresh();
+
+      // Should TRIGGER - Claude at 100% needs pre-warming
+      expect(mockTriggerQuotaResetApiLocal).toHaveBeenCalledTimes(1);
+
+      stopAutoRefreshFresh();
+    });
   });
 
   describe("getAccountRefreshStates", () => {

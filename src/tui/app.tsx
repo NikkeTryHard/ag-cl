@@ -56,7 +56,7 @@ function App(): React.ReactElement {
   const serverState = useServerState({ settings, demoMode });
 
   // Auto-refresh scheduler (tied to app lifecycle, not server)
-  useAutoRefresh({ settings, demoMode });
+  const autoRefreshState = useAutoRefresh({ settings, demoMode });
 
   const realCapacity = useCapacity();
 
@@ -168,6 +168,8 @@ function App(): React.ReactElement {
         onRefresh={() => {
           void refresh();
         }}
+        autoRefreshRunning={autoRefreshState.isRunning}
+        lastAutoRefresh={autoRefreshState.lastRefreshTime}
       />
     );
   }
@@ -213,7 +215,7 @@ function App(): React.ReactElement {
   }
 
   // Dashboard view
-  return <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} />;
+  return <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} />;
 }
 
 export function startTUI(): void {

@@ -11,6 +11,7 @@ import { Box, Text, useInput } from "ink";
 import type { AccountCapacityInfo, AggregatedCapacity, ModelQuotaDisplay } from "../types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { ACCOUNT_LIST_RESERVED_LINES, MIN_VISIBLE_ITEMS } from "../constants.js";
+import { formatTimeAgo } from "../utils/formatTimeAgo.js";
 
 interface AccountListModalProps {
   accounts: AccountCapacityInfo[];
@@ -20,6 +21,8 @@ interface AccountListModalProps {
   onClose: () => void;
   onAddAccount: () => void;
   onRefresh: () => void;
+  autoRefreshRunning?: boolean;
+  lastAutoRefresh?: number | null;
 }
 
 /**
@@ -115,7 +118,7 @@ function formatGeminiModels(models: ModelQuotaDisplay[], maxWidth: number): { te
   return { text: result, hiddenCount };
 }
 
-export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, refreshing, onClose, onAddAccount, onRefresh }: AccountListModalProps): React.ReactElement {
+export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, refreshing, onClose, onAddAccount, onRefresh, autoRefreshRunning, lastAutoRefresh }: AccountListModalProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -278,6 +281,14 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, ref
             {geminiCapacity.hoursToExhaustion !== null && <Text dimColor> ({formatExhaustionTime(geminiCapacity.hoursToExhaustion)} left)</Text>}
           </Box>
         </Box>
+
+        {/* Auto-refresh status */}
+        {autoRefreshRunning && (
+          <Box>
+            <Text color="green">Auto-refresh: on</Text>
+            {lastAutoRefresh && <Text dimColor> (refreshed {formatTimeAgo(lastAutoRefresh)})</Text>}
+          </Box>
+        )}
 
         <Text> </Text>
         <Box>

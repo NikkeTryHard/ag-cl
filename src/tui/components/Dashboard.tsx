@@ -11,6 +11,7 @@ import { StatusIndicator } from "./StatusIndicator.js";
 import type { AggregatedCapacity } from "../types.js";
 import type { UseServerStateResult } from "../hooks/useServerState.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { formatTimeAgo } from "../utils/formatTimeAgo.js";
 
 interface DashboardProps {
   version: string;
@@ -19,6 +20,8 @@ interface DashboardProps {
   geminiCapacity: AggregatedCapacity;
   accountCount: number;
   refreshing: boolean;
+  autoRefreshRunning?: boolean;
+  lastAutoRefresh?: number | null;
 }
 
 // ASCII banner letters from "Impossible" figlet font
@@ -59,7 +62,7 @@ function Banner(): React.ReactElement {
   );
 }
 
-export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing }: DashboardProps): React.ReactElement {
+export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing, autoRefreshRunning, lastAutoRefresh }: DashboardProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const barWidth = Math.max(20, Math.min(50, width - 40));
 
@@ -94,6 +97,14 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
         )}
       </Box>
 
+      {/* Auto-refresh status */}
+      {autoRefreshRunning && (
+        <Box>
+          <Text color="green">Auto-refresh: on</Text>
+          {lastAutoRefresh && <Text dimColor> ({formatTimeAgo(lastAutoRefresh)})</Text>}
+        </Box>
+      )}
+
       {/* Hotkey hints */}
       <Box marginTop={2}>
         <Text color="cyan">[a]</Text>
@@ -102,6 +113,8 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
         <Text dimColor>erver </Text>
         <Text color="cyan">[p]</Text>
         <Text dimColor>ort </Text>
+        <Text color="cyan">[o]</Text>
+        <Text dimColor>ptions </Text>
         <Text color="cyan">[r]</Text>
         <Text dimColor>efresh </Text>
         <Text color="cyan">[l]</Text>

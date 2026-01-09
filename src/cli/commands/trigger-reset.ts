@@ -1,12 +1,17 @@
 /**
  * CLI Command: trigger-reset
- * Triggers quota reset for specified quota group(s)
+ *
+ * Triggers quota reset for specified quota group(s) by sending minimal requests
+ * to Google Cloud Code to start the 5-hour countdown timer.
+ *
+ * Based on upstream PR #44.
  */
 
 import pc from "picocolors";
 
 import { AccountManager } from "../../account-manager/index.js";
 import { getAllQuotaGroups, QUOTA_GROUPS, type QuotaGroupKey } from "../../cloudcode/quota-groups.js";
+import { triggerQuotaResetApi } from "../../cloudcode/quota-reset-trigger.js";
 import { symbols, sectionHeader } from "../ui.js";
 
 /**
@@ -19,6 +24,10 @@ export interface TriggerResetOptions {
 
 /**
  * Execute the trigger-reset command.
+ *
+ * Sends minimal requests to Google to start the 5-hour quota reset countdown.
+ * Cloud Code quotas reset 5 hours AFTER first usage, so this triggers the timer
+ * to start counting down.
  *
  * @param options - Command options
  */
@@ -37,30 +46,65 @@ export async function triggerResetCommand(options: TriggerResetOptions): Promise
   console.log(sectionHeader("Trigger Quota Reset"));
   console.log();
 
-  console.log(`${symbols.info} Triggering quota reset...`);
+  console.log(`${symbols.info} Sending minimal requests to start 5-hour quota countdown...`);
   console.log();
 
   try {
     const accountManager = new AccountManager();
     await accountManager.initialize();
 
-    const result = accountManager.triggerQuotaReset(group as QuotaGroupKey | "all");
+    // Get first available account
+    const accounts = accountManager.getAllAccounts();
+    const oauthAccount = accounts.find((a) => a.source === "oauth" && a.refreshToken);
 
-    console.log(`${symbols.success} Quota reset triggered successfully!`);
+    if (!oauthAccount) {
+      console.error(`${symbols.error} No OAuth accounts available. Add an account first.`);
+      process.exit(1);
+    }
+
+    // Get token and project for the account
+    const token = await accountManager.getTokenForAccount(oauthAccount);
+    const projectId = await accountManager.getProjectForAccount(oauthAccount, token);
+
+    console.log(`${symbols.info} Using account: ${pc.cyan(oauthAccount.email)}`);
     console.log();
 
-    // Display group names with their models
-    const groupsToShow = group === "all" ? getAllQuotaGroups() : [group as QuotaGroupKey];
-    for (const groupKey of groupsToShow) {
-      const quotaGroup = QUOTA_GROUPS[groupKey];
-      console.log(`  ${pc.bold(quotaGroup.name)}`);
-      console.log(`    Models: ${pc.dim(quotaGroup.models.join(", "))}`);
+    // Send minimal requests to trigger quota timer
+    const apiResult = await triggerQuotaResetApi(token, projectId, group as QuotaGroupKey | "all");
+
+    // Also clear local rate limit flags
+    const localResult = accountManager.triggerQuotaReset(group as QuotaGroupKey | "all");
+
+    // Display results
+    if (apiResult.successCount > 0) {
+      console.log(`${symbols.success} Quota timer started for ${apiResult.successCount} group(s)!`);
+    }
+    if (apiResult.failureCount > 0) {
+      console.log(`${symbols.warning} Failed to trigger ${apiResult.failureCount} group(s)`);
+    }
+    console.log();
+
+    // Display group details
+    for (const result of apiResult.groupsTriggered) {
+      const quotaGroup = QUOTA_GROUPS[result.group];
+      const statusIcon = result.success ? pc.green("✓") : pc.red("✗");
+      console.log(`  ${statusIcon} ${pc.bold(quotaGroup.name)}`);
+      console.log(`    Model used: ${pc.dim(result.model)}`);
+      if (result.error) {
+        console.log(`    Error: ${pc.red(result.error)}`);
+      }
     }
 
     console.log();
-    console.log(`  Accounts affected: ${pc.cyan(String(result.accountsAffected))}`);
-    console.log(`  Rate limits cleared: ${pc.cyan(String(result.limitsCleared))}`);
+    console.log(`  ${pc.dim("Local rate limits cleared:")} ${pc.cyan(String(localResult.limitsCleared))}`);
     console.log();
+
+    if (apiResult.successCount > 0) {
+      console.log(`${symbols.info} Quota will reset in ~5 hours from now.`);
+      const resetTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
+      console.log(`  Estimated reset time: ${pc.cyan(resetTime.toLocaleTimeString())}`);
+      console.log();
+    }
   } catch (error) {
     console.error(`${symbols.error} ${pc.red((error as Error).message)}`);
     process.exit(1);

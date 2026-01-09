@@ -12,7 +12,7 @@
  * 5. Time to exhaustion: current_percentage / burn_rate
  */
 
-import { getSnapshots, type QuotaModelFamily } from "./quota-storage.js";
+import { getSnapshots, type QuotaModelFamily, type QuotaSnapshot } from "./quota-storage.js";
 
 /**
  * Burn rate status types
@@ -54,6 +54,49 @@ const MIN_TIME_DELTA_MS = 60 * 1000;
  * (e.g., old snapshots used summed model percentages, new ones use averaged)
  */
 const MAX_SANE_BURN_RATE = 100;
+
+/**
+ * Minimum percentage jump to consider as a quota reset (30%)
+ * If a snapshot shows quota increased by this much or more since the previous snapshot,
+ * we assume a quota reset occurred and filter out snapshots before it.
+ */
+const RESET_JUMP_THRESHOLD = 30;
+
+/**
+ * Filter out snapshots from before a quota reset.
+ *
+ * Detects resets by looking for significant upward jumps in percentage
+ * between consecutive snapshots. Returns only snapshots since the most
+ * recent reset.
+ *
+ * Snapshots are ordered by recordedAt descending (most recent first).
+ *
+ * @param snapshots - Snapshots ordered by recordedAt DESC
+ * @param currentPercentage - Current quota percentage
+ * @returns Filtered snapshots from current reset period only
+ */
+function filterPreResetSnapshots(snapshots: QuotaSnapshot[], currentPercentage: number): QuotaSnapshot[] {
+  if (snapshots.length === 0) return snapshots;
+
+  const result: QuotaSnapshot[] = [];
+  let prevPercentage = currentPercentage;
+
+  // Walk through snapshots from most recent to oldest
+  for (const snapshot of snapshots) {
+    // If percentage jumped UP significantly between this snapshot and the next one
+    // (prevPercentage is the next snapshot chronologically since we're walking backwards)
+    // then a reset occurred after this snapshot - stop including older snapshots
+    if (prevPercentage - snapshot.percentage > RESET_JUMP_THRESHOLD) {
+      // A reset occurred between this snapshot and the previous one
+      // Don't include this or any older snapshots
+      break;
+    }
+    result.push(snapshot);
+    prevPercentage = snapshot.percentage;
+  }
+
+  return result;
+}
 
 /**
  * Calculate burn rate from quota snapshots.
@@ -107,7 +150,12 @@ function calculateBurnRateFromSnapshots(accountId: string, family: QuotaModelFam
 
   // Get snapshots within window
   const since = now - windowMs;
-  const snapshots = getSnapshots(accountId, family, since);
+  let snapshots = getSnapshots(accountId, family, since);
+
+  // Filter out snapshots from before a quota reset
+  // A reset is detected when percentage significantly increased (>30% jump)
+  // This handles cases where old pre-reset snapshots corrupt the burn rate
+  snapshots = filterPreResetSnapshots(snapshots, currentPercentage);
 
   // Need at least one snapshot to calculate rate
   // (we compare oldest snapshot against current value)

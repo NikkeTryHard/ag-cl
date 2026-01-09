@@ -1,7 +1,7 @@
 # Upstream Investigation Report
 
 > Generated: 2026-01-07
-> Updated: 2026-01-08
+> Updated: 2026-01-08 (quota groups verified against source)
 > Upstream: [badri-s2001/antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy)
 > Stars: 1,123 | Forks: 136 | Last Updated: 2026-01-08
 
@@ -107,9 +107,9 @@ flowchart TD
 **Quota Groups**:
 | Group | Models |
 |-------|--------|
-| Claude | claude-sonnet-4-5, claude-opus-4-5-thinking, gpt-oss-120b |
-| Gemini Pro | gemini-3-pro-high, gemini-3-pro-low |
-| Gemini Flash | gemini-3-flash |
+| Claude | claude-sonnet-4-5, claude-sonnet-4-5-thinking, claude-opus-4-5, claude-opus-4-5-thinking, gpt-oss-120b |
+| Gemini Pro | gemini-3-pro-high, gemini-3-pro-low, gemini-2.5-pro |
+| Gemini Flash | gemini-3-flash, gemini-2.5-flash |
 
 **Recommendation**: **LOW PRIORITY** - Edge case feature.
 

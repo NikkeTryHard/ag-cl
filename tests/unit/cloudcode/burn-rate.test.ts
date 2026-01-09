@@ -168,15 +168,19 @@ describe("cloudcode/burn-rate", () => {
         expect(result.hoursToExhaustion).toBeNull(); // Not approaching exhaustion
       });
 
-      it("returns recovering status when quota fully reset", () => {
-        // 1 hour ago at 10%, now at 100% (full reset)
+      it("returns calculating status when quota fully reset (no valid post-reset data)", () => {
+        // 1 hour ago at 10%, now at 100% (full reset detected)
+        // The 90% jump indicates a reset occurred, so old snapshot is filtered out
+        // Result: no valid snapshots from current period, status = calculating
         const oneHourAgo = Date.now() - 60 * 60 * 1000;
         recordSnapshot("account-1", "claude", 10, oneHourAgo);
 
         const result = calculateBurnRate("account-1", "claude", 100, null);
 
-        expect(result.status).toBe("recovering");
-        expect(result.ratePerHour).toBeCloseTo(-90, 0);
+        // After a reset is detected, we filter pre-reset snapshots
+        // With no post-reset snapshots, we return "calculating" until new data arrives
+        expect(result.status).toBe("calculating");
+        expect(result.ratePerHour).toBeNull();
         expect(result.hoursToExhaustion).toBeNull();
       });
     });
@@ -295,6 +299,45 @@ describe("cloudcode/burn-rate", () => {
         expect(result.status).toBe("burning");
         // Should use default 24h window, so 20h-old snapshot is included
         expect(result.ratePerHour).toBeCloseTo(2, 0); // (100 - 60) / 20
+      });
+    });
+
+    describe("quota reset detection", () => {
+      it("filters out pre-reset snapshots when significant jump detected", () => {
+        const now = Date.now();
+        // Simulate: old snapshot before reset, recent snapshots after reset
+        const fiveHoursAgo = now - 5 * 60 * 60 * 1000; // Before reset: 10%
+        const threeHoursAgo = now - 3 * 60 * 60 * 1000; // After reset: 95%
+        const oneHourAgo = now - 1 * 60 * 60 * 1000; // After reset: 85%
+
+        recordSnapshot("account-1", "claude", 10, fiveHoursAgo); // Should be filtered
+        recordSnapshot("account-1", "claude", 95, threeHoursAgo); // Should be kept
+        recordSnapshot("account-1", "claude", 85, oneHourAgo); // Should be kept
+
+        // Current: 75% (burning 10% per hour since reset)
+        const result = calculateBurnRate("account-1", "claude", 75, null);
+
+        expect(result.status).toBe("burning");
+        // Should use 3h-old post-reset snapshot (95%), not 5h-old pre-reset (10%)
+        // Rate = (95 - 75) / 3 = 6.67%/h
+        expect(result.ratePerHour).toBeCloseTo(6.67, 1);
+      });
+
+      it("keeps all snapshots when no reset jump detected", () => {
+        const now = Date.now();
+        const fourHoursAgo = now - 4 * 60 * 60 * 1000;
+        const twoHoursAgo = now - 2 * 60 * 60 * 1000;
+
+        // Normal burning pattern, no jumps > 30%
+        recordSnapshot("account-1", "claude", 100, fourHoursAgo);
+        recordSnapshot("account-1", "claude", 85, twoHoursAgo);
+
+        const result = calculateBurnRate("account-1", "claude", 70, null);
+
+        expect(result.status).toBe("burning");
+        // Should use oldest snapshot (4h ago, 100%)
+        // Rate = (100 - 70) / 4 = 7.5%/h
+        expect(result.ratePerHour).toBeCloseTo(7.5, 1);
       });
     });
 

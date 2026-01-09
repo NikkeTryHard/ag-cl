@@ -7,6 +7,7 @@
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import cors from "cors";
 import { sendMessage, sendMessageStream, listModels, getModelQuotas } from "./cloudcode/index.js";
+import { triggerQuotaResetApi } from "./cloudcode/quota-reset-trigger.js";
 import { forceRefresh } from "./auth/token-extractor.js";
 import { getAllQuotaGroups, QUOTA_GROUPS, type QuotaGroupKey } from "./cloudcode/quota-groups.js";
 import { REQUEST_BODY_LIMIT } from "./constants.js";
@@ -540,6 +541,7 @@ app.post("/refresh-token", async (_req: Request, res: Response) => {
 
 /**
  * POST /trigger-reset - Trigger quota reset for quota group(s)
+ * Sends minimal requests to Google to start the 5-hour quota countdown timer.
  * Body: { group?: "claude" | "geminiPro" | "geminiFlash" | "all" }
  * Default: "all"
  */
@@ -557,11 +559,33 @@ app.post("/trigger-reset", async (req: Request, res: Response) => {
       });
     }
 
-    const result = accountManager.triggerQuotaReset(group as QuotaGroupKey | "all");
+    // Get first available OAuth account
+    const accounts = accountManager.getAllAccounts();
+    const oauthAccount = accounts.find((a) => a.source === "oauth" && a.refreshToken);
+
+    if (!oauthAccount) {
+      return res.status(503).json({
+        error: "No OAuth accounts available. Add an account first.",
+      });
+    }
+
+    // Get token and project for the account
+    const token = await accountManager.getTokenForAccount(oauthAccount);
+    const projectId = await accountManager.getProjectForAccount(oauthAccount, token);
+
+    // Send minimal requests to trigger quota timer
+    const apiResult = await triggerQuotaResetApi(token, projectId, group as QuotaGroupKey | "all");
+
+    // Also clear local rate limit flags
+    const localResult = accountManager.triggerQuotaReset(group as QuotaGroupKey | "all");
 
     res.json({
-      success: true,
-      ...result,
+      success: apiResult.successCount > 0,
+      groupsTriggered: apiResult.groupsTriggered,
+      successCount: apiResult.successCount,
+      failureCount: apiResult.failureCount,
+      localLimitsCleared: localResult.limitsCleared,
+      estimatedResetTime: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
     });
   } catch (error) {
     logger.error({ error: (error as Error).message }, "[API] Error triggering quota reset");

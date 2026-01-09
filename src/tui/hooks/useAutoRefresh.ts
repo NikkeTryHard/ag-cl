@@ -19,6 +19,8 @@ export interface UseAutoRefreshOptions {
 export interface UseAutoRefreshResult {
   /** Whether auto-refresh is currently running */
   isRunning: boolean;
+  /** Timestamp of last successful refresh, null if never */
+  lastRefreshTime: number | null;
   /** Manually start auto-refresh */
   start: () => Promise<void>;
   /** Manually stop auto-refresh */
@@ -28,6 +30,7 @@ export interface UseAutoRefreshResult {
 export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshResult {
   const { settings, demoMode = false } = options;
   const [isRunning, setIsRunning] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(null);
 
   // Store isRunning in a ref so callbacks don't depend on the state
   const isRunningRef = useRef(isRunning);
@@ -76,8 +79,29 @@ export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshRe
     };
   }, [settings.autoRefreshEnabled, start, stop]);
 
+  // Poll for lastRefreshTime updates every 30 seconds when running
+  useEffect(() => {
+    if (!isRunning || demoMode) return;
+
+    const syncLastRefreshTime = async (): Promise<void> => {
+      const { getLastRefreshTime } = await import("../../cloudcode/auto-refresh-scheduler.js");
+      setLastRefreshTime(getLastRefreshTime());
+    };
+
+    // Initial sync
+    void syncLastRefreshTime();
+
+    // Poll every 30 seconds
+    const interval = setInterval(() => {
+      void syncLastRefreshTime();
+    }, 30000);
+
+    return () => { clearInterval(interval); };
+  }, [isRunning, demoMode]);
+
   return {
     isRunning,
+    lastRefreshTime,
     start,
     stop,
   };

@@ -16,12 +16,14 @@ vi.mock("../../../../src/cloudcode/auto-refresh-scheduler.js", () => ({
   startAutoRefresh: vi.fn().mockResolvedValue(undefined),
   stopAutoRefresh: vi.fn(),
   isAutoRefreshRunning: vi.fn().mockReturnValue(false),
+  getLastRefreshTime: vi.fn().mockReturnValue(null),
 }));
 
 // Type the mocked functions
 const mockStartAutoRefresh = vi.mocked(autoRefreshScheduler.startAutoRefresh);
 const mockStopAutoRefresh = vi.mocked(autoRefreshScheduler.stopAutoRefresh);
 const mockIsAutoRefreshRunning = vi.mocked(autoRefreshScheduler.isAutoRefreshRunning);
+const mockGetLastRefreshTime = vi.mocked(autoRefreshScheduler.getLastRefreshTime);
 
 describe("useAutoRefresh", () => {
   beforeEach(() => {

@@ -13,6 +13,7 @@ import { getLogger } from "../utils/logger.js";
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let nextRefreshTime: number | null = null;
 let accountManager: AccountManager | null = null;
+let lastRefreshTime: number | null = null;
 
 /**
  * Perform a single quota refresh trigger
@@ -47,6 +48,7 @@ async function performRefresh(): Promise<void> {
     accountManager.triggerQuotaReset("all");
 
     if (result.successCount > 0) {
+      lastRefreshTime = Date.now();
       const nextReset = new Date(Date.now() + AUTO_REFRESH_INTERVAL_MS);
       logger.info(`[AutoRefresh] Quota timer started for ${result.successCount} group(s). Quota will reset at ${nextReset.toLocaleTimeString()}`);
     } else {
@@ -94,6 +96,7 @@ export function stopAutoRefresh(): void {
     clearInterval(intervalId);
     intervalId = null;
     nextRefreshTime = null;
+    lastRefreshTime = null;
     getLogger().info("[AutoRefresh] Scheduler stopped");
   }
 }
@@ -111,4 +114,12 @@ export function isAutoRefreshRunning(): boolean {
  */
 export function getNextRefreshTime(): number | null {
   return nextRefreshTime;
+}
+
+/**
+ * Get the last refresh time
+ * @returns Timestamp in milliseconds, or null if never refreshed
+ */
+export function getLastRefreshTime(): number | null {
+  return lastRefreshTime;
 }

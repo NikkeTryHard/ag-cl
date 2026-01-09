@@ -23,16 +23,69 @@ export interface AccountRefreshState {
   email: string;
   lastChecked: number | null;
   lastTriggered: number | null;
+  /** Timestamp when quota data was fetched (for stale timer detection) */
+  fetchedAt: number | null;
   claudePercentage: number;
   geminiProPercentage: number;
   geminiFlashPercentage: number;
   claudeResetTime: string | null;
   geminiProResetTime: string | null;
   geminiFlashResetTime: string | null;
+  /** Previous reset times for stale detection */
+  prevClaudeResetTime: string | null;
+  prevGeminiProResetTime: string | null;
+  prevGeminiFlashResetTime: string | null;
+  prevFetchedAt: number | null;
+  /** Whether the reset timer appears stale (not actively ticking) */
+  isClaudeTimerStale: boolean;
+  isGeminiProTimerStale: boolean;
+  isGeminiFlashTimerStale: boolean;
   status: "ok" | "exhausted" | "pending_reset" | "error";
 }
 
 const accountStates = new Map<string, AccountRefreshState>();
+
+/**
+ * Tolerance in milliseconds for timer staleness detection.
+ * Allows for API latency and timing differences between refreshes.
+ */
+const STALE_TOLERANCE_MS = 60 * 1000; // 60 seconds
+
+/**
+ * Detect if a reset timer is stale (not actively ticking down).
+ *
+ * A stale timer means the resetTime is left over from a completed reset cycle.
+ * The quota is at 100% but the old resetTime hasn't been cleared by the API.
+ *
+ * Detection strategy:
+ * - Calculate time remaining at each fetch point (resetTime - fetchedAt)
+ * - If timer is ticking: time remaining should decrease by approximately the elapsed time
+ * - If timer is stale: the time remaining won't decrease as expected (absolute resetTime may have changed/jumped)
+ *
+ * @param currentResetTime - The current reset time from the API (ISO string)
+ * @param prevResetTime - The previous reset time from the last check (ISO string)
+ * @param currentFetchedAt - Timestamp when we fetched the current data
+ * @param prevFetchedAt - Timestamp when we fetched the previous data
+ * @returns true if the timer appears stale, false otherwise
+ */
+export function isTimerStale(currentResetTime: string | null, prevResetTime: string | null, currentFetchedAt: number, prevFetchedAt: number | null): boolean {
+  // Cannot determine staleness without both reset times and previous fetch time
+  if (!currentResetTime || !prevResetTime || !prevFetchedAt) return false;
+
+  const expectedElapsedMs = currentFetchedAt - prevFetchedAt;
+  const currentResetMs = new Date(currentResetTime).getTime();
+  const previousResetMs = new Date(prevResetTime).getTime();
+
+  // Calculate time remaining at each fetch point
+  // For an active timer, time remaining should decrease by the elapsed time
+  const prevTimeRemaining = previousResetMs - prevFetchedAt;
+  const currentTimeRemaining = currentResetMs - currentFetchedAt;
+  const actualDecreaseMs = prevTimeRemaining - currentTimeRemaining;
+
+  // If timer is ticking, time remaining should decrease by ~expectedElapsedMs
+  // Allow tolerance for API latency and timing differences
+  return Math.abs(actualDecreaseMs - expectedElapsedMs) > STALE_TOLERANCE_MS;
+}
 
 /**
  * Check if an account needs quota refresh trigger and update state
@@ -51,8 +104,17 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     const geminiProReset = capacity.geminiProPool.earliestReset;
     const geminiFlashReset = capacity.geminiFlashPool.earliestReset;
 
+    // Get existing state for stale timer detection
+    const existing = accountStates.get(email);
+    const prevFetchedAt = existing?.fetchedAt ?? null;
+
+    // Calculate stale status for each pool
+    const isClaudeTimerStale = isTimerStale(claudeReset, existing?.claudeResetTime ?? null, now, prevFetchedAt);
+    const isGeminiProTimerStale = isTimerStale(geminiProReset, existing?.geminiProResetTime ?? null, now, prevFetchedAt);
+    const isGeminiFlashTimerStale = isTimerStale(geminiFlashReset, existing?.geminiFlashResetTime ?? null, now, prevFetchedAt);
+
     // Log quota status for this account
-    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}), Gemini Pro ${geminiProPct}% (reset: ${geminiProReset ?? "none"}), Gemini Flash ${geminiFlashPct}% (reset: ${geminiFlashReset ?? "none"})`);
+    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}${isClaudeTimerStale ? ", stale" : ""}), Gemini Pro ${geminiProPct}% (reset: ${geminiProReset ?? "none"}${isGeminiProTimerStale ? ", stale" : ""}), Gemini Flash ${geminiFlashPct}% (reset: ${geminiFlashReset ?? "none"}${isGeminiFlashTimerStale ? ", stale" : ""})`);
 
     // Determine status using pre-warming strategy:
     // 1. At 100% quota: reset timer is stale (from completed cycle) → trigger to pre-warm
@@ -105,13 +167,22 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     accountStates.set(email, {
       email,
       lastChecked: now,
-      lastTriggered: accountStates.get(email)?.lastTriggered ?? null,
+      lastTriggered: existing?.lastTriggered ?? null,
+      fetchedAt: now,
       claudePercentage: claudePct,
       geminiProPercentage: geminiProPct,
       geminiFlashPercentage: geminiFlashPct,
       claudeResetTime: claudeReset,
       geminiProResetTime: geminiProReset,
       geminiFlashResetTime: geminiFlashReset,
+      // Store current values as previous for next stale detection
+      prevClaudeResetTime: existing?.claudeResetTime ?? null,
+      prevGeminiProResetTime: existing?.geminiProResetTime ?? null,
+      prevGeminiFlashResetTime: existing?.geminiFlashResetTime ?? null,
+      prevFetchedAt: existing?.fetchedAt ?? null,
+      isClaudeTimerStale,
+      isGeminiProTimerStale,
+      isGeminiFlashTimerStale,
       status,
     });
 
@@ -123,12 +194,20 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
       email,
       lastChecked: now,
       lastTriggered: existing?.lastTriggered ?? null,
+      fetchedAt: existing?.fetchedAt ?? null,
       claudePercentage: existing?.claudePercentage ?? 0,
       geminiProPercentage: existing?.geminiProPercentage ?? 0,
       geminiFlashPercentage: existing?.geminiFlashPercentage ?? 0,
       claudeResetTime: existing?.claudeResetTime ?? null,
       geminiProResetTime: existing?.geminiProResetTime ?? null,
       geminiFlashResetTime: existing?.geminiFlashResetTime ?? null,
+      prevClaudeResetTime: existing?.prevClaudeResetTime ?? null,
+      prevGeminiProResetTime: existing?.prevGeminiProResetTime ?? null,
+      prevGeminiFlashResetTime: existing?.prevGeminiFlashResetTime ?? null,
+      prevFetchedAt: existing?.prevFetchedAt ?? null,
+      isClaudeTimerStale: existing?.isClaudeTimerStale ?? false,
+      isGeminiProTimerStale: existing?.isGeminiProTimerStale ?? false,
+      isGeminiFlashTimerStale: existing?.isGeminiFlashTimerStale ?? false,
       status: "error",
     });
 

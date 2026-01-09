@@ -41,7 +41,7 @@ vi.mock("../../../src/utils/logger.js", () => ({
   }),
 }));
 
-import { startAutoRefresh, stopAutoRefresh, isAutoRefreshRunning, getNextRefreshTime, getLastRefreshTime, getAccountRefreshStates } from "../../../src/cloudcode/auto-refresh-scheduler.js";
+import { startAutoRefresh, stopAutoRefresh, isAutoRefreshRunning, getNextRefreshTime, getLastRefreshTime, getAccountRefreshStates, isTimerStale } from "../../../src/cloudcode/auto-refresh-scheduler.js";
 import { triggerQuotaResetApi } from "../../../src/cloudcode/quota-reset-trigger.js";
 import { fetchAccountCapacity } from "../../../src/cloudcode/quota-api.js";
 import { AccountManager } from "../../../src/account-manager/index.js";
@@ -804,6 +804,300 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       const lastRefresh = getLastRefreshTimeFresh();
       expect(lastRefresh).not.toBeNull();
       expect(lastRefresh).toBeGreaterThanOrEqual(beforeStart);
+
+      stopAutoRefreshFresh();
+    });
+  });
+
+  describe("isTimerStale", () => {
+    it("returns false when currentResetTime is null", () => {
+      const now = Date.now();
+      const prevFetchedAt = now - 10 * 60 * 1000; // 10 minutes ago
+
+      expect(isTimerStale(null, "2026-01-09T10:00:00Z", now, prevFetchedAt)).toBe(false);
+    });
+
+    it("returns false when prevResetTime is null", () => {
+      const now = Date.now();
+      const prevFetchedAt = now - 10 * 60 * 1000;
+
+      expect(isTimerStale("2026-01-09T10:00:00Z", null, now, prevFetchedAt)).toBe(false);
+    });
+
+    it("returns false when prevFetchedAt is null", () => {
+      const now = Date.now();
+
+      expect(isTimerStale("2026-01-09T10:00:00Z", "2026-01-09T10:10:00Z", now, null)).toBe(false);
+    });
+
+    it("returns false when timer is actively ticking (same absolute resetTime, time remaining decreases)", () => {
+      const now = Date.now();
+      const elapsed = 10 * 60 * 1000; // 10 minutes
+      const prevFetchedAt = now - elapsed;
+
+      // Active timer: absolute resetTime is the SAME at both fetch points
+      // At prevFetchedAt: reset in 5 hours
+      // At now (10 min later): reset in 4:50 (same absolute time)
+      const resetTime = new Date(now + 5 * 60 * 60 * 1000).toISOString();
+
+      // Both fetches return the same absolute resetTime
+      expect(isTimerStale(resetTime, resetTime, now, prevFetchedAt)).toBe(false);
+    });
+
+    it("returns true when timer is stale (absolute resetTime jumped forward, indicating new cycle)", () => {
+      const now = Date.now();
+      const elapsed = 10 * 60 * 1000; // 10 minutes
+      const prevFetchedAt = now - elapsed;
+
+      // Stale scenario: resetTime jumped forward (new timer started)
+      // This means the previous timer was stale/completed
+      const prevResetTime = new Date(now + 2 * 60 * 60 * 1000).toISOString(); // 2 hours from now
+      const currentResetTime = new Date(now + 5 * 60 * 60 * 1000).toISOString(); // 5 hours from now (jumped 3 hours)
+
+      expect(isTimerStale(currentResetTime, prevResetTime, now, prevFetchedAt)).toBe(true);
+    });
+
+    it("returns true when timer is stale (absolute resetTime changed unexpectedly)", () => {
+      const now = Date.now();
+      const elapsed = 10 * 60 * 1000; // 10 minutes
+      const prevFetchedAt = now - elapsed;
+
+      // Previous timer showed 5 hours remaining at prevFetchedAt
+      const prevResetTime = new Date(prevFetchedAt + 5 * 60 * 60 * 1000).toISOString();
+      // Current timer shows a completely different time (jumped back 2 hours)
+      const currentResetTime = new Date(prevFetchedAt + 3 * 60 * 60 * 1000).toISOString();
+
+      expect(isTimerStale(currentResetTime, prevResetTime, now, prevFetchedAt)).toBe(true);
+    });
+
+    it("returns false when time remaining decrease is within tolerance (60s)", () => {
+      const now = Date.now();
+      const elapsed = 10 * 60 * 1000; // 10 minutes
+      const prevFetchedAt = now - elapsed;
+
+      // Same absolute reset time = time remaining decreases by exactly elapsed time
+      const resetTime = new Date(now + 4 * 60 * 60 * 1000).toISOString();
+
+      expect(isTimerStale(resetTime, resetTime, now, prevFetchedAt)).toBe(false);
+    });
+
+    it("returns true when time remaining decrease differs by more than tolerance", () => {
+      const now = Date.now();
+      const elapsed = 10 * 60 * 1000; // 10 minutes
+      const prevFetchedAt = now - elapsed;
+
+      // Previous: reset in 5 hours from prevFetchedAt = (prevFetchedAt + 5h)
+      const prevResetTime = new Date(prevFetchedAt + 5 * 60 * 60 * 1000).toISOString();
+      // Current: reset time moved 3 minutes forward (not expected for active timer)
+      const currentResetTime = new Date(prevFetchedAt + 5 * 60 * 60 * 1000 + 3 * 60 * 1000).toISOString();
+
+      // prevTimeRemaining = 5 hours
+      // currentTimeRemaining = (prevFetchedAt + 5h + 3min) - now = (prevFetchedAt + 5h + 3min) - (prevFetchedAt + 10min) = 5h - 7min
+      // actualDecrease = 5h - (5h - 7min) = 7min
+      // expectedDecrease = 10min
+      // diff = |7min - 10min| = 3min > 60s tolerance => stale
+
+      expect(isTimerStale(currentResetTime, prevResetTime, now, prevFetchedAt)).toBe(true);
+    });
+  });
+
+  describe("stale timer detection integration", () => {
+    it("detects stale timer when absolute resetTime jumps unexpectedly", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "stale@test.com", source: "oauth", refreshToken: "token1" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Stale scenario: reset time jumps forward by 3 hours between fetches
+      // This indicates the old timer completed and a new one started
+      let fetchCount = 0;
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockImplementation(() => {
+          fetchCount++;
+          if (fetchCount === 1) {
+            // First fetch: timer shows 2 hours remaining
+            return Promise.resolve({
+              claudePool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T12:00:00Z", models: [] },
+              geminiProPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T12:00:00Z", models: [] },
+              geminiFlashPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T12:00:00Z", models: [] },
+            });
+          }
+          // Second fetch: timer jumped to 5 hours (new timer started, old was stale)
+          return Promise.resolve({
+            claudePool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+            geminiProPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+            geminiFlashPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+          });
+        }),
+      }));
+
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: vi.fn().mockResolvedValue({
+          successCount: 3,
+          failureCount: 0,
+          groupsTriggered: [],
+        }),
+      }));
+
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      // First refresh
+      await startAutoRefreshFresh();
+
+      // Advance time and trigger second refresh
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+      // Check states - after second refresh, stale detection should kick in
+      const states = getAccountRefreshStatesFresh();
+      expect(states).toHaveLength(1);
+
+      // After second refresh with jumped resetTime, timer should be detected as stale
+      expect(states[0].isClaudeTimerStale).toBe(true);
+      expect(states[0].isGeminiProTimerStale).toBe(true);
+      expect(states[0].isGeminiFlashTimerStale).toBe(true);
+
+      stopAutoRefreshFresh();
+    });
+
+    it("does not mark timer as stale when absolute resetTime stays same (active countdown)", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "active@test.com", source: "oauth", refreshToken: "token1" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      // Active countdown: absolute reset time stays the SAME
+      // Time remaining decreases naturally as time passes
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockResolvedValue({
+          claudePool: { aggregatedPercentage: 0, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+          geminiProPool: { aggregatedPercentage: 0, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+          geminiFlashPool: { aggregatedPercentage: 0, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+        }),
+      }));
+
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: vi.fn().mockResolvedValue({
+          successCount: 3,
+          failureCount: 0,
+          groupsTriggered: [],
+        }),
+      }));
+
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      // First refresh
+      await startAutoRefreshFresh();
+
+      // Advance time and trigger second refresh
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+      // Check states - timer should NOT be stale because absolute time stayed same
+      const states = getAccountRefreshStatesFresh();
+      expect(states).toHaveLength(1);
+      expect(states[0].isClaudeTimerStale).toBe(false);
+      expect(states[0].isGeminiProTimerStale).toBe(false);
+      expect(states[0].isGeminiFlashTimerStale).toBe(false);
+
+      stopAutoRefreshFresh();
+    });
+
+    it("tracks previous reset times and fetchedAt correctly", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/logger.js", () => ({
+        getLogger: vi.fn().mockReturnValue({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      }));
+
+      vi.doMock("../../../src/account-manager/index.js", () => {
+        class MockAccountManager {
+          initialize = vi.fn().mockResolvedValue(undefined);
+          getAllAccounts = vi.fn().mockReturnValue([{ email: "tracking@test.com", source: "oauth", refreshToken: "token1" }]);
+          getTokenForAccount = vi.fn().mockResolvedValue("access-token");
+          getProjectForAccount = vi.fn().mockResolvedValue("project-id");
+          triggerQuotaReset = vi.fn().mockReturnValue({ limitsCleared: 0, accountsAffected: 0 });
+        }
+        return { AccountManager: MockAccountManager };
+      });
+
+      vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
+        fetchAccountCapacity: vi.fn().mockResolvedValue({
+          claudePool: { aggregatedPercentage: 50, earliestReset: "2026-01-09T15:00:00Z", models: [] },
+          geminiProPool: { aggregatedPercentage: 50, earliestReset: "2026-01-09T16:00:00Z", models: [] },
+          geminiFlashPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
+        }),
+      }));
+
+      vi.doMock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
+        triggerQuotaResetApi: vi.fn().mockResolvedValue({
+          successCount: 0,
+          failureCount: 0,
+          groupsTriggered: [],
+        }),
+      }));
+
+      const { startAutoRefresh: startAutoRefreshFresh, stopAutoRefresh: stopAutoRefreshFresh, getAccountRefreshStates: getAccountRefreshStatesFresh } = await import("../../../src/cloudcode/auto-refresh-scheduler.js");
+
+      await startAutoRefreshFresh();
+
+      // First refresh - should have current data but no previous
+      let states = getAccountRefreshStatesFresh();
+      expect(states).toHaveLength(1);
+      expect(states[0].fetchedAt).not.toBeNull();
+      expect(states[0].claudeResetTime).toBe("2026-01-09T15:00:00Z");
+      expect(states[0].prevClaudeResetTime).toBeNull(); // No previous on first fetch
+      expect(states[0].prevFetchedAt).toBeNull();
+
+      const firstFetchedAt = states[0].fetchedAt;
+
+      // Advance time and trigger second refresh
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+      // Second refresh - should have previous data populated
+      states = getAccountRefreshStatesFresh();
+      expect(states[0].fetchedAt).toBeGreaterThan(firstFetchedAt!);
+      expect(states[0].prevClaudeResetTime).toBe("2026-01-09T15:00:00Z");
+      expect(states[0].prevGeminiProResetTime).toBe("2026-01-09T16:00:00Z");
+      expect(states[0].prevGeminiFlashResetTime).toBeNull();
+      expect(states[0].prevFetchedAt).toBe(firstFetchedAt);
 
       stopAutoRefreshFresh();
     });

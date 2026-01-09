@@ -1,7 +1,9 @@
 /**
  * Quota Groups
  *
- * Defines model groupings that share the same 5-hour quota reset timer.
+ * Defines model groupings that share the same quota reset timer.
+ * Timer duration varies by tier: Claude uses weekly reset for Pro,
+ * Gemini uses 5-hour reset. See ANTIGRAVITY_API_SPEC.md for details.
  * Based on upstream PR #44.
  */
 

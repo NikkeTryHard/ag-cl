@@ -21,20 +21,20 @@ Antigravity is Google's **Unified Gateway API** for accessing multiple AI models
 
 ## Endpoints
 
-| Environment | URL | Status |
-|-------------|-----|--------|
-| **Daily (Sandbox)** | `https://daily-cloudcode-pa.sandbox.googleapis.com` | ✅ Active |
-| **Production** | `https://cloudcode-pa.googleapis.com` | ✅ Active |
+| Environment            | URL                                                    | Status         |
+| ---------------------- | ------------------------------------------------------ | -------------- |
+| **Daily (Sandbox)**    | `https://daily-cloudcode-pa.sandbox.googleapis.com`    | ✅ Active      |
+| **Production**         | `https://cloudcode-pa.googleapis.com`                  | ✅ Active      |
 | **Autopush (Sandbox)** | `https://autopush-cloudcode-pa.sandbox.googleapis.com` | ❌ Unavailable |
 
 ### API Actions
 
-| Action | Path | Description |
-|--------|------|-------------|
-| Generate Content | `/v1internal:generateContent` | Non-streaming request |
-| Stream Generate | `/v1internal:streamGenerateContent?alt=sse` | Streaming (SSE) request |
-| Load Code Assist | `/v1internal:loadCodeAssist` | Project discovery |
-| Onboard User | `/v1internal:onboardUser` | User onboarding |
+| Action           | Path                                        | Description             |
+| ---------------- | ------------------------------------------- | ----------------------- |
+| Generate Content | `/v1internal:generateContent`               | Non-streaming request   |
+| Stream Generate  | `/v1internal:streamGenerateContent?alt=sse` | Streaming (SSE) request |
+| Load Code Assist | `/v1internal:loadCodeAssist`                | Project discovery       |
+| Onboard User     | `/v1internal:onboardUser`                   | User onboarding         |
 
 ---
 
@@ -68,6 +68,7 @@ Client-Metadata: {"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED",
 ```
 
 For streaming requests, also include:
+
 ```http
 Accept: text/event-stream
 ```
@@ -76,14 +77,14 @@ Accept: text/event-stream
 
 ## Available Models
 
-| Model Name | Model ID | Type | Status |
-|------------|----------|------|--------|
-| Claude Sonnet 4.5 | `claude-sonnet-4-5` | Anthropic | ✅ Verified |
+| Model Name                 | Model ID                     | Type      | Status      |
+| -------------------------- | ---------------------------- | --------- | ----------- |
+| Claude Sonnet 4.5          | `claude-sonnet-4-5`          | Anthropic | ✅ Verified |
 | Claude Sonnet 4.5 Thinking | `claude-sonnet-4-5-thinking` | Anthropic | ✅ Verified |
-| Claude Opus 4.5 Thinking | `claude-opus-4-5-thinking` | Anthropic | ✅ Verified |
-| Gemini 3 Pro High | `gemini-3-pro-high` | Google | ✅ Verified |
-| Gemini 3 Pro Low | `gemini-3-pro-low` | Google | ✅ Verified |
-| GPT-OSS 120B Medium | `gpt-oss-120b-medium` | Other | ✅ Verified |
+| Claude Opus 4.5 Thinking   | `claude-opus-4-5-thinking`   | Anthropic | ✅ Verified |
+| Gemini 3 Pro High          | `gemini-3-pro-high`          | Google    | ✅ Verified |
+| Gemini 3 Pro Low           | `gemini-3-pro-low`           | Google    | ✅ Verified |
+| GPT-OSS 120B Medium        | `gpt-oss-120b-medium`        | Other     | ✅ Verified |
 
 ---
 
@@ -115,21 +116,18 @@ Accept: text/event-stream
   "contents": [
     {
       "role": "user",
-      "parts": [
-        { "text": "Your message here" }
-      ]
+      "parts": [{ "text": "Your message here" }]
     },
     {
       "role": "model",
-      "parts": [
-        { "text": "Assistant response" }
-      ]
+      "parts": [{ "text": "Assistant response" }]
     }
   ]
 }
 ```
 
 #### Role Values
+
 - `user` - Human/user messages
 - `model` - Assistant responses (NOT `assistant`)
 
@@ -151,14 +149,14 @@ Accept: text/event-stream
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `maxOutputTokens` | number | Maximum tokens in response |
-| `temperature` | number | Randomness (0.0 - 2.0) |
-| `topP` | number | Nucleus sampling threshold |
-| `topK` | number | Top-K sampling |
-| `stopSequences` | string[] | Stop generation triggers |
-| `thinkingConfig` | object | Extended thinking config |
+| Field             | Type     | Description                |
+| ----------------- | -------- | -------------------------- |
+| `maxOutputTokens` | number   | Maximum tokens in response |
+| `temperature`     | number   | Randomness (0.0 - 2.0)     |
+| `topP`            | number   | Nucleus sampling threshold |
+| `topK`            | number   | Top-K sampling             |
+| `stopSequences`   | string[] | Stop generation triggers   |
+| `thinkingConfig`  | object   | Extended thinking config   |
 
 ### System Instructions
 
@@ -209,14 +207,15 @@ Accept: text/event-stream
 
 ### Function Name Rules
 
-| Rule | Description |
-|------|-------------|
-| First character | Must be a letter (a-z, A-Z) or underscore (_) |
+| Rule               | Description                                                            |
+| ------------------ | ---------------------------------------------------------------------- |
+| First character    | Must be a letter (a-z, A-Z) or underscore (\_)                         |
 | Allowed characters | `a-zA-Z0-9`, underscores (`_`), dots (`.`), colons (`:`), dashes (`-`) |
-| Max length | 64 characters |
-| Not allowed | Slashes (`/`), spaces, other special characters |
+| Max length         | 64 characters                                                          |
+| Not allowed        | Slashes (`/`), spaces, other special characters                        |
 
 **Examples:**
+
 - ✅ `get_weather` - Valid
 - ✅ `mcp:mongodb.query` - Valid (colons and dots allowed)
 - ✅ `read-file` - Valid (dashes allowed)
@@ -225,28 +224,29 @@ Accept: text/event-stream
 
 ### JSON Schema Support
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| `type` | ✅ Supported | `object`, `string`, `number`, `integer`, `boolean`, `array` |
-| `properties` | ✅ Supported | Object properties |
-| `required` | ✅ Supported | Required fields array |
-| `description` | ✅ Supported | Field descriptions |
-| `enum` | ✅ Supported | Enumerated values |
-| `items` | ✅ Supported | Array item schema |
-| `anyOf` | ✅ Supported | Converted to `any_of` internally |
-| `allOf` | ✅ Supported | Converted to `all_of` internally |
-| `oneOf` | ✅ Supported | Converted to `one_of` internally |
-| `additionalProperties` | ✅ Supported | Additional properties schema |
-| `const` | ❌ NOT Supported | Use `enum: [value]` instead |
-| `$ref` | ❌ NOT Supported | Inline the schema instead |
-| `$defs` / `definitions` | ❌ NOT Supported | Inline definitions instead |
-| `$schema` | ❌ NOT Supported | Strip from schema |
-| `$id` | ❌ NOT Supported | Strip from schema |
-| `default` | ❌ NOT Supported | Strip from schema |
-| `examples` | ❌ NOT Supported | Strip from schema |
-| `title` (nested) | ⚠️ Caution | May cause issues in nested objects |
+| Feature                 | Status           | Notes                                                       |
+| ----------------------- | ---------------- | ----------------------------------------------------------- |
+| `type`                  | ✅ Supported     | `object`, `string`, `number`, `integer`, `boolean`, `array` |
+| `properties`            | ✅ Supported     | Object properties                                           |
+| `required`              | ✅ Supported     | Required fields array                                       |
+| `description`           | ✅ Supported     | Field descriptions                                          |
+| `enum`                  | ✅ Supported     | Enumerated values                                           |
+| `items`                 | ✅ Supported     | Array item schema                                           |
+| `anyOf`                 | ✅ Supported     | Converted to `any_of` internally                            |
+| `allOf`                 | ✅ Supported     | Converted to `all_of` internally                            |
+| `oneOf`                 | ✅ Supported     | Converted to `one_of` internally                            |
+| `additionalProperties`  | ✅ Supported     | Additional properties schema                                |
+| `const`                 | ❌ NOT Supported | Use `enum: [value]` instead                                 |
+| `$ref`                  | ❌ NOT Supported | Inline the schema instead                                   |
+| `$defs` / `definitions` | ❌ NOT Supported | Inline definitions instead                                  |
+| `$schema`               | ❌ NOT Supported | Strip from schema                                           |
+| `$id`                   | ❌ NOT Supported | Strip from schema                                           |
+| `default`               | ❌ NOT Supported | Strip from schema                                           |
+| `examples`              | ❌ NOT Supported | Strip from schema                                           |
+| `title` (nested)        | ⚠️ Caution       | May cause issues in nested objects                          |
 
 **⚠️ IMPORTANT:** The following features will cause a 400 error if sent to the API:
+
 - `const` - Convert to `enum: [value]` instead
 - `$ref` / `$defs` - Inline the schema definitions
 - `$schema` / `$id` - Strip these metadata fields
@@ -275,9 +275,7 @@ Accept: text/event-stream
       {
         "content": {
           "role": "model",
-          "parts": [
-            { "text": "Response text here" }
-          ]
+          "parts": [{ "text": "Response text here" }]
         },
         "finishReason": "STOP"
       }
@@ -307,27 +305,27 @@ data: {"response": {"candidates": [{"content": {"role": "model", "parts": [{"tex
 
 ### Response Fields
 
-| Field | Description |
-|-------|-------------|
-| `response.candidates` | Array of response candidates |
-| `response.candidates[].content.role` | Always `"model"` |
-| `response.candidates[].content.parts` | Array of content parts |
-| `response.candidates[].finishReason` | `STOP`, `MAX_TOKENS`, `OTHER` |
-| `response.usageMetadata.promptTokenCount` | Input tokens |
-| `response.usageMetadata.candidatesTokenCount` | Output tokens |
-| `response.usageMetadata.totalTokenCount` | Total tokens |
-| `response.usageMetadata.thoughtsTokenCount` | Thinking tokens (Gemini) |
-| `response.modelVersion` | Actual model used |
-| `response.responseId` | Request ID (format varies by model) |
-| `traceId` | Trace ID for debugging |
+| Field                                         | Description                         |
+| --------------------------------------------- | ----------------------------------- |
+| `response.candidates`                         | Array of response candidates        |
+| `response.candidates[].content.role`          | Always `"model"`                    |
+| `response.candidates[].content.parts`         | Array of content parts              |
+| `response.candidates[].finishReason`          | `STOP`, `MAX_TOKENS`, `OTHER`       |
+| `response.usageMetadata.promptTokenCount`     | Input tokens                        |
+| `response.usageMetadata.candidatesTokenCount` | Output tokens                       |
+| `response.usageMetadata.totalTokenCount`      | Total tokens                        |
+| `response.usageMetadata.thoughtsTokenCount`   | Thinking tokens (Gemini)            |
+| `response.modelVersion`                       | Actual model used                   |
+| `response.responseId`                         | Request ID (format varies by model) |
+| `traceId`                                     | Trace ID for debugging              |
 
 ### Response ID Formats
 
-| Model Type | Format | Example |
-|------------|--------|---------|
-| Claude | `msg_vrtx_...` | `msg_vrtx_01UDKZG8PWPj9mjajje8d7u7` |
-| Gemini | Base64-like | `ypM9abPqFKWl0-kPvamgqQw` |
-| GPT-OSS | Base64-like | `y5M9aZaSKq6z2roPoJ7pEA` |
+| Model Type | Format         | Example                             |
+| ---------- | -------------- | ----------------------------------- |
+| Claude     | `msg_vrtx_...` | `msg_vrtx_01UDKZG8PWPj9mjajje8d7u7` |
+| Gemini     | Base64-like    | `ypM9abPqFKWl0-kPvamgqQw`           |
+| GPT-OSS    | Base64-like    | `y5M9aZaSKq6z2roPoJ7pEA`            |
 
 ---
 
@@ -451,13 +449,13 @@ Claude thinking models may include `thought: true` parts:
 
 ### Common Error Codes
 
-| Code | Status | Description |
-|------|--------|-------------|
-| 400 | `INVALID_ARGUMENT` | Invalid request format |
-| 401 | `UNAUTHENTICATED` | Invalid/expired token |
-| 403 | `PERMISSION_DENIED` | No access to resource |
-| 404 | `NOT_FOUND` | Model not found |
-| 429 | `RESOURCE_EXHAUSTED` | Rate limit exceeded |
+| Code | Status               | Description            |
+| ---- | -------------------- | ---------------------- |
+| 400  | `INVALID_ARGUMENT`   | Invalid request format |
+| 401  | `UNAUTHENTICATED`    | Invalid/expired token  |
+| 403  | `PERMISSION_DENIED`  | No access to resource  |
+| 404  | `NOT_FOUND`          | Model not found        |
+| 429  | `RESOURCE_EXHAUSTED` | Rate limit exceeded    |
 
 ### Rate Limit Response
 
@@ -479,22 +477,104 @@ Claude thinking models may include `thought: true` parts:
 
 ---
 
+## Quota System
+
+### Quota Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Fresh: Account created
+    Fresh --> Active: First request
+    Active --> Active: Subsequent requests (quota decreases)
+    Active --> Exhausted: Quota hits 0%
+    Exhausted --> Exhausted: Waiting for reset
+    Exhausted --> Fresh: Timer completes
+
+    note right of Fresh: 100% quota, no timer running
+    note right of Active: Timer started, quota decreasing
+    note right of Exhausted: 0% quota, waiting for reset
+```
+
+1. **Fresh state (100%)**: Account has full quota, no timer running. Quota remains at 100% indefinitely until first use.
+2. **First request**: Triggers the countdown timer AND starts consuming quota.
+3. **Active usage**: Each request decreases quota (per-request basis, NOT per-token).
+4. **Exhausted (0%)**: Quota depleted, must wait for timer to complete.
+5. **Reset**: After timer completes, quota resets to 100%. Timer stops.
+
+### Reset Timer Durations
+
+> ⚠️ **Important Change (January 2026)**: Google changed Claude models to **weekly reset** for Pro users.
+> Source: [Reddit reports](https://www.reddit.com/r/google_antigravity/comments/1pynsj5/rate_limits/)
+
+| Tier      | Claude Models        | Gemini Models |
+| --------- | -------------------- | ------------- |
+| **Ultra** | 5 hours              | 5 hours       |
+| **Pro**   | **Weekly** (~7 days) | 5 hours       |
+| **Free**  | Weekly               | Weekly        |
+
+**Note:** Timer durations may vary. The API's `resetTime` field is the authoritative source.
+
+### Key Behaviors
+
+| Behavior      | Description                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| Timer trigger | First request starts countdown (duration varies by tier and model) |
+| Quota unit    | Per-request, not per-token or per-dollar                           |
+| Reset timing  | When timer completes, regardless of current quota %                |
+| Idle accounts | Stay at 100% indefinitely (no timer)                               |
+| Quota groups  | Claude, Gemini Pro, and Gemini Flash have independent timers       |
+
+### Quota Groups
+
+| Group            | Models                                                    | Timer  |
+| ---------------- | --------------------------------------------------------- | ------ |
+| **Claude**       | claude-sonnet-4-5, claude-opus-4-5-thinking, gpt-oss-120b | Shared |
+| **Gemini Pro**   | gemini-3-pro-high, gemini-3-pro-low, gemini-2.5-pro       | Shared |
+| **Gemini Flash** | gemini-3-flash, gemini-2.5-flash                          | Shared |
+
+Using ANY model in a group starts the timer for ALL models in that group.
+
+### fetchAvailableModels Response (Quota Info)
+
+```json
+{
+  "models": {
+    "claude-sonnet-4-5": {
+      "displayName": "Claude Sonnet 4.5",
+      "quotaInfo": {
+        "remainingFraction": 0.75,
+        "resetTime": "2026-01-09T15:30:00Z"
+      }
+    }
+  }
+}
+```
+
+| Field               | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `remainingFraction` | 0.0 to 1.0 (0% to 100% remaining)            |
+| `resetTime`         | ISO 8601 timestamp when quota resets to 100% |
+
+**Note:** `resetTime` is present when the timer is running. For Claude models on Pro tier, this may be up to 7 days in the future (weekly reset).
+
+---
+
 ## NOT Supported
 
 The following Anthropic/Vertex AI features are **NOT supported**:
 
-| Feature | Error |
-|---------|-------|
-| `anthropic_version` | Unknown field |
-| `messages` array | Unknown field |
-| `max_tokens` | Unknown field |
-| Plain string `systemInstruction` | Invalid value |
-| `system_instruction` (snake_case at root) | Unknown field |
-| JSON Schema `const` | Unknown field (use `enum: [value]`) |
-| JSON Schema `$ref` | Not supported (inline instead) |
-| JSON Schema `$defs` | Not supported (inline instead) |
-| Tool names with `/` | Invalid (use `_` or `:` instead) |
-| Tool names starting with digit | Invalid (must start with letter/underscore) |
+| Feature                                   | Error                                       |
+| ----------------------------------------- | ------------------------------------------- |
+| `anthropic_version`                       | Unknown field                               |
+| `messages` array                          | Unknown field                               |
+| `max_tokens`                              | Unknown field                               |
+| Plain string `systemInstruction`          | Invalid value                               |
+| `system_instruction` (snake_case at root) | Unknown field                               |
+| JSON Schema `const`                       | Unknown field (use `enum: [value]`)         |
+| JSON Schema `$ref`                        | Not supported (inline instead)              |
+| JSON Schema `$defs`                       | Not supported (inline instead)              |
+| Tool names with `/`                       | Invalid (use `_` or `:` instead)            |
+| Tool names starting with digit            | Invalid (must start with letter/underscore) |
 
 ---
 
@@ -508,15 +588,11 @@ The following Anthropic/Vertex AI features are **NOT supported**:
     "contents": [
       {
         "role": "user",
-        "parts": [
-          { "text": "Hello, how are you?" }
-        ]
+        "parts": [{ "text": "Hello, how are you?" }]
       }
     ],
     "systemInstruction": {
-      "parts": [
-        { "text": "You are a helpful assistant." }
-      ]
+      "parts": [{ "text": "You are a helpful assistant." }]
     },
     "generationConfig": {
       "maxOutputTokens": 1000,
@@ -532,27 +608,29 @@ The following Anthropic/Vertex AI features are **NOT supported**:
 
 ## Response Headers
 
-| Header | Description |
-|--------|-------------|
+| Header                        | Description            |
+| ----------------------------- | ---------------------- |
 | `x-cloudaicompanion-trace-id` | Trace ID for debugging |
-| `server-timing` | Request duration |
+| `server-timing`               | Request duration       |
 
 ---
 
 ## Comparison: Antigravity vs Vertex AI Anthropic
 
-| Feature | Antigravity | Vertex AI Anthropic |
-|---------|-------------|---------------------|
-| Endpoint | `cloudcode-pa.googleapis.com` | `aiplatform.googleapis.com` |
-| Request format | Gemini-style `contents` | Anthropic `messages` |
-| `anthropic_version` | Not used | Required |
-| Model names | Simple (`claude-sonnet-4-5`) | Versioned (`claude-4-5@date`) |
-| Response format | `candidates[]` | Anthropic `content[]` |
-| Multi-model support | Yes (Claude, Gemini, etc.) | Anthropic only |
+| Feature             | Antigravity                   | Vertex AI Anthropic           |
+| ------------------- | ----------------------------- | ----------------------------- |
+| Endpoint            | `cloudcode-pa.googleapis.com` | `aiplatform.googleapis.com`   |
+| Request format      | Gemini-style `contents`       | Anthropic `messages`          |
+| `anthropic_version` | Not used                      | Required                      |
+| Model names         | Simple (`claude-sonnet-4-5`)  | Versioned (`claude-4-5@date`) |
+| Response format     | `candidates[]`                | Anthropic `content[]`         |
+| Multi-model support | Yes (Claude, Gemini, etc.)    | Anthropic only                |
 
 ---
 
 ## Changelog
 
+- **2026-01-09**: Updated Quota System to document weekly reset for Claude models on Pro tier (API behavior change)
+- **2026-01-09**: Added Quota System section documenting reset timer lifecycle and quota groups
 - **2025-12-14**: Added function calling quirks, JSON Schema support matrix, tool name rules
 - **2025-12-13**: Initial specification based on direct API testing

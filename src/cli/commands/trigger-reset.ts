@@ -100,9 +100,8 @@ export async function triggerResetCommand(options: TriggerResetOptions): Promise
     console.log();
 
     if (apiResult.successCount > 0) {
-      console.log(`${symbols.info} Quota will reset in ~5 hours from now.`);
-      const resetTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
-      console.log(`  Estimated reset time: ${pc.cyan(resetTime.toLocaleTimeString())}`);
+      console.log(`${symbols.info} Quota reset timer started. Check accounts list for actual reset times.`);
+      console.log(`  ${pc.dim("Note: Claude models use weekly reset, Gemini uses 5-hour reset.")}`);
       console.log();
     }
   } catch (error) {

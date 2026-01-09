@@ -2,7 +2,8 @@
  * Auto-Refresh Scheduler
  *
  * Smart auto-refresh that checks quota status every 10 minutes and triggers
- * reset only for accounts that are exhausted AND have no reset timer running.
+ * reset for accounts that need it. Uses pre-warming strategy to start fresh
+ * 5-hour reset timers proactively when quota is at 100%.
  * Processes ALL OAuth accounts, not just the first one.
  */
 

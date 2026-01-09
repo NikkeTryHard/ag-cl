@@ -536,7 +536,7 @@ describe("auth/oauth", () => {
     });
   });
 
-  describe.sequential("startCallbackServer", () => {
+  describe.sequential("startCallbackServer", { timeout: 60000 }, () => {
     // These tests need real HTTP requests to the local server
     // Use a helper function that disables keep-alive to prevent connection reuse
     const fetchNoKeepAlive = (url: string) =>
@@ -545,19 +545,19 @@ describe("auth/oauth", () => {
       });
 
     beforeEach(async () => {
-      global.fetch = originalFetch;
       // Ensure port is fully released from previous test
       // Increased from 200ms to handle slower CI environments
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      global.fetch = originalFetch;
+    }, 35000); // Hook-specific timeout
 
     afterEach(async () => {
-      // Give time for server socket to fully close and port to be released
-      // Node.js TCP TIME_WAIT can take a while, so we wait longer
-      // Increased from 800ms to handle slower CI environments
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      // Restore mock fetch first to avoid any issues with pending requests
       global.fetch = mockFetch;
-    });
+      // Give time for server socket to fully close and port to be released
+      // Node.js TCP TIME_WAIT can take a while, especially under load
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }, 35000); // Hook-specific timeout
 
     it("is a function that returns a promise", () => {
       expect(typeof startCallbackServer).toBe("function");
@@ -592,7 +592,7 @@ describe("auth/oauth", () => {
       // Attach a no-op catch handler to prevent unhandled rejection warning
       // The actual assertion happens below
       serverPromise.catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Increased wait
 
       const response = await fetchNoKeepAlive(`http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback?error=access_denied`);
 
@@ -602,6 +602,9 @@ describe("auth/oauth", () => {
       expect(html).toContain("access_denied");
 
       await expect(serverPromise).rejects.toThrow("OAuth error: access_denied");
+
+      // Extra wait for server to fully close
+      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("rejects with error when state does not match (CSRF protection)", async () => {
@@ -611,7 +614,7 @@ describe("auth/oauth", () => {
       const serverPromise = startCallbackServer(expectedState, 5000);
       // Attach a no-op catch handler to prevent unhandled rejection warning
       serverPromise.catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Increased wait
 
       const response = await fetchNoKeepAlive(`http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback?code=test-code&state=${wrongState}`);
 
@@ -620,6 +623,9 @@ describe("auth/oauth", () => {
       expect(html).toContain("State mismatch");
 
       await expect(serverPromise).rejects.toThrow("State mismatch");
+
+      // Extra wait for server to fully close
+      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("rejects with error when no authorization code is provided", async () => {
@@ -628,7 +634,7 @@ describe("auth/oauth", () => {
       const serverPromise = startCallbackServer(expectedState, 5000);
       // Attach a no-op catch handler to prevent unhandled rejection warning
       serverPromise.catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Increased wait
 
       const response = await fetchNoKeepAlive(`http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback?state=${expectedState}`);
 
@@ -637,6 +643,9 @@ describe("auth/oauth", () => {
       expect(html).toContain("No authorization code");
 
       await expect(serverPromise).rejects.toThrow("No authorization code");
+
+      // Extra wait for server to fully close
+      await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     it("returns 404 for non-callback paths", async () => {
@@ -657,7 +666,7 @@ describe("auth/oauth", () => {
       await serverPromise; // Should resolve with "cleanup"
     });
 
-    it("rejects with timeout error when no callback received", { timeout: 10000 }, async () => {
+    it("rejects with timeout error when no callback received", { timeout: 15000 }, async () => {
       const expectedState = "timeout-state";
 
       // Use 500ms timeout - short enough for fast test, long enough for clean shutdown

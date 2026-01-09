@@ -24,13 +24,17 @@ function createMockCapacity(overrides: Partial<AccountCapacity> = {}): AccountCa
       aggregatedPercentage: 45,
       earliestReset: new Date(Date.now() + 2 * 60 * 60 * 1000 + 15 * 60 * 1000).toISOString(),
     },
-    geminiPool: {
+    geminiProPool: {
       models: [
         { name: "gemini-3-pro-high", percentage: 85, resetTime: new Date(Date.now() + 4 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString() },
-        { name: "gemini-3-flash", percentage: 100, resetTime: new Date(Date.now() + 4 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString() },
         { name: "gemini-3-pro-image", percentage: 60, resetTime: new Date(Date.now() + 4 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString() },
       ],
-      aggregatedPercentage: 245,
+      aggregatedPercentage: 73, // Average of 85 and 60
+      earliestReset: new Date(Date.now() + 4 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+    },
+    geminiFlashPool: {
+      models: [{ name: "gemini-3-flash", percentage: 100, resetTime: new Date(Date.now() + 4 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString() }],
+      aggregatedPercentage: 100,
       earliestReset: new Date(Date.now() + 4 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
     },
     projectId: "test-project",
@@ -40,7 +44,7 @@ function createMockCapacity(overrides: Partial<AccountCapacity> = {}): AccountCa
   };
 }
 
-function createMockBurnRates(claudeOverrides: Partial<BurnRateInfo> = {}, geminiOverrides: Partial<BurnRateInfo> = {}): { claude: BurnRateInfo; gemini: BurnRateInfo } {
+function createMockBurnRates(claudeOverrides: Partial<BurnRateInfo> = {}, geminiProOverrides: Partial<BurnRateInfo> = {}, geminiFlashOverrides: Partial<BurnRateInfo> = {}): { claude: BurnRateInfo; geminiPro: BurnRateInfo; geminiFlash: BurnRateInfo } {
   return {
     claude: {
       ratePerHour: 15,
@@ -48,11 +52,17 @@ function createMockBurnRates(claudeOverrides: Partial<BurnRateInfo> = {}, gemini
       status: "burning",
       ...claudeOverrides,
     },
-    gemini: {
+    geminiPro: {
       ratePerHour: 5,
       hoursToExhaustion: 12,
       status: "burning",
-      ...geminiOverrides,
+      ...geminiProOverrides,
+    },
+    geminiFlash: {
+      ratePerHour: 2,
+      hoursToExhaustion: 24,
+      status: "stable",
+      ...geminiFlashOverrides,
     },
   };
 }
@@ -379,28 +389,43 @@ describe("renderAccountCapacity", () => {
     });
   });
 
-  describe("Gemini pool section", () => {
-    it("displays Gemini Pool header", () => {
+  describe("Gemini Pro pool section", () => {
+    it("displays Gemini Pro Pool header", () => {
       const capacity = createMockCapacity();
       const burnRates = createMockBurnRates();
       const result = renderAccountCapacity(capacity, burnRates, { noColor: true });
-      expect(result).toContain("Gemini Pool");
+      expect(result).toContain("Gemini Pro Pool");
     });
 
-    it("displays all Gemini models", () => {
+    it("displays all Gemini Pro models", () => {
       const capacity = createMockCapacity();
       const burnRates = createMockBurnRates();
       const result = renderAccountCapacity(capacity, burnRates, { noColor: true });
       expect(result).toContain("gemini-3-pro-high");
-      expect(result).toContain("gemini-3-flash");
       expect(result).toContain("gemini-3-pro-image");
     });
 
-    it("displays Gemini burn rate info", () => {
+    it("displays Gemini Pro burn rate info", () => {
       const capacity = createMockCapacity();
       const burnRates = createMockBurnRates();
       const result = renderAccountCapacity(capacity, burnRates, { noColor: true });
       expect(result).toContain("5%/hr");
+    });
+  });
+
+  describe("Gemini Flash pool section", () => {
+    it("displays Gemini Flash Pool header", () => {
+      const capacity = createMockCapacity();
+      const burnRates = createMockBurnRates();
+      const result = renderAccountCapacity(capacity, burnRates, { noColor: true });
+      expect(result).toContain("Gemini Flash Pool");
+    });
+
+    it("displays Gemini Flash models", () => {
+      const capacity = createMockCapacity();
+      const burnRates = createMockBurnRates();
+      const result = renderAccountCapacity(capacity, burnRates, { noColor: true });
+      expect(result).toContain("gemini-3-flash");
     });
   });
 
@@ -433,7 +458,7 @@ describe("renderCapacitySummary", () => {
   describe("summary header", () => {
     it("displays summary title", () => {
       const capacities = [createMockCapacity()];
-      const result = renderCapacitySummary(capacities, { noColor: true });
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
       expect(result).toMatch(/Summary/i);
     });
   });
@@ -441,13 +466,13 @@ describe("renderCapacitySummary", () => {
   describe("account counts", () => {
     it("displays total account count", () => {
       const capacities = [createMockCapacity({ email: "user1@example.com", tier: "PRO" }), createMockCapacity({ email: "user2@example.com", tier: "FREE" })];
-      const result = renderCapacitySummary(capacities, { noColor: true });
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
       expect(result).toContain("Total Accounts: 2");
     });
 
     it("displays tier breakdown", () => {
       const capacities = [createMockCapacity({ email: "user1@example.com", tier: "PRO" }), createMockCapacity({ email: "user2@example.com", tier: "PRO" }), createMockCapacity({ email: "user3@example.com", tier: "FREE" }), createMockCapacity({ email: "user4@example.com", tier: "ULTRA" })];
-      const result = renderCapacitySummary(capacities, { noColor: true });
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
       expect(result).toContain("2 PRO");
       expect(result).toContain("1 FREE");
       expect(result).toContain("1 ULTRA");
@@ -457,14 +482,20 @@ describe("renderCapacitySummary", () => {
   describe("combined capacity", () => {
     it("displays combined Claude capacity", () => {
       const capacities = [createMockCapacity({ email: "user1@example.com", claudePool: { models: [], aggregatedPercentage: 100, earliestReset: null } }), createMockCapacity({ email: "user2@example.com", claudePool: { models: [], aggregatedPercentage: 145, earliestReset: null } })];
-      const result = renderCapacitySummary(capacities, { noColor: true });
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
       expect(result).toContain("Combined Claude Capacity: 245%");
     });
 
-    it("displays combined Gemini capacity", () => {
-      const capacities = [createMockCapacity({ email: "user1@example.com", geminiPool: { models: [], aggregatedPercentage: 200, earliestReset: null } }), createMockCapacity({ email: "user2@example.com", geminiPool: { models: [], aggregatedPercentage: 180, earliestReset: null } })];
-      const result = renderCapacitySummary(capacities, { noColor: true });
-      expect(result).toContain("Combined Gemini Capacity: 380%");
+    it("displays combined Gemini Pro capacity", () => {
+      const capacities = [createMockCapacity({ email: "user1@example.com", geminiProPool: { models: [], aggregatedPercentage: 100, earliestReset: null } }), createMockCapacity({ email: "user2@example.com", geminiProPool: { models: [], aggregatedPercentage: 80, earliestReset: null } })];
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
+      expect(result).toContain("Combined Gemini Pro Capacity: 180%");
+    });
+
+    it("displays combined Gemini Flash capacity", () => {
+      const capacities = [createMockCapacity({ email: "user1@example.com", geminiFlashPool: { models: [], aggregatedPercentage: 100, earliestReset: null } }), createMockCapacity({ email: "user2@example.com", geminiFlashPool: { models: [], aggregatedPercentage: 100, earliestReset: null } })];
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
+      expect(result).toContain("Combined Gemini Flash Capacity: 200%");
     });
   });
 
@@ -482,14 +513,14 @@ describe("renderCapacitySummary", () => {
           claudePool: { models: [{ name: "claude", percentage: 50, resetTime: laterReset }], aggregatedPercentage: 50, earliestReset: laterReset },
         }),
       ];
-      const result = renderCapacitySummary(capacities, { noColor: true });
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
       expect(result).toMatch(/Soonest Reset:.*2h.*soon@example.com/i);
     });
   });
 
   describe("empty state", () => {
     it("handles empty capacities array", () => {
-      const result = renderCapacitySummary([], { noColor: true });
+      const result = renderCapacitySummary([], undefined, { noColor: true });
       expect(result).toContain("No accounts");
     });
   });
@@ -497,7 +528,7 @@ describe("renderCapacitySummary", () => {
   describe("noColor option", () => {
     it("produces plain text output when noColor is true", () => {
       const capacities = [createMockCapacity()];
-      const result = renderCapacitySummary(capacities, { noColor: true });
+      const result = renderCapacitySummary(capacities, undefined, { noColor: true });
       // Should not contain ANSI escape codes
       // eslint-disable-next-line no-control-regex
       expect(result).not.toMatch(/\x1b\[/);

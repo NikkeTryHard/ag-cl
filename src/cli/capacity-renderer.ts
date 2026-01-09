@@ -22,11 +22,12 @@ export interface RenderOptions {
 }
 
 /**
- * Burn rates for both model pools
+ * Burn rates for all three model pools
  */
 export interface PoolBurnRates {
   claude: BurnRateInfo;
-  gemini: BurnRateInfo;
+  geminiPro: BurnRateInfo;
+  geminiFlash: BurnRateInfo;
 }
 
 // ============================================================================
@@ -382,11 +383,12 @@ function formatPoolSection(poolName: string, pool: ModelPoolInfo, burnRate: Burn
  * Creates formatted output showing:
  * - Account email and tier badge
  * - Claude pool with model quotas and progress bars
- * - Gemini pool with model quotas and progress bars
+ * - Gemini Pro pool with model quotas and progress bars
+ * - Gemini Flash pool with model quotas and progress bars
  * - Burn rate information for each pool
  *
  * @param capacity - Account capacity data
- * @param burnRates - Burn rates for both pools
+ * @param burnRates - Burn rates for all three pools
  * @param options - Render options
  * @returns Formatted multi-line string for terminal display
  */
@@ -413,10 +415,16 @@ export function renderAccountCapacity(capacity: AccountCapacity, burnRates: Pool
     lines.push(claudeSection);
   }
 
-  // Gemini pool section
-  const geminiSection = formatPoolSection("Gemini Pool", capacity.geminiPool, burnRates.gemini, options);
-  if (geminiSection) {
-    lines.push(geminiSection);
+  // Gemini Pro pool section
+  const geminiProSection = formatPoolSection("Gemini Pro Pool", capacity.geminiProPool, burnRates.geminiPro, options);
+  if (geminiProSection) {
+    lines.push(geminiProSection);
+  }
+
+  // Gemini Flash pool section
+  const geminiFlashSection = formatPoolSection("Gemini Flash Pool", capacity.geminiFlashPool, burnRates.geminiFlash, options);
+  if (geminiFlashSection) {
+    lines.push(geminiFlashSection);
   }
 
   return lines.join("\n");
@@ -441,13 +449,13 @@ export interface OverallBurnRateInfo {
  *
  * @param burnRates - Array of burn rate info from each account
  * @param capacities - Array of account capacities
- * @param family - 'claude' or 'gemini'
+ * @param family - 'claude', 'geminiPro', or 'geminiFlash'
  * @returns Overall burn rate info
  */
-export function calculateOverallBurnRate(burnRates: PoolBurnRates[], capacities: AccountCapacity[], family: "claude" | "gemini"): OverallBurnRateInfo {
+export function calculateOverallBurnRate(burnRates: PoolBurnRates[], capacities: AccountCapacity[], family: "claude" | "geminiPro" | "geminiFlash"): OverallBurnRateInfo {
   // Calculate combined capacity
   const currentCapacity = capacities.reduce((sum, cap) => {
-    const pool = family === "claude" ? cap.claudePool : cap.geminiPool;
+    const pool = family === "claude" ? cap.claudePool : family === "geminiPro" ? cap.geminiProPool : cap.geminiFlashPool;
     return sum + pool.aggregatedPercentage;
   }, 0);
 
@@ -455,8 +463,9 @@ export function calculateOverallBurnRate(burnRates: PoolBurnRates[], capacities:
   const burningAccounts: { rate: number; capacity: number }[] = [];
 
   for (let i = 0; i < burnRates.length; i++) {
-    const br = family === "claude" ? burnRates[i].claude : burnRates[i].gemini;
-    const cap = family === "claude" ? capacities[i].claudePool.aggregatedPercentage : capacities[i].geminiPool.aggregatedPercentage;
+    const br = family === "claude" ? burnRates[i].claude : family === "geminiPro" ? burnRates[i].geminiPro : burnRates[i].geminiFlash;
+    const pool = family === "claude" ? capacities[i].claudePool : family === "geminiPro" ? capacities[i].geminiProPool : capacities[i].geminiFlashPool;
+    const cap = pool.aggregatedPercentage;
 
     if (br.status === "burning" && br.ratePerHour !== null && br.ratePerHour > 0) {
       burningAccounts.push({ rate: br.ratePerHour, capacity: cap });
@@ -570,12 +579,21 @@ function findSoonestReset(capacities: AccountCapacity[]): { resetTime: string; e
       }
     }
 
-    // Check Gemini pool
-    if (cap.geminiPool.earliestReset) {
-      const resetMs = new Date(cap.geminiPool.earliestReset).getTime();
+    // Check Gemini Pro pool
+    if (cap.geminiProPool.earliestReset) {
+      const resetMs = new Date(cap.geminiProPool.earliestReset).getTime();
       if (resetMs < soonestMs) {
         soonestMs = resetMs;
-        soonest = { resetTime: cap.geminiPool.earliestReset, email: cap.email, pool: "Gemini" };
+        soonest = { resetTime: cap.geminiProPool.earliestReset, email: cap.email, pool: "Gemini Pro" };
+      }
+    }
+
+    // Check Gemini Flash pool
+    if (cap.geminiFlashPool.earliestReset) {
+      const resetMs = new Date(cap.geminiFlashPool.earliestReset).getTime();
+      if (resetMs < soonestMs) {
+        soonestMs = resetMs;
+        soonest = { resetTime: cap.geminiFlashPool.earliestReset, email: cap.email, pool: "Gemini Flash" };
       }
     }
   }
@@ -589,7 +607,8 @@ function findSoonestReset(capacities: AccountCapacity[]): { resetTime: string; e
  * Creates formatted output showing:
  * - Total account count with tier breakdown
  * - Combined Claude capacity with overall burn rate
- * - Combined Gemini capacity with overall burn rate
+ * - Combined Gemini Pro capacity with overall burn rate
+ * - Combined Gemini Flash capacity with overall burn rate
  * - Soonest reset time across all accounts
  *
  * @param capacities - Array of account capacity data
@@ -624,16 +643,23 @@ export function renderCapacitySummary(capacities: AccountCapacity[], burnRates?:
     const claudeOverall = calculateOverallBurnRate(burnRates, capacities, "claude");
     lines.push(formatOverallBurnRate(claudeOverall, "Claude"));
 
-    // Overall Gemini burn rate
-    const geminiOverall = calculateOverallBurnRate(burnRates, capacities, "gemini");
-    lines.push(formatOverallBurnRate(geminiOverall, "Gemini"));
+    // Overall Gemini Pro burn rate
+    const geminiProOverall = calculateOverallBurnRate(burnRates, capacities, "geminiPro");
+    lines.push(formatOverallBurnRate(geminiProOverall, "Gemini Pro"));
+
+    // Overall Gemini Flash burn rate
+    const geminiFlashOverall = calculateOverallBurnRate(burnRates, capacities, "geminiFlash");
+    lines.push(formatOverallBurnRate(geminiFlashOverall, "Gemini Flash"));
   } else {
     // Fallback to simple capacity sums without burn rate
     const combinedClaude = capacities.reduce((sum, cap) => sum + cap.claudePool.aggregatedPercentage, 0);
     lines.push(`Combined Claude Capacity: ${combinedClaude}%`);
 
-    const combinedGemini = capacities.reduce((sum, cap) => sum + cap.geminiPool.aggregatedPercentage, 0);
-    lines.push(`Combined Gemini Capacity: ${combinedGemini}%`);
+    const combinedGeminiPro = capacities.reduce((sum, cap) => sum + cap.geminiProPool.aggregatedPercentage, 0);
+    lines.push(`Combined Gemini Pro Capacity: ${combinedGeminiPro}%`);
+
+    const combinedGeminiFlash = capacities.reduce((sum, cap) => sum + cap.geminiFlashPool.aggregatedPercentage, 0);
+    lines.push(`Combined Gemini Flash Capacity: ${combinedGeminiFlash}%`);
   }
 
   // Soonest reset

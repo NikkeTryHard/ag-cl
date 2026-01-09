@@ -85,9 +85,10 @@ function getClaudePercentage(models: ModelQuotaDisplay[]): number {
 }
 
 /**
- * Format Gemini models - only show those below 100%
+ * Format Gemini models - combine Pro and Flash, only show those below 100%
  */
-function formatGeminiModels(models: ModelQuotaDisplay[], maxWidth: number): { text: string; hiddenCount: number } {
+function formatGeminiModels(geminiProModels: ModelQuotaDisplay[], geminiFlashModels: ModelQuotaDisplay[], maxWidth: number): { text: string; hiddenCount: number } {
+  const models = [...geminiProModels, ...geminiFlashModels];
   if (models.length === 0) return { text: "-", hiddenCount: 0 };
 
   // Filter to models below 100%
@@ -232,14 +233,15 @@ export function AccountListModal({ accounts, claudeCapacity, geminiCapacity, ref
           }
 
           const claudePct = getClaudePercentage(account.claudeModels);
-          const { text: geminiText } = formatGeminiModels(account.geminiModels, geminiWidth);
+          const { text: geminiText } = formatGeminiModels(account.geminiProModels, account.geminiFlashModels, geminiWidth);
 
-          // Get lowest Gemini percentage for color
-          const geminiBelow100 = account.geminiModels.filter((m) => m.percentage < 100);
+          // Get lowest Gemini percentage for color (combine Pro and Flash)
+          const allGeminiModels = [...account.geminiProModels, ...account.geminiFlashModels];
+          const geminiBelow100 = allGeminiModels.filter((m) => m.percentage < 100);
           const geminiLowest = geminiBelow100.length > 0 ? Math.min(...geminiBelow100.map((m) => m.percentage)) : 100;
 
-          // Get earliest reset time for this account
-          const resetTime = account.claudeReset ?? account.geminiReset;
+          // Get earliest reset time for this account (check all 3 pools)
+          const resetTime = account.claudeReset ?? account.geminiProReset ?? account.geminiFlashReset;
 
           return (
             <Box key={account.email}>

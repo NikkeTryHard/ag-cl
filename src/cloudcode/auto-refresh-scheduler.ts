@@ -24,9 +24,11 @@ export interface AccountRefreshState {
   lastChecked: number | null;
   lastTriggered: number | null;
   claudePercentage: number;
-  geminiPercentage: number;
+  geminiProPercentage: number;
+  geminiFlashPercentage: number;
   claudeResetTime: string | null;
-  geminiResetTime: string | null;
+  geminiProResetTime: string | null;
+  geminiFlashResetTime: string | null;
   status: "ok" | "exhausted" | "pending_reset" | "error";
 }
 
@@ -43,12 +45,14 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     const capacity = await fetchAccountCapacity(token, email);
 
     const claudePct = capacity.claudePool.aggregatedPercentage;
-    const geminiPct = capacity.geminiPool.aggregatedPercentage;
+    const geminiProPct = capacity.geminiProPool.aggregatedPercentage;
+    const geminiFlashPct = capacity.geminiFlashPool.aggregatedPercentage;
     const claudeReset = capacity.claudePool.earliestReset;
-    const geminiReset = capacity.geminiPool.earliestReset;
+    const geminiProReset = capacity.geminiProPool.earliestReset;
+    const geminiFlashReset = capacity.geminiFlashPool.earliestReset;
 
     // Log quota status for this account
-    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}), Gemini ${geminiPct}% (reset: ${geminiReset ?? "none"})`);
+    getLogger().info(`[AutoRefresh] ${email}: Claude ${claudePct}% (reset: ${claudeReset ?? "none"}), Gemini Pro ${geminiProPct}% (reset: ${geminiProReset ?? "none"}), Gemini Flash ${geminiFlashPct}% (reset: ${geminiFlashReset ?? "none"})`);
 
     // Determine status using pre-warming strategy:
     // 1. At 100% quota: reset timer is stale (from completed cycle) → trigger to pre-warm
@@ -60,33 +64,41 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     let reason = "Has remaining quota";
 
     const claudeExhausted = claudePct === 0;
-    const geminiExhausted = geminiPct === 0;
+    const geminiProExhausted = geminiProPct === 0;
+    const geminiFlashExhausted = geminiFlashPct === 0;
     const claudeFresh = claudePct === 100;
-    const geminiFresh = geminiPct === 100;
-    const anyFresh = claudeFresh || geminiFresh;
-    const anyExhaustedWithoutTimer = (claudeExhausted && !claudeReset) || (geminiExhausted && !geminiReset);
-    const bothExhaustedWithTimer = claudeExhausted && geminiExhausted && !!claudeReset && !!geminiReset;
+    const geminiProFresh = geminiProPct === 100;
+    const geminiFlashFresh = geminiFlashPct === 100;
+    const anyFresh = claudeFresh || geminiProFresh || geminiFlashFresh;
+    const anyExhaustedWithoutTimer = (claudeExhausted && !claudeReset) || (geminiProExhausted && !geminiProReset) || (geminiFlashExhausted && !geminiFlashReset);
+    const allExhaustedWithTimer = claudeExhausted && geminiProExhausted && geminiFlashExhausted && !!claudeReset && !!geminiProReset && !!geminiFlashReset;
 
     if (anyExhaustedWithoutTimer) {
       // Priority 1: Must trigger - need to start a reset timer
       needsRefresh = true;
       status = "exhausted";
-      reason = claudeExhausted && !claudeReset ? "Claude exhausted, no reset timer" : "Gemini exhausted, no reset timer";
-    } else if (bothExhaustedWithTimer) {
-      // Priority 2: Both waiting for reset - skip
+      if (claudeExhausted && !claudeReset) {
+        reason = "Claude exhausted, no reset timer";
+      } else if (geminiProExhausted && !geminiProReset) {
+        reason = "Gemini Pro exhausted, no reset timer";
+      } else {
+        reason = "Gemini Flash exhausted, no reset timer";
+      }
+    } else if (allExhaustedWithTimer) {
+      // Priority 2: All waiting for reset - skip
       needsRefresh = false;
       status = "pending_reset";
       reason = "Waiting for reset timers";
     } else if (anyFresh) {
       // Priority 3: Pre-warm - at least one pool at 100% (stale timer)
       needsRefresh = true;
-      status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
+      status = claudeExhausted || geminiProExhausted || geminiFlashExhausted ? "pending_reset" : "ok";
       reason = "Pre-warming: refreshing reset timer";
     } else {
       // Priority 4: Partial quota or one waiting + one in use
       needsRefresh = false;
-      status = claudeExhausted || geminiExhausted ? "pending_reset" : "ok";
-      reason = claudeExhausted || geminiExhausted ? "Waiting for reset timer" : "Has remaining quota";
+      status = claudeExhausted || geminiProExhausted || geminiFlashExhausted ? "pending_reset" : "ok";
+      reason = claudeExhausted || geminiProExhausted || geminiFlashExhausted ? "Waiting for reset timer" : "Has remaining quota";
     }
 
     // Update state
@@ -95,9 +107,11 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
       lastChecked: now,
       lastTriggered: accountStates.get(email)?.lastTriggered ?? null,
       claudePercentage: claudePct,
-      geminiPercentage: geminiPct,
+      geminiProPercentage: geminiProPct,
+      geminiFlashPercentage: geminiFlashPct,
       claudeResetTime: claudeReset,
-      geminiResetTime: geminiReset,
+      geminiProResetTime: geminiProReset,
+      geminiFlashResetTime: geminiFlashReset,
       status,
     });
 
@@ -110,9 +124,11 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
       lastChecked: now,
       lastTriggered: existing?.lastTriggered ?? null,
       claudePercentage: existing?.claudePercentage ?? 0,
-      geminiPercentage: existing?.geminiPercentage ?? 0,
+      geminiProPercentage: existing?.geminiProPercentage ?? 0,
+      geminiFlashPercentage: existing?.geminiFlashPercentage ?? 0,
       claudeResetTime: existing?.claudeResetTime ?? null,
-      geminiResetTime: existing?.geminiResetTime ?? null,
+      geminiProResetTime: existing?.geminiProResetTime ?? null,
+      geminiFlashResetTime: existing?.geminiFlashResetTime ?? null,
       status: "error",
     });
 

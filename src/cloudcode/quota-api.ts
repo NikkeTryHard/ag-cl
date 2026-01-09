@@ -42,7 +42,7 @@ export interface ModelQuotaInfo {
 }
 
 /**
- * Model pool information (Claude or Gemini)
+ * Model pool information (Claude, Gemini Pro, or Gemini Flash)
  */
 export interface ModelPoolInfo {
   models: ModelQuotaInfo[];
@@ -57,7 +57,8 @@ export interface AccountCapacity {
   email: string;
   tier: AccountTier;
   claudePool: ModelPoolInfo;
-  geminiPool: ModelPoolInfo;
+  geminiProPool: ModelPoolInfo;
+  geminiFlashPool: ModelPoolInfo;
   projectId: string | null;
   lastUpdated: number;
   isForbidden: boolean;
@@ -232,26 +233,39 @@ function findEarliestReset(models: ModelQuotaInfo[]): string | null {
  * Group quotas by model family into pools
  *
  * Claude: All models share the same quota pool - take any model's percentage (they're identical)
- * Gemini: Each model has independent quota - average for overall health indicator
+ * Gemini Pro: Pro models (contain "pro") - average for overall health indicator
+ * Gemini Flash: Flash models (contain "flash") - average for overall health indicator
  */
-function groupByPool(quotas: ModelQuotaInfo[]): { claudePool: ModelPoolInfo; geminiPool: ModelPoolInfo } {
+function groupByPool(quotas: ModelQuotaInfo[]): { claudePool: ModelPoolInfo; geminiProPool: ModelPoolInfo; geminiFlashPool: ModelPoolInfo } {
   const claudeModels: ModelQuotaInfo[] = [];
-  const geminiModels: ModelQuotaInfo[] = [];
+  const geminiProModels: ModelQuotaInfo[] = [];
+  const geminiFlashModels: ModelQuotaInfo[] = [];
 
   for (const quota of quotas) {
     const family = getModelFamily(quota.name);
+    const nameLower = quota.name.toLowerCase();
     if (family === "claude") {
       claudeModels.push(quota);
     } else if (family === "gemini") {
-      geminiModels.push(quota);
+      // Classify Gemini models by name
+      if (nameLower.includes("pro")) {
+        geminiProModels.push(quota);
+      } else if (nameLower.includes("flash")) {
+        geminiFlashModels.push(quota);
+      }
+      // Other Gemini models (e.g., gemini-2.5-pro-exp) will go to Pro if they contain "pro"
+      // Models without pro or flash are ignored (shouldn't happen with current model set)
     }
   }
 
   // Claude: Shared quota - all models have identical percentage, take first
   const claudeAggregated = claudeModels.length > 0 ? claudeModels[0].percentage : 0;
 
-  // Gemini: Per-model quota - average for dashboard summary
-  const geminiAggregated = geminiModels.length > 0 ? Math.round(geminiModels.reduce((sum, m) => sum + m.percentage, 0) / geminiModels.length) : 0;
+  // Gemini Pro: Per-model quota - average for dashboard summary
+  const geminiProAggregated = geminiProModels.length > 0 ? Math.round(geminiProModels.reduce((sum, m) => sum + m.percentage, 0) / geminiProModels.length) : 0;
+
+  // Gemini Flash: Per-model quota - average for dashboard summary
+  const geminiFlashAggregated = geminiFlashModels.length > 0 ? Math.round(geminiFlashModels.reduce((sum, m) => sum + m.percentage, 0) / geminiFlashModels.length) : 0;
 
   return {
     claudePool: {
@@ -259,10 +273,15 @@ function groupByPool(quotas: ModelQuotaInfo[]): { claudePool: ModelPoolInfo; gem
       aggregatedPercentage: claudeAggregated,
       earliestReset: findEarliestReset(claudeModels),
     },
-    geminiPool: {
-      models: geminiModels,
-      aggregatedPercentage: geminiAggregated,
-      earliestReset: findEarliestReset(geminiModels),
+    geminiProPool: {
+      models: geminiProModels,
+      aggregatedPercentage: geminiProAggregated,
+      earliestReset: findEarliestReset(geminiProModels),
+    },
+    geminiFlashPool: {
+      models: geminiFlashModels,
+      aggregatedPercentage: geminiFlashAggregated,
+      earliestReset: findEarliestReset(geminiFlashModels),
     },
   };
 }
@@ -283,13 +302,14 @@ export async function fetchAccountCapacity(token: string, email: string): Promis
   const { quotas, isForbidden } = await fetchModelQuotas(token, projectId);
 
   // 3. Group by pools
-  const { claudePool, geminiPool } = groupByPool(quotas);
+  const { claudePool, geminiProPool, geminiFlashPool } = groupByPool(quotas);
 
   return {
     email,
     tier,
     claudePool,
-    geminiPool,
+    geminiProPool,
+    geminiFlashPool,
     projectId,
     lastUpdated: Date.now(),
     isForbidden,

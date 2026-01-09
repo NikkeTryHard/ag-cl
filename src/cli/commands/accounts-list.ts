@@ -46,7 +46,8 @@ interface JsonOutput {
     successful: number;
     failed: number;
     combinedClaudeCapacity: number;
-    combinedGeminiCapacity: number;
+    combinedGeminiProCapacity: number;
+    combinedGeminiFlashCapacity: number;
   };
 }
 
@@ -92,7 +93,8 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
             successful: 0,
             failed: 0,
             combinedClaudeCapacity: 0,
-            combinedGeminiCapacity: 0,
+            combinedGeminiProCapacity: 0,
+            combinedGeminiFlashCapacity: 0,
           },
         } satisfies JsonOutput),
       );
@@ -141,18 +143,21 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
       // Record snapshots for burn rate tracking
       try {
         recordSnapshot(account.email, "claude", capacity.claudePool.aggregatedPercentage);
-        recordSnapshot(account.email, "gemini", capacity.geminiPool.aggregatedPercentage);
+        recordSnapshot(account.email, "geminiPro", capacity.geminiProPool.aggregatedPercentage);
+        recordSnapshot(account.email, "geminiFlash", capacity.geminiFlashPool.aggregatedPercentage);
       } catch {
         // Ignore snapshot errors - burn rate just won't be available
       }
 
       // Calculate burn rates
       const claudeBurnRate = calculateBurnRate(account.email, "claude", capacity.claudePool.aggregatedPercentage, capacity.claudePool.earliestReset);
-      const geminiBurnRate = calculateBurnRate(account.email, "gemini", capacity.geminiPool.aggregatedPercentage, capacity.geminiPool.earliestReset);
+      const geminiProBurnRate = calculateBurnRate(account.email, "geminiPro", capacity.geminiProPool.aggregatedPercentage, capacity.geminiProPool.earliestReset);
+      const geminiFlashBurnRate = calculateBurnRate(account.email, "geminiFlash", capacity.geminiFlashPool.aggregatedPercentage, capacity.geminiFlashPool.earliestReset);
 
       const burnRates: PoolBurnRates = {
         claude: claudeBurnRate,
-        gemini: geminiBurnRate,
+        geminiPro: geminiProBurnRate,
+        geminiFlash: geminiFlashBurnRate,
       };
 
       results.push({
@@ -198,7 +203,8 @@ export async function accountsListCommand(options: AccountsListOptions = {}): Pr
         successful: capacities.length,
         failed: results.filter((r) => r.error !== null).length,
         combinedClaudeCapacity: capacities.reduce((sum, cap) => sum + cap.claudePool.aggregatedPercentage, 0),
-        combinedGeminiCapacity: capacities.reduce((sum, cap) => sum + cap.geminiPool.aggregatedPercentage, 0),
+        combinedGeminiProCapacity: capacities.reduce((sum, cap) => sum + cap.geminiProPool.aggregatedPercentage, 0),
+        combinedGeminiFlashCapacity: capacities.reduce((sum, cap) => sum + cap.geminiFlashPool.aggregatedPercentage, 0),
       },
     };
     console.log(JSON.stringify(jsonOutput, null, 2));

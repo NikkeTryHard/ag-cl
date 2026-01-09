@@ -179,11 +179,14 @@ describe("cloudcode/quota-api", () => {
       expect(result.claudePool.models[0].percentage).toBe(75);
       expect(result.claudePool.aggregatedPercentage).toBe(75);
 
-      // Gemini pool
-      expect(result.geminiPool.models).toHaveLength(1);
-      expect(result.geminiPool.models[0].name).toBe("gemini-3-pro-high");
-      expect(result.geminiPool.models[0].percentage).toBe(50);
-      expect(result.geminiPool.aggregatedPercentage).toBe(50);
+      // Gemini Pro pool
+      expect(result.geminiProPool.models).toHaveLength(1);
+      expect(result.geminiProPool.models[0].name).toBe("gemini-3-pro-high");
+      expect(result.geminiProPool.models[0].percentage).toBe(50);
+      expect(result.geminiProPool.aggregatedPercentage).toBe(50);
+
+      // Gemini Flash pool (empty in this test)
+      expect(result.geminiFlashPool.models).toHaveLength(0);
     });
 
     it("marks account as forbidden on 403 response", async () => {
@@ -208,7 +211,8 @@ describe("cloudcode/quota-api", () => {
 
       expect(result.isForbidden).toBe(true);
       expect(result.claudePool.models).toHaveLength(0);
-      expect(result.geminiPool.models).toHaveLength(0);
+      expect(result.geminiProPool.models).toHaveLength(0);
+      expect(result.geminiFlashPool.models).toHaveLength(0);
     });
 
     it("finds earliest reset time in pool", async () => {
@@ -228,10 +232,16 @@ describe("cloudcode/quota-api", () => {
                   resetTime: "2026-01-07T20:00:00Z",
                 },
               },
+              "gemini-3-pro-low": {
+                quotaInfo: {
+                  remainingFraction: 0.3,
+                  resetTime: "2026-01-07T18:00:00Z", // Earlier
+                },
+              },
               "gemini-3-flash": {
                 quotaInfo: {
                   remainingFraction: 0.8,
-                  resetTime: "2026-01-07T18:00:00Z", // Earlier
+                  resetTime: "2026-01-07T19:00:00Z",
                 },
               },
             },
@@ -241,7 +251,13 @@ describe("cloudcode/quota-api", () => {
       const { fetchAccountCapacity } = await import("../../../src/cloudcode/quota-api.js");
       const result = await fetchAccountCapacity("test-token", "user@example.com");
 
-      expect(result.geminiPool.earliestReset).toBe("2026-01-07T18:00:00Z");
+      // Gemini Pro pool should have the two pro models with earliest reset
+      expect(result.geminiProPool.models).toHaveLength(2);
+      expect(result.geminiProPool.earliestReset).toBe("2026-01-07T18:00:00Z");
+
+      // Gemini Flash pool should have the flash model
+      expect(result.geminiFlashPool.models).toHaveLength(1);
+      expect(result.geminiFlashPool.earliestReset).toBe("2026-01-07T19:00:00Z");
     });
   });
 });

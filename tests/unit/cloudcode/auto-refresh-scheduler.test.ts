@@ -16,7 +16,8 @@ vi.mock("../../../src/cloudcode/quota-reset-trigger.js", () => ({
 vi.mock("../../../src/cloudcode/quota-api.js", () => ({
   fetchAccountCapacity: vi.fn().mockResolvedValue({
     claudePool: { aggregatedPercentage: 0, earliestReset: null },
-    geminiPool: { aggregatedPercentage: 100, earliestReset: null },
+    geminiProPool: { aggregatedPercentage: 100, earliestReset: null },
+    geminiFlashPool: { aggregatedPercentage: 100, earliestReset: null },
   }),
 }));
 
@@ -294,7 +295,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
-          geminiPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
         }),
       }));
 
@@ -357,12 +359,14 @@ describe("cloudcode/auto-refresh-scheduler", () => {
           if (callCount === 1) {
             return Promise.resolve({
               claudePool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
-              geminiPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+              geminiProPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+              geminiFlashPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
             });
           }
           return Promise.resolve({
             claudePool: { aggregatedPercentage: 80, earliestReset: null, models: [] },
-            geminiPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
+            geminiProPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
+            geminiFlashPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
           });
         }),
       }));
@@ -424,7 +428,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 0, earliestReset: "2025-01-01T10:00:00Z", models: [] },
-          geminiPool: { aggregatedPercentage: 0, earliestReset: "2025-01-01T10:00:00Z", models: [] },
+          geminiProPool: { aggregatedPercentage: 0, earliestReset: "2025-01-01T10:00:00Z", models: [] },
+          geminiFlashPool: { aggregatedPercentage: 0, earliestReset: "2025-01-01T10:00:00Z", models: [] },
         }),
       }));
 
@@ -480,7 +485,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T09:00:00Z", models: [] },
-          geminiPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T09:00:00Z", models: [] },
+          geminiProPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T09:00:00Z", models: [] },
+          geminiFlashPool: { aggregatedPercentage: 100, earliestReset: "2026-01-09T09:00:00Z", models: [] },
         }),
       }));
 
@@ -504,7 +510,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       const states = getAccountRefreshStatesFresh();
       expect(states).toHaveLength(1);
       expect(states[0].claudePercentage).toBe(100);
-      expect(states[0].geminiPercentage).toBe(100);
+      expect(states[0].geminiProPercentage).toBe(100);
+      expect(states[0].geminiFlashPercentage).toBe(100);
 
       stopAutoRefreshFresh();
     });
@@ -532,11 +539,12 @@ describe("cloudcode/auto-refresh-scheduler", () => {
         return { AccountManager: MockAccountManager };
       });
 
-      // Claude at 100%, Gemini at 50%
+      // Claude at 100%, Gemini pools at 50%
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 100, earliestReset: null, models: [] },
-          geminiPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
         }),
       }));
 
@@ -582,11 +590,12 @@ describe("cloudcode/auto-refresh-scheduler", () => {
         return { AccountManager: MockAccountManager };
       });
 
-      // Claude at 0% waiting for reset, Gemini at 100% (fresh)
+      // Claude at 0% waiting for reset, Gemini pools at 100% (fresh)
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 0, earliestReset: "2026-01-09T12:00:00Z", models: [] },
-          geminiPool: { aggregatedPercentage: 100, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 100, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 100, earliestReset: null, models: [] },
         }),
       }));
 
@@ -650,7 +659,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 50, earliestReset: null, models: [] },
-          geminiPool: { aggregatedPercentage: 75, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 75, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 80, earliestReset: null, models: [] },
         }),
       }));
 
@@ -662,7 +672,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       expect(states).toHaveLength(1);
       expect(states[0].email).toBe("test@example.com");
       expect(states[0].claudePercentage).toBe(50);
-      expect(states[0].geminiPercentage).toBe(75);
+      expect(states[0].geminiProPercentage).toBe(75);
+      expect(states[0].geminiFlashPercentage).toBe(80);
       expect(states[0].status).toBe("ok");
 
       stopAutoRefreshFresh();
@@ -780,7 +791,8 @@ describe("cloudcode/auto-refresh-scheduler", () => {
       vi.doMock("../../../src/cloudcode/quota-api.js", () => ({
         fetchAccountCapacity: vi.fn().mockResolvedValue({
           claudePool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
-          geminiPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiProPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
+          geminiFlashPool: { aggregatedPercentage: 0, earliestReset: null, models: [] },
         }),
       }));
 

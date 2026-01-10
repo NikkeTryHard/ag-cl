@@ -332,8 +332,16 @@ async function performRefresh(): Promise<void> {
 }
 
 /**
- * Start the auto-refresh scheduler
+ * Start the auto-refresh scheduler.
+ *
  * Triggers immediately, then aligns to clock times (every 5 minutes at :00, :05, :10, etc.)
+ *
+ * KNOWN LIMITATION: There's a small race window between the running check
+ * and setting intervalId/timeoutId. In practice this is not an issue because:
+ * 1. startAutoRefresh is called once at server startup
+ * 2. Duplicate schedulers would just refresh more often (wasteful but not harmful)
+ *
+ * If this becomes an issue, add a Promise-based initialization lock.
  */
 export async function startAutoRefresh(): Promise<void> {
   const logger = getLogger();

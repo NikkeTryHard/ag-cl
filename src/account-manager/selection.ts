@@ -404,25 +404,45 @@ function pickSticky(accounts: Account[], modelId: string, currentAccountEmail?: 
  * @param accounts - Array of account objects
  * @param modelId - Model ID to check rate limits and quota for
  * @param currentAccountEmail - Email of the current account (for sticky mode)
+ * @param onSave - Optional callback to persist changes after selection
  * @returns Selected account or null if none available
  */
-export function pickByMode(mode: SchedulingMode, accounts: Account[], modelId: string, currentAccountEmail?: string): Account | null {
+export function pickByMode(mode: SchedulingMode, accounts: Account[], modelId: string, currentAccountEmail?: string, onSave?: OnSaveCallback): Account | null {
   // Build quota states map from auto-refresh scheduler
   const quotaStates = new Map(getAccountRefreshStates().map((s) => [s.email, s]));
 
+  let selected: Account | null;
+
   switch (mode) {
     case "sticky":
-      return pickSticky(accounts, modelId, currentAccountEmail);
+      selected = pickSticky(accounts, modelId, currentAccountEmail);
+      break;
     case "refresh-priority":
-      return pickRefreshPriority(accounts, quotaStates, modelId);
+      selected = pickRefreshPriority(accounts, quotaStates, modelId);
+      break;
     case "drain-highest":
-      return pickDrainHighest(accounts, quotaStates, modelId);
+      selected = pickDrainHighest(accounts, quotaStates, modelId);
+      break;
     case "round-robin":
-      return pickRoundRobin(accounts, modelId);
+      selected = pickRoundRobin(accounts, modelId);
+      break;
     default:
       // Default to sticky mode for unknown modes
-      return pickSticky(accounts, modelId, currentAccountEmail);
+      selected = pickSticky(accounts, modelId, currentAccountEmail);
   }
+
+  // Persist lastUsed change after selection
+  if (selected && onSave) {
+    const result = onSave();
+    if (result instanceof Promise) {
+      result.catch((err) => {
+        // Log but don't fail selection - use the logger
+        getLogger().error("Failed to save after account selection:", err);
+      });
+    }
+  }
+
+  return selected;
 }
 
 /**

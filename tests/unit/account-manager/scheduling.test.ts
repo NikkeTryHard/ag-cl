@@ -272,7 +272,7 @@ describe("AccountManager scheduling", () => {
 
       const result = manager.pickAccount("claude-sonnet-4-5");
 
-      expect(mockPickByMode).toHaveBeenCalledWith("drain-highest", [testAccount], "claude-sonnet-4-5", "test@example.com");
+      expect(mockPickByMode).toHaveBeenCalledWith("drain-highest", [testAccount], "claude-sonnet-4-5", "test@example.com", expect.any(Function));
       expect(result).toEqual(testAccount);
     });
 
@@ -295,7 +295,7 @@ describe("AccountManager scheduling", () => {
 
       manager.pickAccount("claude-sonnet-4-5");
 
-      expect(mockPickByMode).toHaveBeenCalledWith("sticky", accounts, "claude-sonnet-4-5", "b@example.com");
+      expect(mockPickByMode).toHaveBeenCalledWith("sticky", accounts, "claude-sonnet-4-5", "b@example.com", expect.any(Function));
     });
 
     it("returns null when no accounts available", async () => {

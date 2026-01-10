@@ -336,7 +336,7 @@ export class AccountManager {
     const currentAccountEmail = this.#accounts[this.#currentIndex]?.email;
 
     // Use pickByMode for mode-aware selection
-    const selected = pickByMode(mode, this.#accounts, modelId ?? "", currentAccountEmail);
+    const selected = pickByMode(mode, this.#accounts, modelId ?? "", currentAccountEmail, () => this.saveToDisk());
 
     if (selected) {
       // Update the current index to track the selected account

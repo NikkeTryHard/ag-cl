@@ -828,4 +828,83 @@ describe("selection", () => {
       expect(getRoundRobinIndex()).toBe(0); // Wrapped around
     });
   });
+
+  describe("pickByMode with onSave", () => {
+    it("calls onSave after successful selection", () => {
+      const onSave = vi.fn();
+      const accounts = [createAccount({ email: "test@example.com" })];
+
+      const result = pickByMode("sticky", accounts, "model-1", undefined, onSave);
+
+      expect(result).not.toBeNull();
+      expect(onSave).toHaveBeenCalledOnce();
+    });
+
+    it("does not call onSave when no account selected", () => {
+      const onSave = vi.fn();
+      const accounts: ReturnType<typeof createAccount>[] = [];
+
+      const result = pickByMode("sticky", accounts, "model-1", undefined, onSave);
+
+      expect(result).toBeNull();
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("handles async onSave callback", async () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const accounts = [createAccount({ email: "test@example.com" })];
+
+      const result = pickByMode("sticky", accounts, "model-1", undefined, onSave);
+
+      expect(result).not.toBeNull();
+      expect(onSave).toHaveBeenCalledOnce();
+    });
+
+    it("logs error but does not throw when async onSave rejects", async () => {
+      const onSave = vi.fn().mockRejectedValue(new Error("Save failed"));
+      const accounts = [createAccount({ email: "test@example.com" })];
+
+      // Should not throw
+      const result = pickByMode("sticky", accounts, "model-1", undefined, onSave);
+
+      expect(result).not.toBeNull();
+      expect(onSave).toHaveBeenCalledOnce();
+
+      // Allow the promise rejection to be caught using fake timers
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    it("calls onSave for all scheduling modes", () => {
+      const modes: Array<"sticky" | "refresh-priority" | "drain-highest" | "round-robin"> = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
+
+      for (const mode of modes) {
+        resetRoundRobinIndex(); // Reset between tests
+        const onSave = vi.fn();
+        const accounts = [createAccount({ email: "test@example.com" })];
+
+        mockGetAccountRefreshStates.mockReturnValue([
+          createRefreshState({
+            email: "test@example.com",
+            claudePercentage: 50,
+            claudeResetTime: new Date(Date.now() + ONE_HOUR_MS).toISOString(),
+          }),
+        ]);
+
+        const result = pickByMode(mode, accounts, "claude-sonnet-4-5", undefined, onSave);
+
+        expect(result).not.toBeNull();
+        expect(onSave).toHaveBeenCalledOnce();
+      }
+    });
+
+    it("does not require onSave callback (backward compatibility)", () => {
+      const accounts = [createAccount({ email: "test@example.com" })];
+
+      // Should work without onSave parameter
+      const result = pickByMode("sticky", accounts, "model-1");
+
+      expect(result).not.toBeNull();
+      expect(result?.email).toBe("test@example.com");
+    });
+  });
 });

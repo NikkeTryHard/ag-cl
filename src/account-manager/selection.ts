@@ -14,8 +14,17 @@ import { getAccountRefreshStates, type AccountRefreshState } from "../cloudcode/
 import { getQuotaGroup } from "../cloudcode/quota-groups.js";
 import type { Account, OnSaveCallback, AccountSelectionResult, ShouldWaitResult, StickyAccountResult, SchedulingMode } from "./types.js";
 
-/** Module-level index for round-robin rotation */
-
+/**
+ * Module-level index for round-robin rotation.
+ *
+ * DESIGN: This is intentionally module-level (singleton pattern) because:
+ * 1. AccountManager is used as a singleton in this application
+ * 2. Round-robin state should persist across pickAccount calls
+ * 3. Tests can reset via exported resetRoundRobinIndex()
+ *
+ * If multi-tenant or multiple AccountManager instances are needed in the future,
+ * this should be refactored to instance state.
+ */
 let roundRobinIndex = 0;
 
 /**
@@ -179,15 +188,11 @@ export function pickStickyAccount(accounts: Account[], currentIndex: number, onS
   }
 
   // Current account is rate-limited or invalid.
-  // CHECK IF OTHERS ARE AVAILABLE before deciding to wait.
-  const available = getAvailableAccounts(accounts, modelId);
-  if (available.length > 0) {
-    // Found a free account! Switch immediately.
-    const { account: nextAccount, newIndex } = pickNext(accounts, currentIndex, onSave, modelId);
-    if (nextAccount) {
-      getLogger().info(`[AccountManager] Switched to new account (failover): ${nextAccount.email}`);
-      return { account: nextAccount, waitMs: 0, newIndex };
-    }
+  // Just call pickNext directly - it handles the empty case internally
+  const { account: nextAccount, newIndex } = pickNext(accounts, currentIndex, onSave, modelId);
+  if (nextAccount) {
+    getLogger().info(`[AccountManager] Switched to new account (failover): ${nextAccount.email}`);
+    return { account: nextAccount, waitMs: 0, newIndex };
   }
 
   // No other accounts available. Now checking if we should wait for current account.
@@ -197,12 +202,8 @@ export function pickStickyAccount(accounts: Account[], currentIndex: number, onS
     return { account: null, waitMs: waitInfo.waitMs, newIndex: currentIndex };
   }
 
-  // Current account unavailable for too long/invalid, and no others available?
-  const { account: nextAccount, newIndex } = pickNext(accounts, currentIndex, onSave, modelId);
-  if (nextAccount) {
-    getLogger().info(`[AccountManager] Switched to new account for cache: ${nextAccount.email}`);
-  }
-  return { account: nextAccount, waitMs: 0, newIndex };
+  // No accounts available and wait not recommended
+  return { account: null, waitMs: 0, newIndex: currentIndex };
 }
 
 /**

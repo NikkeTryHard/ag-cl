@@ -363,7 +363,7 @@ describe("AccountManager scheduling", () => {
 
       manager.pickAccount("claude-sonnet-4-5");
 
-      expect(mockPickByMode).toHaveBeenCalledWith("refresh-priority", [testAccount], "claude-sonnet-4-5", "test@example.com");
+      expect(mockPickByMode).toHaveBeenCalledWith("refresh-priority", [testAccount], "claude-sonnet-4-5", "test@example.com", expect.any(Function));
     });
 
     it("handles undefined modelId", async () => {
@@ -388,7 +388,7 @@ describe("AccountManager scheduling", () => {
       // Call without modelId
       const result = manager.pickAccount();
 
-      expect(mockPickByMode).toHaveBeenCalledWith("sticky", [testAccount], "", "test@example.com");
+      expect(mockPickByMode).toHaveBeenCalledWith("sticky", [testAccount], "", "test@example.com", expect.any(Function));
       expect(result).toEqual(testAccount);
     });
 
@@ -418,7 +418,7 @@ describe("AccountManager scheduling", () => {
 
         manager.pickAccount("claude-sonnet-4-5");
 
-        expect(mockPickByMode).toHaveBeenCalledWith(mode, [testAccount], "claude-sonnet-4-5", "test@example.com");
+        expect(mockPickByMode).toHaveBeenCalledWith(mode, [testAccount], "claude-sonnet-4-5", "test@example.com", expect.any(Function));
       }
     });
   });

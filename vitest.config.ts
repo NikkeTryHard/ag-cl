@@ -17,6 +17,7 @@ export default defineConfig({
       exclude: [
         "src/**/*.d.ts",
         "src/cli/**",
+        "src/tui/**", // TUI components are tested via integration/manual testing
         "src/index.ts",
         "src/server.ts",
         "src/**/types.ts", // Type-only files

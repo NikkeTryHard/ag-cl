@@ -21,7 +21,7 @@ describe("Type Tests: Format Types", () => {
     });
 
     it("has optional max_tokens as number", () => {
-      expectTypeOf<AnthropicRequest>().toHaveProperty("max_tokens");
+      expectTypeOf<AnthropicRequest["max_tokens"]>().toEqualTypeOf<number | undefined>();
     });
   });
 
@@ -32,11 +32,11 @@ describe("Type Tests: Format Types", () => {
     });
 
     it("has type field as literal 'message'", () => {
-      expectTypeOf<AnthropicResponse>().toHaveProperty("type");
+      expectTypeOf<AnthropicResponse["type"]>().toEqualTypeOf<"message">();
     });
 
     it("has role field as literal 'assistant'", () => {
-      expectTypeOf<AnthropicResponse>().toHaveProperty("role");
+      expectTypeOf<AnthropicResponse["role"]>().toEqualTypeOf<"assistant">();
     });
 
     it("has content array", () => {
@@ -66,7 +66,7 @@ describe("Type Tests: Format Types", () => {
 
   describe("AnthropicTextBlock", () => {
     it("has type 'text'", () => {
-      expectTypeOf<AnthropicTextBlock>().toHaveProperty("type");
+      expectTypeOf<AnthropicTextBlock["type"]>().toEqualTypeOf<"text">();
     });
 
     it("has text string", () => {
@@ -77,7 +77,7 @@ describe("Type Tests: Format Types", () => {
 
   describe("AnthropicThinkingBlock", () => {
     it("has type 'thinking'", () => {
-      expectTypeOf<AnthropicThinkingBlock>().toHaveProperty("type");
+      expectTypeOf<AnthropicThinkingBlock["type"]>().toEqualTypeOf<"thinking">();
     });
 
     it("has thinking string", () => {
@@ -86,13 +86,13 @@ describe("Type Tests: Format Types", () => {
     });
 
     it("has optional signature string", () => {
-      expectTypeOf<AnthropicThinkingBlock>().toHaveProperty("signature");
+      expectTypeOf<AnthropicThinkingBlock["signature"]>().toEqualTypeOf<string | undefined>();
     });
   });
 
   describe("AnthropicToolUseBlock", () => {
     it("has type 'tool_use'", () => {
-      expectTypeOf<AnthropicToolUseBlock>().toHaveProperty("type");
+      expectTypeOf<AnthropicToolUseBlock["type"]>().toEqualTypeOf<"tool_use">();
     });
 
     it("has id string", () => {

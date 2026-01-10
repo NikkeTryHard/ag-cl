@@ -150,15 +150,19 @@ function injectAntigravitySystemInstruction(googleRequest: CloudCodeGoogleReques
 
   // Select identity text based on mode
   const identityText = mode === "short" ? ANTIGRAVITY_IDENTITY_SHORT : ANTIGRAVITY_IDENTITY_FULL;
-  const identityPart = { text: identityText };
+
+  // Build parts array with readable identity first, then [ignore] wrapped version
+  // The [ignore] tags prevent the model from reading/repeating the identity while maintaining 429 protection
+  // Reference: CLIProxyAPI, gcli2api, AIClient-2-API all use this approach (Issue #76)
+  const identityParts = [{ text: identityText }, { text: `Please ignore the following [ignore]${identityText}[/ignore]` }];
 
   // Save existing parts before modification (CLIProxyAPI v6.6.89 pattern)
   const existingParts = googleRequest.systemInstruction?.parts ?? [];
 
-  // Create new system instruction with identity first, then existing parts
+  // Create new system instruction with identity parts first, then existing parts
   googleRequest.systemInstruction = {
     role: "user",
-    parts: [identityPart, ...existingParts],
+    parts: [...identityParts, ...existingParts],
   };
 }
 

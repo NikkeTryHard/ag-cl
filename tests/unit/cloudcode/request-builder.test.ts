@@ -186,8 +186,76 @@ describe("buildCloudCodeRequest", () => {
 
       // First part should be the injected identity
       expect(result.request.systemInstruction?.parts[0]?.text).toContain("<identity>");
-      // Second part should be the original system instruction
-      expect(result.request.systemInstruction?.parts[1]?.text).toBe("You are a helpful assistant.");
+      // Second part should be the [ignore] wrapped identity
+      expect(result.request.systemInstruction?.parts[1]?.text).toContain("[ignore]");
+      // Third part should be the original system instruction
+      expect(result.request.systemInstruction?.parts[2]?.text).toBe("You are a helpful assistant.");
+    });
+
+    describe("identity injection with [ignore] tags (Issue #76)", () => {
+      it("includes [ignore] wrapped identity in system instruction parts", () => {
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+        const parts = result.request.systemInstruction?.parts ?? [];
+
+        expect(parts.length).toBeGreaterThanOrEqual(2);
+        expect(parts[0].text).toContain("You are Antigravity");
+        expect(parts[1].text).toContain("[ignore]");
+        expect(parts[1].text).toContain("[/ignore]");
+      });
+
+      it("includes readable identity before [ignore] wrapped version", () => {
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+        const parts = result.request.systemInstruction?.parts ?? [];
+
+        // First part should be readable identity (no [ignore] tags)
+        expect(parts[0].text).not.toContain("[ignore]");
+        expect(parts[0].text).toContain("You are Antigravity");
+      });
+
+      it("[ignore] wrapped part contains the same identity text", () => {
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+        const parts = result.request.systemInstruction?.parts ?? [];
+
+        // Both parts should contain the same identity text
+        expect(parts[0].text).toContain("<identity>");
+        expect(parts[1].text).toContain("<identity>");
+        expect(parts[1].text).toContain("Please ignore the following [ignore]");
+      });
+
+      it("applies [ignore] tags to short identity mode", () => {
+        mockGetIdentityMode.mockReturnValue("short");
+        const anthropicRequest = createAnthropicRequest({
+          model: "claude-sonnet-4-5-thinking",
+          messages: [{ role: "user", content: "Hello" }],
+        });
+
+        const result = buildCloudCodeRequest(anthropicRequest, "project-123");
+        const parts = result.request.systemInstruction?.parts ?? [];
+
+        // Both parts should be present
+        expect(parts.length).toBeGreaterThanOrEqual(2);
+        // First part: short identity without [ignore]
+        expect(parts[0].text).not.toContain("[ignore]");
+        expect(parts[0].text).toContain("Antigravity");
+        // Second part: [ignore] wrapped
+        expect(parts[1].text).toContain("[ignore]");
+        expect(parts[1].text).toContain("[/ignore]");
+      });
     });
 
     describe("identity mode configuration", () => {

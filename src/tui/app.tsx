@@ -66,16 +66,19 @@ function App(): React.ReactElement {
   const claudeCapacity = demoMode ? getDemoClaudeCapacity() : realCapacity.claudeCapacity;
 
   // For display purposes, combine Gemini Pro and Flash into a single aggregate
-  const geminiCapacity = demoMode
-    ? getDemoGeminiCapacity()
-    : {
-        family: "gemini" as const,
-        totalPercentage: Math.round((realCapacity.geminiProCapacity.totalPercentage + realCapacity.geminiFlashCapacity.totalPercentage) / 2),
-        accountCount: realCapacity.geminiProCapacity.accountCount,
-        status: realCapacity.geminiProCapacity.status === "exhausted" || realCapacity.geminiFlashCapacity.status === "exhausted" ? ("exhausted" as const) : realCapacity.geminiProCapacity.status,
-        hoursToExhaustion: realCapacity.geminiProCapacity.hoursToExhaustion ?? realCapacity.geminiFlashCapacity.hoursToExhaustion,
-        ratePerHour: realCapacity.geminiProCapacity.ratePerHour !== null && realCapacity.geminiFlashCapacity.ratePerHour !== null ? (realCapacity.geminiProCapacity.ratePerHour + realCapacity.geminiFlashCapacity.ratePerHour) / 2 : (realCapacity.geminiProCapacity.ratePerHour ?? realCapacity.geminiFlashCapacity.ratePerHour),
-      };
+  const geminiCapacity = useMemo(() => {
+    if (demoMode) {
+      return getDemoGeminiCapacity();
+    }
+    return {
+      family: "gemini" as const,
+      totalPercentage: Math.round((realCapacity.geminiProCapacity.totalPercentage + realCapacity.geminiFlashCapacity.totalPercentage) / 2),
+      accountCount: realCapacity.geminiProCapacity.accountCount,
+      status: realCapacity.geminiProCapacity.status === "exhausted" || realCapacity.geminiFlashCapacity.status === "exhausted" ? ("exhausted" as const) : realCapacity.geminiProCapacity.status,
+      hoursToExhaustion: realCapacity.geminiProCapacity.hoursToExhaustion ?? realCapacity.geminiFlashCapacity.hoursToExhaustion,
+      ratePerHour: realCapacity.geminiProCapacity.ratePerHour !== null && realCapacity.geminiFlashCapacity.ratePerHour !== null ? (realCapacity.geminiProCapacity.ratePerHour + realCapacity.geminiFlashCapacity.ratePerHour) / 2 : (realCapacity.geminiProCapacity.ratePerHour ?? realCapacity.geminiFlashCapacity.ratePerHour),
+    };
+  }, [demoMode, realCapacity.geminiProCapacity, realCapacity.geminiFlashCapacity]);
 
   const accounts = demoMode ? getDemoAccounts() : realCapacity.accounts;
   const accountCount = demoMode ? 3 : realCapacity.accountCount;

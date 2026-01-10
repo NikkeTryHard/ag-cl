@@ -57,7 +57,16 @@ function createProgram(): Command {
     .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
     .option("--trigger-reset", "trigger quota reset on startup")
     .option("--auto-refresh", "automatically refresh quota every 5 hours")
-    .addOption(new Option("--scheduling <mode>", "account selection scheduling mode").choices([...VALID_SCHEDULING_MODES]));
+    .addOption(
+      new Option(
+        "--scheduling <mode>",
+        `account selection strategy:
+  sticky: stay on current account until rate-limited (default)
+  refresh-priority: prefer accounts with soonest reset time
+  drain-highest: use accounts with highest quota first
+  round-robin: rotate through available accounts`,
+      ).choices([...VALID_SCHEDULING_MODES]),
+    );
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {

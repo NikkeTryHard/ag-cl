@@ -91,28 +91,18 @@ describe("Chaos: Network Failures", () => {
     it("handles response missing required fields", async () => {
       nock(OAUTH_TOKEN_URL).post("/token").reply(200, { unexpected: "data" });
 
-      // The function should either throw or return undefined accessToken
-      // Important: it should not crash
-      try {
-        const result = await refreshAccessToken("test-token");
-        // If it doesn't throw, the accessToken should be undefined
-        expect(result.accessToken).toBeUndefined();
-      } catch {
-        // Expected - implementation may throw
-      }
+      // When response lacks access_token field, result.accessToken is undefined
+      // (No validation in current implementation - documents current behavior)
+      const result = await refreshAccessToken("test-token");
+      expect(result.accessToken).toBeUndefined();
     });
 
     it("handles wrong content-type header", async () => {
       nock(OAUTH_TOKEN_URL).post("/token").reply(200, '{"access_token": "test"}', { "Content-Type": "text/html" });
 
-      // Should still work if JSON is valid (lenient parsing)
-      // This may or may not throw depending on implementation
-      // The important thing is it doesn't crash
-      try {
-        await refreshAccessToken("test-token");
-      } catch {
-        // Expected - implementation may reject
-      }
+      // Lenient JSON parsing succeeds regardless of Content-Type header
+      const result = await refreshAccessToken("test-token");
+      expect(result.accessToken).toBe("test");
     });
   });
 });

@@ -89,6 +89,12 @@ export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();
 
 export const DEFAULT_COOLDOWN_MS = 10 * 1000; // 10 second default cooldown
 export const DEFAULT_SCHEDULING_MODE: SchedulingMode = "sticky"; // Default account selection strategy
+
+/**
+ * Valid scheduling modes for account selection.
+ * Single source of truth - used by CLI, settings, and AccountManager.
+ */
+export const VALID_SCHEDULING_MODES: readonly SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"] as const;
 export const MAX_RETRIES = 5; // Max retry attempts across accounts
 export const MAX_ACCOUNTS = 10; // Maximum number of accounts allowed
 

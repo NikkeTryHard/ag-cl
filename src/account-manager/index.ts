@@ -4,7 +4,7 @@
  * automatic failover, and smart cooldown for rate-limited accounts.
  */
 
-import { ACCOUNT_CONFIG_PATH, DEFAULT_SCHEDULING_MODE } from "../constants.js";
+import { ACCOUNT_CONFIG_PATH, DEFAULT_SCHEDULING_MODE, VALID_SCHEDULING_MODES } from "../constants.js";
 import { loadAccounts, loadDefaultAccount, saveAccounts } from "./storage.js";
 import { isAllRateLimited as checkAllRateLimited, getAvailableAccounts as getAvailable, getInvalidAccounts as getInvalid, clearExpiredLimits as clearLimits, resetAllRateLimits as resetLimits, markRateLimited as markLimited, markInvalid as markAccountInvalid, getMinWaitTimeMs as getMinWait, triggerQuotaReset as triggerReset, type QuotaResetResult } from "./rate-limits.js";
 import type { QuotaGroupKey } from "../cloudcode/quota-groups.js";
@@ -292,11 +292,6 @@ export class AccountManager {
   }
 
   /**
-   * Valid scheduling modes for validation
-   */
-  static readonly #validSchedulingModes: readonly SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
-
-  /**
    * Get the current scheduling mode for account selection.
    * Priority: CLI flag (--scheduling) > SCHEDULING_MODE env var > settings.schedulingMode > default
    *
@@ -307,19 +302,19 @@ export class AccountManager {
   getSchedulingMode(): SchedulingMode {
     // Priority 1: CLI flag via CLI_SCHEDULING_MODE environment variable
     const cliMode = process.env.CLI_SCHEDULING_MODE;
-    if (cliMode && AccountManager.#validSchedulingModes.includes(cliMode as SchedulingMode)) {
+    if (cliMode && VALID_SCHEDULING_MODES.includes(cliMode as SchedulingMode)) {
       return cliMode as SchedulingMode;
     }
 
     // Priority 2: SCHEDULING_MODE environment variable
     const envMode = process.env.SCHEDULING_MODE;
-    if (envMode && AccountManager.#validSchedulingModes.includes(envMode as SchedulingMode)) {
+    if (envMode && VALID_SCHEDULING_MODES.includes(envMode as SchedulingMode)) {
       return envMode as SchedulingMode;
     }
 
     // Priority 3: Settings from config (hot reloaded)
     const settingsMode = this.#settings.schedulingMode;
-    if (settingsMode && AccountManager.#validSchedulingModes.includes(settingsMode)) {
+    if (settingsMode && VALID_SCHEDULING_MODES.includes(settingsMode)) {
       return settingsMode;
     }
 

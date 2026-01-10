@@ -6,7 +6,7 @@
  * then fall back to hardcoded defaults.
  */
 
-import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS, DEFAULT_SCHEDULING_MODE } from "../constants.js";
+import { DEFAULT_PORT, DEFAULT_COOLDOWN_MS, DEFAULT_SCHEDULING_MODE, VALID_SCHEDULING_MODES } from "../constants.js";
 import type { AccountSettings, IdentityMode, LogLevel, SchedulingMode } from "../account-manager/types.js";
 
 /**
@@ -167,11 +167,6 @@ export function getCooldownDurationMs(settings?: AccountSettings): number {
   // Fall back to default
   return DEFAULTS.cooldownDurationMs;
 }
-
-/**
- * Valid scheduling modes for validation.
- */
-const VALID_SCHEDULING_MODES: readonly SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
 
 /**
  * Get the account scheduling mode.

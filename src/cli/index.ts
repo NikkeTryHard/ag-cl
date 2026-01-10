@@ -9,7 +9,7 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-import { DEFAULT_PORT } from "../constants.js";
+import { DEFAULT_PORT, VALID_SCHEDULING_MODES } from "../constants.js";
 import { initLogger, setLogLevel, type LogLevel } from "../utils/logger.js";
 import type { SchedulingMode } from "../account-manager/types.js";
 
@@ -57,7 +57,7 @@ function createProgram(): Command {
     .option("--max-empty-retries <number>", "maximum retries for empty API responses (default: 2)")
     .option("--trigger-reset", "trigger quota reset on startup")
     .option("--auto-refresh", "automatically refresh quota every 5 hours")
-    .addOption(new Option("--scheduling <mode>", "account selection scheduling mode").choices(["sticky", "refresh-priority", "drain-highest", "round-robin"]));
+    .addOption(new Option("--scheduling <mode>", "account selection scheduling mode").choices([...VALID_SCHEDULING_MODES]));
 
   // preAction hook to initialize logger based on options
   program.hook("preAction", (thisCommand) => {

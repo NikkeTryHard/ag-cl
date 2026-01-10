@@ -551,6 +551,32 @@ describe("cleanSchemaForGemini", () => {
     });
   });
 
+  describe("enum value stringification", () => {
+    it("converts numeric enum values to strings", () => {
+      const result = cleanSchemaForGemini({
+        type: "integer",
+        enum: [1, 2, 3],
+      });
+      expect(result.enum).toEqual(["1", "2", "3"]);
+    });
+
+    it("preserves string enum values", () => {
+      const result = cleanSchemaForGemini({
+        type: "string",
+        enum: ["a", "b", "c"],
+      });
+      expect(result.enum).toEqual(["a", "b", "c"]);
+    });
+
+    it("handles mixed enum values", () => {
+      const result = cleanSchemaForGemini({
+        type: "string",
+        enum: ["active", 1, null, true],
+      });
+      expect(result.enum).toEqual(["active", "1", "null", "true"]);
+    });
+  });
+
   describe("Google uppercase type conversion", () => {
     it("converts lowercase types to uppercase for Cloud Code API compatibility", () => {
       const input = {

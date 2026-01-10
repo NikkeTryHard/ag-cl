@@ -638,6 +638,13 @@ export function cleanSchemaForGemini(schema: JSONSchema): JSONSchema {
     }
   }
 
+  // Phase 4b: Stringify enum values for Google API compatibility (Issue #70)
+  // Google Cloud Code API requires TYPE_STRING for enum values.
+  // Integer enums like [1, 2, 3] cause 400 INVALID_ARGUMENT errors.
+  if (Array.isArray(result.enum)) {
+    result.enum = result.enum.map((v) => String(v));
+  }
+
   // Phase 5: Convert types to Google's uppercase protobuf format
   // Google's Cloud Code API expects uppercase type names (STRING, OBJECT, etc.)
   // This applies to ALL models since all requests go through Cloud Code API

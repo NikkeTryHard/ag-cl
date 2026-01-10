@@ -8,7 +8,7 @@ exports[`Response Format Snapshots > Edge Cases > matches snapshot for cached re
       "type": "text",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "end_turn",
@@ -31,7 +31,7 @@ exports[`Response Format Snapshots > Edge Cases > matches snapshot for empty res
       "type": "text",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "end_turn",
@@ -54,7 +54,7 @@ exports[`Response Format Snapshots > Edge Cases > matches snapshot for max_token
       "type": "text",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "max_tokens",
@@ -82,7 +82,7 @@ exports[`Response Format Snapshots > Mixed Content Response > matches snapshot f
       "type": "text",
     },
     {
-      "id": "toolu_01ABC123_2",
+      "id": "toolu_normalized_id_2",
       "input": {
         "cmd": "test",
       },
@@ -90,7 +90,7 @@ exports[`Response Format Snapshots > Mixed Content Response > matches snapshot f
       "type": "tool_use",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-opus-4-5-thinking",
   "role": "assistant",
   "stop_reason": "tool_use",
@@ -113,7 +113,7 @@ exports[`Response Format Snapshots > Simple Text Response > matches snapshot for
       "type": "text",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "end_turn",
@@ -141,7 +141,7 @@ exports[`Response Format Snapshots > Thinking Block Response > matches snapshot 
       "type": "text",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "end_turn",
@@ -160,7 +160,7 @@ exports[`Response Format Snapshots > Tool Use Response > matches snapshot for mu
 {
   "content": [
     {
-      "id": "toolu_01ABC123_0",
+      "id": "toolu_normalized_id_0",
       "input": {
         "query": "weather",
       },
@@ -168,7 +168,7 @@ exports[`Response Format Snapshots > Tool Use Response > matches snapshot for mu
       "type": "tool_use",
     },
     {
-      "id": "toolu_01ABC123_1",
+      "id": "toolu_normalized_id_1",
       "input": {
         "timezone": "UTC",
       },
@@ -176,7 +176,7 @@ exports[`Response Format Snapshots > Tool Use Response > matches snapshot for mu
       "type": "tool_use",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "tool_use",
@@ -195,7 +195,7 @@ exports[`Response Format Snapshots > Tool Use Response > matches snapshot for si
 {
   "content": [
     {
-      "id": "toolu_01ABC123",
+      "id": "toolu_normalized_id",
       "input": {
         "location": "San Francisco",
         "units": "celsius",
@@ -205,7 +205,7 @@ exports[`Response Format Snapshots > Tool Use Response > matches snapshot for si
       "type": "tool_use",
     },
   ],
-  "id": "msg_01XYZ789ABC",
+  "id": "msg_normalized_id",
   "model": "claude-sonnet-4-5-thinking",
   "role": "assistant",
   "stop_reason": "tool_use",

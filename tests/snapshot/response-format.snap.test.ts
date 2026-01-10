@@ -9,11 +9,8 @@
 import { describe, it, expect } from "vitest";
 import { convertGoogleToAnthropic } from "../../src/format/response-converter.js";
 import { createGoogleResponse, createGoogleThinkingPart, createGoogleFunctionCallPart } from "../helpers/factories.js";
+import { normalizeId, normalizeResponse, normalizeResponseWithIndexedTools } from "../helpers/snapshot-normalizers.js";
 import type { GoogleResponse, GooglePart } from "../../src/format/types.js";
-
-// Helper to create deterministic IDs for snapshots
-const mockId = "msg_01XYZ789ABC";
-const mockToolId = "toolu_01ABC123";
 
 describe("Response Format Snapshots", () => {
   describe("Simple Text Response", () => {
@@ -33,11 +30,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      // Normalize dynamic fields for snapshot stability
-      const normalized = {
-        ...result,
-        id: mockId,
-      };
+      const normalized = normalizeId(result);
 
       expect(normalized).toMatchSnapshot("simple-text-response");
     });
@@ -64,10 +57,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      const normalized = {
-        ...result,
-        id: mockId,
-      };
+      const normalized = normalizeId(result);
 
       expect(normalized).toMatchSnapshot("thinking-block-response");
     });
@@ -94,12 +84,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      // Normalize tool IDs for snapshot stability
-      const normalized = {
-        ...result,
-        id: mockId,
-        content: result.content.map((block) => (block.type === "tool_use" ? { ...block, id: mockToolId } : block)),
-      };
+      const normalized = normalizeResponse(result);
 
       expect(normalized).toMatchSnapshot("single-tool-use-response");
     });
@@ -125,11 +110,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      const normalized = {
-        ...result,
-        id: mockId,
-        content: result.content.map((block, i) => (block.type === "tool_use" ? { ...block, id: `${mockToolId}_${i}` } : block)),
-      };
+      const normalized = normalizeResponseWithIndexedTools(result);
 
       expect(normalized).toMatchSnapshot("multiple-tool-use-response");
     });
@@ -157,11 +138,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-opus-4-5-thinking");
 
-      const normalized = {
-        ...result,
-        id: mockId,
-        content: result.content.map((block, i) => (block.type === "tool_use" ? { ...block, id: `${mockToolId}_${i}` } : block)),
-      };
+      const normalized = normalizeResponseWithIndexedTools(result);
 
       expect(normalized).toMatchSnapshot("mixed-content-response");
     });
@@ -184,7 +161,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      const normalized = { ...result, id: mockId };
+      const normalized = normalizeId(result);
 
       expect(normalized).toMatchSnapshot("empty-response");
     });
@@ -201,7 +178,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      const normalized = { ...result, id: mockId };
+      const normalized = normalizeId(result);
 
       expect(normalized).toMatchSnapshot("max-tokens-response");
     });
@@ -223,7 +200,7 @@ describe("Response Format Snapshots", () => {
 
       const result = convertGoogleToAnthropic(googleResponse, "claude-sonnet-4-5-thinking");
 
-      const normalized = { ...result, id: mockId };
+      const normalized = normalizeId(result);
 
       expect(normalized).toMatchSnapshot("cached-response");
     });

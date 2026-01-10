@@ -4,11 +4,11 @@
  * Handles OAuth token handling and project discovery.
  */
 
-import { ANTIGRAVITY_DB_PATH, TOKEN_REFRESH_INTERVAL_MS, ANTIGRAVITY_ENDPOINT_FALLBACKS, ANTIGRAVITY_HEADERS, DEFAULT_PROJECT_ID } from "../constants.js";
+import { ANTIGRAVITY_DB_PATH, TOKEN_REFRESH_INTERVAL_MS, ANTIGRAVITY_ENDPOINT_FALLBACKS, ANTIGRAVITY_HEADERS, DEFAULT_PROJECT_ID, OAUTH_FETCH_TIMEOUT_MS } from "../constants.js";
 import { refreshAccessToken } from "../auth/oauth.js";
 import { getAuthStatus } from "../auth/database.js";
 import { getLogger } from "../utils/logger.js";
-import { isNetworkError } from "../utils/helpers.js";
+import { isNetworkError, fetchWithTimeout } from "../utils/helpers.js";
 import type { Account, TokenCacheEntry, OnInvalidCallback, OnSaveCallback } from "./types.js";
 
 /**
@@ -118,21 +118,25 @@ export async function getProjectForAccount(account: Account, token: string, proj
 export async function discoverProject(token: string): Promise<string> {
   for (const endpoint of ANTIGRAVITY_ENDPOINT_FALLBACKS) {
     try {
-      const response = await fetch(`${endpoint}/v1internal:loadCodeAssist`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          ...ANTIGRAVITY_HEADERS,
-        },
-        body: JSON.stringify({
-          metadata: {
-            ideType: "IDE_UNSPECIFIED",
-            platform: "PLATFORM_UNSPECIFIED",
-            pluginType: "GEMINI",
+      const response = await fetchWithTimeout(
+        `${endpoint}/v1internal:loadCodeAssist`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            ...ANTIGRAVITY_HEADERS,
           },
-        }),
-      });
+          body: JSON.stringify({
+            metadata: {
+              ideType: "IDE_UNSPECIFIED",
+              platform: "PLATFORM_UNSPECIFIED",
+              pluginType: "GEMINI",
+            },
+          }),
+        },
+        OAUTH_FETCH_TIMEOUT_MS,
+      );
 
       if (!response.ok) {
         const errorText = await response.text();

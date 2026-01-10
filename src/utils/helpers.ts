@@ -61,3 +61,26 @@ export function isRateLimitError(error: Error): boolean {
   const msg = error.message.toLowerCase();
   return msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota_exhausted");
 }
+
+/**
+ * Fetch with timeout support
+ *
+ * Wraps native fetch with AbortController-based timeout to prevent
+ * hanging indefinitely on slow or unresponsive networks.
+ *
+ * @param url - The URL to fetch
+ * @param options - Fetch options (method, headers, body, etc.)
+ * @param timeoutMs - Timeout in milliseconds
+ * @returns Fetch response
+ * @throws Error with "aborted" message if timeout exceeded
+ */
+export async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => { controller.abort(); }, timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}

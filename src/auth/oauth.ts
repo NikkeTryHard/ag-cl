@@ -9,8 +9,9 @@
 import crypto from "crypto";
 import http from "http";
 import type { IncomingMessage, ServerResponse } from "http";
-import { ANTIGRAVITY_ENDPOINT_FALLBACKS, ANTIGRAVITY_HEADERS, OAUTH_CONFIG, OAUTH_REDIRECT_URI } from "../constants.js";
+import { ANTIGRAVITY_ENDPOINT_FALLBACKS, ANTIGRAVITY_HEADERS, OAUTH_CONFIG, OAUTH_REDIRECT_URI, OAUTH_FETCH_TIMEOUT_MS } from "../constants.js";
 import { getLogger } from "../utils/logger.js";
+import { fetchWithTimeout } from "../utils/helpers.js";
 
 /**
  * PKCE code verifier and challenge
@@ -325,18 +326,22 @@ export async function exchangeCode(code: string, verifier: string): Promise<OAut
  * @returns New access token
  */
 export async function refreshAccessToken(refreshToken: string): Promise<RefreshedToken> {
-  const response = await fetch(OAUTH_CONFIG.tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+  const response = await fetchWithTimeout(
+    OAUTH_CONFIG.tokenUrl,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: OAUTH_CONFIG.clientId,
+        client_secret: OAUTH_CONFIG.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
     },
-    body: new URLSearchParams({
-      client_id: OAUTH_CONFIG.clientId,
-      client_secret: OAUTH_CONFIG.clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
+    OAUTH_FETCH_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const error = await response.text();
@@ -365,11 +370,15 @@ interface UserInfoResponse {
  * @returns User's email address
  */
 export async function getUserEmail(accessToken: string): Promise<string> {
-  const response = await fetch(OAUTH_CONFIG.userInfoUrl, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
+  const response = await fetchWithTimeout(
+    OAUTH_CONFIG.userInfoUrl,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     },
-  });
+    OAUTH_FETCH_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -397,21 +406,25 @@ interface LoadCodeAssistResponse {
 export async function discoverProjectId(accessToken: string): Promise<string | null> {
   for (const endpoint of ANTIGRAVITY_ENDPOINT_FALLBACKS) {
     try {
-      const response = await fetch(`${endpoint}/v1internal:loadCodeAssist`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-          ...ANTIGRAVITY_HEADERS,
-        },
-        body: JSON.stringify({
-          metadata: {
-            ideType: "IDE_UNSPECIFIED",
-            platform: "PLATFORM_UNSPECIFIED",
-            pluginType: "GEMINI",
+      const response = await fetchWithTimeout(
+        `${endpoint}/v1internal:loadCodeAssist`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            ...ANTIGRAVITY_HEADERS,
           },
-        }),
-      });
+          body: JSON.stringify({
+            metadata: {
+              ideType: "IDE_UNSPECIFIED",
+              platform: "PLATFORM_UNSPECIFIED",
+              pluginType: "GEMINI",
+            },
+          }),
+        },
+        OAUTH_FETCH_TIMEOUT_MS,
+      );
 
       if (!response.ok) continue;
 

@@ -348,9 +348,13 @@ describe("auth/oauth", () => {
       const result = await getUserEmail("access-token-123");
 
       expect(result).toBe("user@example.com");
-      expect(mockFetch).toHaveBeenCalledWith(OAUTH_CONFIG.userInfoUrl, {
-        headers: { Authorization: "Bearer access-token-123" },
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        OAUTH_CONFIG.userInfoUrl,
+        expect.objectContaining({
+          headers: { Authorization: "Bearer access-token-123" },
+          signal: expect.any(AbortSignal),
+        }),
+      );
     });
 
     it("throws on failed user info fetch", async () => {

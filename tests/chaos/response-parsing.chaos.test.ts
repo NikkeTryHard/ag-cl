@@ -76,21 +76,6 @@ describe("Chaos: Response Parsing", () => {
       expect(() => convertGoogleToAnthropic(malformed, "test")).not.toThrow();
     });
 
-    it("handles parts as non-array", () => {
-      const malformed = {
-        candidates: [
-          {
-            content: { parts: "not an array" },
-            finishReason: "STOP",
-          },
-        ],
-      } as unknown as GoogleResponse;
-
-      // Currently throws TypeError - documents current behavior
-      // A more resilient implementation would handle this gracefully
-      expect(() => convertGoogleToAnthropic(malformed, "test")).toThrow(TypeError);
-    });
-
     it("handles null candidates", () => {
       const malformed = {
         candidates: null,
@@ -98,19 +83,34 @@ describe("Chaos: Response Parsing", () => {
 
       expect(() => convertGoogleToAnthropic(malformed, "test")).not.toThrow();
     });
+  });
 
-    it("handles undefined in parts array", () => {
+  describe("malformed response handling - known limitations", () => {
+    /**
+     * These tests document KNOWN CRASH SCENARIOS where the converter
+     * does not gracefully handle malformed input. These are documented
+     * here for awareness, not as assertions of desired behavior.
+     *
+     * TODO: Consider adding defensive checks in convertGoogleToAnthropic
+     * to handle these edge cases gracefully in a future PR.
+     */
+
+    it("crashes on parts as non-array (known limitation)", () => {
       const malformed = {
-        candidates: [
-          {
-            content: { parts: [undefined, { text: "valid" }, null] },
-            finishReason: "STOP",
-          },
-        ],
+        candidates: [{ content: { parts: "not an array" }, finishReason: "STOP" }],
       } as unknown as GoogleResponse;
 
-      // Currently throws TypeError when iterating over undefined/null parts
-      // Documents current behavior - a more defensive implementation would skip these
+      // KNOWN LIMITATION: Crashes instead of returning error response
+      // Keeping test to prevent silent regression if behavior changes
+      expect(() => convertGoogleToAnthropic(malformed, "test")).toThrow(TypeError);
+    });
+
+    it("crashes on undefined in parts array (known limitation)", () => {
+      const malformed = {
+        candidates: [{ content: { parts: [undefined, { text: "valid" }, null] }, finishReason: "STOP" }],
+      } as unknown as GoogleResponse;
+
+      // KNOWN LIMITATION: Crashes on null/undefined array elements
       expect(() => convertGoogleToAnthropic(malformed, "test")).toThrow(TypeError);
     });
   });

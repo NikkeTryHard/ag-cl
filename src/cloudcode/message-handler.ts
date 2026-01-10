@@ -92,6 +92,10 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
   // +1 to ensure we hit the "all accounts rate-limited" check at the start of the next loop
   const maxAttempts = Math.max(MAX_RETRIES, accountManager.getAccountCount() + 1);
 
+  // Track if all failures were 5xx errors (for fallback on exhaustion)
+
+  let all5xxErrors = true;
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     // Use sticky account selection for cache continuity
     const { account: stickyAccount, waitMs } = accountManager.pickStickyAccount(model);
@@ -243,11 +247,13 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
       if (isRateLimitError(err)) {
         // Rate limited - already marked, continue to next account
         getLogger().info(`[CloudCode] Account ${account.email} rate-limited, trying next...`);
+        all5xxErrors = false;
         continue;
       }
       if (isAuthError(err)) {
         // Auth invalid - already marked, continue to next account
         getLogger().warn(`[CloudCode] Account ${account.email} has invalid credentials, trying next...`);
+        all5xxErrors = false;
         continue;
       }
       // Non-rate-limit error: throw immediately
@@ -262,10 +268,22 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
         getLogger().warn(`[CloudCode] Network error for ${account.email}, trying next account... (${err.message})`);
         await sleep(1000); // Brief pause before retry
         accountManager.pickNext(model); // Advance to next account
+        all5xxErrors = false;
         continue;
       }
 
       throw error;
+    }
+  }
+
+  // Check if we should attempt fallback on 5xx exhaustion
+  if (all5xxErrors && fallbackEnabled) {
+    const fallbackModel = getFallbackModel(model);
+    if (fallbackModel) {
+      getLogger().info(`[CloudCode] All retries exhausted for ${model} with 5xx errors. Attempting fallback to ${fallbackModel}`);
+      // Recursively call with fallback model (disable fallback to prevent infinite recursion)
+      const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: fallbackModel };
+      return sendMessage(fallbackRequest, accountManager, false);
     }
   }
 

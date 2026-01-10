@@ -721,6 +721,163 @@ describe("cloudcode/streaming-handler", () => {
       expect(events.length).toBeGreaterThan(0);
       expect(accountManager.pickNext).toHaveBeenCalled();
     });
+
+    describe("5xx fallback on retry exhaustion", () => {
+      it("attempts fallback model when all accounts fail with 5xx and fallback is enabled (streaming)", async () => {
+        let callCount = 0;
+        const sseEvents = ['data: {"candidates":[{"content":{"parts":[{"text":"Fallback success"}],"role":"model"}}]}\n\n'];
+
+        const accountManager = createMockAccountManager({
+          getAccountCount: vi.fn(() => 2),
+          pickStickyAccount: vi.fn(() => {
+            callCount++;
+            // Return account for both primary and fallback model calls
+            return { account: { email: `test${callCount}@example.com` }, waitMs: 0 };
+          }),
+          pickNext: vi.fn(() => null), // No more accounts after cycling
+        });
+
+        // Track fetch calls to differentiate primary vs fallback model
+        let fetchCallCount = 0;
+        mockFetch.mockImplementation(() => {
+          fetchCallCount++;
+          // First few calls (primary model) return 5xx errors
+          if (fetchCallCount <= 4) {
+            return Promise.resolve({
+              ok: false,
+              status: 500,
+              text: () => Promise.resolve("Internal Server Error"),
+            });
+          }
+          // Fallback model call succeeds
+          return Promise.resolve({
+            ok: true,
+            body: createMockSSEStream(sseEvents),
+          });
+        });
+
+        // Use a model with a known fallback (e.g., claude-opus-4-5-thinking -> gemini-3-pro-high)
+        const request: AnthropicRequest = {
+          model: "claude-opus-4-5-thinking",
+          max_tokens: 1024,
+          messages: [{ role: "user", content: "Hello" }],
+          stream: true,
+        };
+
+        const events: unknown[] = [];
+        for await (const event of sendMessageStream(request, accountManager, true)) {
+          events.push(event);
+        }
+
+        expect(events.length).toBeGreaterThan(0);
+        // Verify multiple attempts happened
+        expect(fetchCallCount).toBeGreaterThan(2);
+      });
+
+      it("throws Max retries exceeded when all accounts fail with 5xx and fallback is disabled (streaming)", async () => {
+        const accountManager = createMockAccountManager({
+          getAccountCount: vi.fn(() => 2),
+          pickStickyAccount: vi.fn(() => ({ account: { email: "test@example.com" }, waitMs: 0 })),
+          pickNext: vi.fn(() => null),
+        });
+
+        // All calls return 5xx errors
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          text: () => Promise.resolve("Internal Server Error"),
+        });
+
+        // Use a model with a fallback but disable fallback
+        const request: AnthropicRequest = {
+          model: "claude-opus-4-5-thinking",
+          max_tokens: 1024,
+          messages: [{ role: "user", content: "Hello" }],
+          stream: true,
+        };
+
+        await expect(async () => {
+          for await (const _ of sendMessageStream(request, accountManager, false)) {
+            // consume events
+          }
+        }).rejects.toThrow("Max retries exceeded");
+      });
+
+      it("does not attempt fallback when errors are mixed (not all 5xx) (streaming)", async () => {
+        let callCount = 0;
+        const accountManager = createMockAccountManager({
+          getAccountCount: vi.fn(() => 2),
+          pickStickyAccount: vi.fn(() => {
+            callCount++;
+            return { account: { email: `test${callCount}@example.com` }, waitMs: 0 };
+          }),
+          pickNext: vi.fn(() => null),
+        });
+
+        // First call returns 5xx, second returns rate limit error (triggers all5xxErrors = false)
+        let fetchCallCount = 0;
+        mockFetch.mockImplementation(() => {
+          fetchCallCount++;
+          if (fetchCallCount === 1) {
+            return Promise.resolve({
+              ok: false,
+              status: 500,
+              text: () => Promise.resolve("Internal Server Error"),
+            });
+          }
+          // Rate limit error will set all5xxErrors = false
+          return Promise.resolve({
+            ok: false,
+            status: 429,
+            text: () => Promise.resolve("RESOURCE_EXHAUSTED"),
+            headers: new Headers({ "retry-after": "60" }),
+          });
+        });
+
+        const request: AnthropicRequest = {
+          model: "claude-opus-4-5-thinking",
+          max_tokens: 1024,
+          messages: [{ role: "user", content: "Hello" }],
+          stream: true,
+        };
+
+        // Should throw rate limit error, not attempt fallback
+        await expect(async () => {
+          for await (const _ of sendMessageStream(request, accountManager, true)) {
+            // consume events
+          }
+        }).rejects.toThrow();
+      });
+
+      it("throws Max retries exceeded when fallback model has no fallback configured (streaming)", async () => {
+        const accountManager = createMockAccountManager({
+          getAccountCount: vi.fn(() => 2),
+          pickStickyAccount: vi.fn(() => ({ account: { email: "test@example.com" }, waitMs: 0 })),
+          pickNext: vi.fn(() => null),
+        });
+
+        // All calls return 5xx errors
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          text: () => Promise.resolve("Internal Server Error"),
+        });
+
+        // Use a model without a fallback configured
+        const request: AnthropicRequest = {
+          model: "gemini-2.5-flash", // This model may not have a fallback
+          max_tokens: 1024,
+          messages: [{ role: "user", content: "Hello" }],
+          stream: true,
+        };
+
+        await expect(async () => {
+          for await (const _ of sendMessageStream(request, accountManager, true)) {
+            // consume events
+          }
+        }).rejects.toThrow("Max retries exceeded");
+      });
+    });
   });
 
   describe("sendMessageStream - empty response retry", () => {

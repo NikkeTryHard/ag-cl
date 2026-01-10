@@ -9,9 +9,31 @@
  * - Phase 2c: Flatten type arrays + update required for nullable
  * - Phase 3: Remove unsupported keywords
  * - Phase 4: Final cleanup (required array validation)
+ * - Phase 5: Convert types to Google uppercase format (STRING, OBJECT, etc.)
  */
 
 import type { JSONSchema } from "./types.js";
+
+/**
+ * Convert JSON Schema type to Google's uppercase protobuf format.
+ * Google's Cloud Code API expects uppercase type names (STRING, OBJECT, etc.)
+ * instead of lowercase JSON Schema types (string, object, etc.).
+ *
+ * @param type - JSON Schema type (lowercase)
+ * @returns Google protobuf type (uppercase)
+ */
+function toGoogleType(type: string): string {
+  const typeMap: Record<string, string> = {
+    string: "STRING",
+    number: "NUMBER",
+    integer: "INTEGER",
+    boolean: "BOOLEAN",
+    array: "ARRAY",
+    object: "OBJECT",
+    null: "NULL",
+  };
+  return typeMap[type.toLowerCase()] ?? type.toUpperCase();
+}
 
 /**
  * Append a hint to a schema's description field.
@@ -614,6 +636,13 @@ export function cleanSchemaForGemini(schema: JSONSchema): JSONSchema {
     if (result.required.length === 0) {
       delete result.required;
     }
+  }
+
+  // Phase 5: Convert types to Google's uppercase protobuf format
+  // Google's Cloud Code API expects uppercase type names (STRING, OBJECT, etc.)
+  // This applies to ALL models since all requests go through Cloud Code API
+  if (result.type && typeof result.type === "string") {
+    result.type = toGoogleType(result.type);
   }
 
   return result;

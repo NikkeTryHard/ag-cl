@@ -190,10 +190,10 @@ export function convertAnthropicToGoogle(anthropicRequest: AnthropicRequest): Go
       // Sanitize schema for general compatibility
       let parameters = sanitizeSchema(schema);
 
-      // For Gemini models, apply additional cleaning for VALIDATED mode
-      if (isGeminiModel) {
-        parameters = cleanSchemaForGemini(parameters);
-      }
+      // Apply schema cleaning for ALL models (required for Cloud Code API)
+      // Google's protobuf format requires uppercase types regardless of model
+      // since all requests go through Cloud Code API which validates schema format
+      parameters = cleanSchemaForGemini(parameters);
 
       return {
         name: name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64),

@@ -211,7 +211,7 @@ describe("cleanSchemaForGemini", () => {
       const result = cleanSchemaForGemini({
         $ref: "#/$defs/UserProfile",
       });
-      expect(result.type).toBe("object");
+      expect(result.type).toBe("OBJECT");
       expect(result.description).toBe("See: UserProfile");
       expect(result.$ref).toBeUndefined();
     });
@@ -231,7 +231,7 @@ describe("cleanSchemaForGemini", () => {
           profile: { $ref: "#/$defs/Profile" },
         },
       });
-      expect(result.properties?.profile?.type).toBe("object");
+      expect(result.properties?.profile?.type).toBe("OBJECT");
       expect(result.properties?.profile?.description).toBe("See: Profile");
     });
   });
@@ -242,8 +242,8 @@ describe("cleanSchemaForGemini", () => {
         allOf: [{ type: "object", properties: { name: { type: "string" } } }, { properties: { age: { type: "number" } } }],
       });
       expect(result.allOf).toBeUndefined();
-      expect(result.properties?.name?.type).toBe("string");
-      expect(result.properties?.age?.type).toBe("number");
+      expect(result.properties?.name?.type).toBe("STRING");
+      expect(result.properties?.age?.type).toBe("NUMBER");
     });
 
     it("merges required arrays from allOf", () => {
@@ -262,8 +262,8 @@ describe("cleanSchemaForGemini", () => {
           },
         },
       });
-      expect(result.properties?.data?.properties?.x?.type).toBe("number");
-      expect(result.properties?.data?.properties?.y?.type).toBe("number");
+      expect(result.properties?.data?.properties?.x?.type).toBe("NUMBER");
+      expect(result.properties?.data?.properties?.y?.type).toBe("NUMBER");
     });
   });
 
@@ -273,8 +273,8 @@ describe("cleanSchemaForGemini", () => {
         anyOf: [{ type: "null" }, { type: "object", properties: { id: { type: "string" } } }],
       });
       expect(result.anyOf).toBeUndefined();
-      expect(result.type).toBe("object");
-      expect(result.properties?.id?.type).toBe("string");
+      expect(result.type).toBe("OBJECT");
+      expect(result.properties?.id?.type).toBe("STRING");
     });
 
     it("adds type hint for multiple types", () => {
@@ -291,7 +291,7 @@ describe("cleanSchemaForGemini", () => {
         oneOf: [{ type: "string" }, { type: "object", properties: { value: { type: "string" } } }],
       });
       expect(result.oneOf).toBeUndefined();
-      expect(result.type).toBe("object");
+      expect(result.type).toBe("OBJECT");
     });
   });
 
@@ -300,7 +300,7 @@ describe("cleanSchemaForGemini", () => {
       const result = cleanSchemaForGemini({
         type: ["string", "null"],
       });
-      expect(result.type).toBe("string");
+      expect(result.type).toBe("STRING");
       expect(result.description).toContain("nullable");
     });
 
@@ -308,7 +308,7 @@ describe("cleanSchemaForGemini", () => {
       const result = cleanSchemaForGemini({
         type: ["string", "number"],
       });
-      expect(result.type).toBe("string");
+      expect(result.type).toBe("STRING");
       expect(result.description).toContain("Accepts:");
     });
 
@@ -510,7 +510,7 @@ describe("cleanSchemaForGemini", () => {
           },
         },
       });
-      expect(result.properties?.level1?.properties?.level2?.properties?.value?.type).toBe("string");
+      expect(result.properties?.level1?.properties?.level2?.properties?.value?.type).toBe("STRING");
       expect(result.properties?.level1?.properties?.level2?.properties?.value?.description).toContain("nullable");
     });
 
@@ -525,7 +525,7 @@ describe("cleanSchemaForGemini", () => {
         },
       });
       const items = result.items as JSONSchema;
-      expect(items.properties?.data?.type).toBe("object");
+      expect(items.properties?.data?.type).toBe("OBJECT");
       expect(items.properties?.data?.description).toBe("See: Data");
     });
 
@@ -535,8 +535,8 @@ describe("cleanSchemaForGemini", () => {
         items: [{ type: ["string", "null"] }, { $ref: "#/$defs/Item" }],
       });
       const items = result.items as JSONSchema[];
-      expect(items[0].type).toBe("string");
-      expect(items[1].type).toBe("object");
+      expect(items[0].type).toBe("STRING");
+      expect(items[1].type).toBe("OBJECT");
     });
   });
 
@@ -546,8 +546,88 @@ describe("cleanSchemaForGemini", () => {
       const result = cleanSchemaForGemini(input) as unknown as JSONSchema[];
       // minLength is in the unsupported list and should be removed
       expect(result[0].minLength).toBeUndefined();
-      expect(result[0].type).toBe("string");
-      expect(result[1].type).toBe("number");
+      expect(result[0].type).toBe("STRING");
+      expect(result[1].type).toBe("NUMBER");
+    });
+  });
+
+  describe("Google uppercase type conversion", () => {
+    it("converts lowercase types to uppercase for Cloud Code API compatibility", () => {
+      const input = {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          count: { type: "integer" },
+          items: { type: "array", items: { type: "number" } },
+        },
+      };
+
+      const result = cleanSchemaForGemini(input);
+
+      expect(result.type).toBe("OBJECT");
+      expect(result.properties?.name?.type).toBe("STRING");
+      expect(result.properties?.count?.type).toBe("INTEGER");
+      expect(result.properties?.items?.type).toBe("ARRAY");
+      expect((result.properties?.items?.items as JSONSchema)?.type).toBe("NUMBER");
+    });
+
+    it("handles boolean and null types", () => {
+      const input = {
+        type: "object",
+        properties: {
+          flag: { type: "boolean" },
+        },
+      };
+
+      const result = cleanSchemaForGemini(input);
+      expect(result.type).toBe("OBJECT");
+      expect(result.properties?.flag?.type).toBe("BOOLEAN");
+    });
+
+    it("converts type after flattening type arrays", () => {
+      const result = cleanSchemaForGemini({
+        type: ["string", "null"],
+      });
+      // Type should be STRING (uppercase) after flattening
+      expect(result.type).toBe("STRING");
+      expect(result.description).toContain("nullable");
+    });
+
+    it("handles anyOf/oneOf selected types", () => {
+      const result = cleanSchemaForGemini({
+        anyOf: [{ type: "string" }, { type: "number" }],
+      });
+      // The selected type should be uppercase
+      expect(result.type).toBe("STRING");
+    });
+
+    it("converts types in deeply nested structures", () => {
+      const result = cleanSchemaForGemini({
+        type: "object",
+        properties: {
+          level1: {
+            type: "object",
+            properties: {
+              level2: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    value: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      expect(result.type).toBe("OBJECT");
+      expect(result.properties?.level1?.type).toBe("OBJECT");
+      expect(result.properties?.level1?.properties?.level2?.type).toBe("ARRAY");
+      const items = result.properties?.level1?.properties?.level2?.items as JSONSchema;
+      expect(items?.type).toBe("OBJECT");
+      expect(items?.properties?.value?.type).toBe("STRING");
     });
   });
 });

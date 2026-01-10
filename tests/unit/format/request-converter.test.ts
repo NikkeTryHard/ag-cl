@@ -353,8 +353,8 @@ describe("convertAnthropicToGoogle", () => {
       });
       const result = convertAnthropicToGoogle(request);
 
-      // Type array should be flattened
-      expect(result.tools?.[0].functionDeclarations[0].parameters.properties?.value?.type).toBe("string");
+      // Type array should be flattened and converted to uppercase
+      expect(result.tools?.[0].functionDeclarations[0].parameters.properties?.value?.type).toBe("STRING");
     });
   });
 

@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { pickNext, getCurrentStickyAccount, shouldWaitForCurrentAccount, pickStickyAccount, pickByMode, resetRoundRobinIndex, getRoundRobinIndex } from "../../../src/account-manager/selection.js";
 import { createAccount } from "../../helpers/factories.js";
+import { ONE_MINUTE_MS, THREE_MINUTES_MS, THIRTY_MINUTES_MS, ONE_HOUR_MS } from "../../helpers/time-constants.js";
 import type { AccountRefreshState } from "../../../src/cloudcode/auto-refresh-scheduler.js";
 
 // Mock the auto-refresh-scheduler module
@@ -89,7 +90,7 @@ describe("selection", () => {
         createAccount({
           email: "b@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
         createAccount({ email: "c@example.com" }),
@@ -117,7 +118,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
         createAccount({ email: "b@example.com", isInvalid: true }),
@@ -187,7 +188,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
         createAccount({ email: "b@example.com" }),
@@ -258,14 +259,14 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
       ];
 
       const result = shouldWaitForCurrentAccount(accounts, 0, "model-1");
       expect(result.shouldWait).toBe(true);
-      expect(result.waitMs).toBe(60000);
+      expect(result.waitMs).toBe(ONE_MINUTE_MS);
       expect(result.account?.email).toBe("a@example.com");
     });
 
@@ -278,7 +279,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 180000 },
+            "model-1": { isRateLimited: true, resetTime: now + THREE_MINUTES_MS },
           },
         }),
       ];
@@ -296,7 +297,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
       ];
@@ -326,7 +327,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 180000 },
+            "model-1": { isRateLimited: true, resetTime: now + THREE_MINUTES_MS },
           },
         }),
         createAccount({ email: "b@example.com" }),
@@ -346,14 +347,14 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
       ];
 
       const { account, waitMs, newIndex } = pickStickyAccount(accounts, 0, undefined, "model-1");
       expect(account).toBeNull();
-      expect(waitMs).toBe(60000);
+      expect(waitMs).toBe(ONE_MINUTE_MS);
       expect(newIndex).toBe(0);
     });
 
@@ -365,7 +366,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 60000 },
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
           },
         }),
         createAccount({ email: "b@example.com" }),
@@ -386,7 +387,7 @@ describe("selection", () => {
         createAccount({
           email: "a@example.com",
           modelRateLimits: {
-            "model-1": { isRateLimited: true, resetTime: now + 180000 },
+            "model-1": { isRateLimited: true, resetTime: now + THREE_MINUTES_MS },
           },
         }),
         createAccount({ email: "b@example.com", isInvalid: true }),
@@ -425,7 +426,7 @@ describe("selection", () => {
           createAccount({
             email: "a@example.com",
             modelRateLimits: {
-              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
             },
           }),
           createAccount({ email: "b@example.com" }),
@@ -450,7 +451,7 @@ describe("selection", () => {
           createAccount({
             email: "a@example.com",
             modelRateLimits: {
-              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
             },
           }),
         ];
@@ -472,12 +473,12 @@ describe("selection", () => {
           createRefreshState({
             email: "a@example.com",
             claudePercentage: 50,
-            claudeResetTime: new Date(now + 3600000).toISOString(), // 1 hour
+            claudeResetTime: new Date(now + ONE_HOUR_MS).toISOString(), // 1 hour
           }),
           createRefreshState({
             email: "b@example.com",
             claudePercentage: 30,
-            claudeResetTime: new Date(now + 1800000).toISOString(), // 30 minutes (soonest)
+            claudeResetTime: new Date(now + THIRTY_MINUTES_MS).toISOString(), // 30 minutes (soonest)
           }),
           createRefreshState({
             email: "c@example.com",
@@ -506,7 +507,7 @@ describe("selection", () => {
           createRefreshState({
             email: "b@example.com",
             claudePercentage: 50,
-            claudeResetTime: new Date(now + 3600000).toISOString(),
+            claudeResetTime: new Date(now + ONE_HOUR_MS).toISOString(),
           }),
         ]);
 
@@ -531,7 +532,7 @@ describe("selection", () => {
           createAccount({
             email: "a@example.com",
             modelRateLimits: {
-              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
             },
           }),
           createAccount({ email: "b@example.com" }),
@@ -541,12 +542,12 @@ describe("selection", () => {
           createRefreshState({
             email: "a@example.com",
             claudePercentage: 30,
-            claudeResetTime: new Date(now + 1800000).toISOString(), // Soonest but rate-limited
+            claudeResetTime: new Date(now + THIRTY_MINUTES_MS).toISOString(), // Soonest but rate-limited
           }),
           createRefreshState({
             email: "b@example.com",
             claudePercentage: 50,
-            claudeResetTime: new Date(now + 3600000).toISOString(),
+            claudeResetTime: new Date(now + ONE_HOUR_MS).toISOString(),
           }),
         ]);
 
@@ -565,12 +566,12 @@ describe("selection", () => {
           createRefreshState({
             email: "a@example.com",
             geminiProPercentage: 50,
-            geminiProResetTime: new Date(now + 3600000).toISOString(),
+            geminiProResetTime: new Date(now + ONE_HOUR_MS).toISOString(),
           }),
           createRefreshState({
             email: "b@example.com",
             geminiProPercentage: 30,
-            geminiProResetTime: new Date(now + 1800000).toISOString(), // Soonest
+            geminiProResetTime: new Date(now + THIRTY_MINUTES_MS).toISOString(), // Soonest
           }),
         ]);
 
@@ -625,7 +626,7 @@ describe("selection", () => {
           createAccount({
             email: "a@example.com",
             modelRateLimits: {
-              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
             },
           }),
           createAccount({ email: "b@example.com" }),
@@ -700,7 +701,7 @@ describe("selection", () => {
           createAccount({
             email: "b@example.com",
             modelRateLimits: {
-              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
             },
           }),
           createAccount({ email: "c@example.com" }),
@@ -730,8 +731,8 @@ describe("selection", () => {
         // Now remove c and b (simulate them becoming rate-limited)
         const now = Date.now();
         vi.setSystemTime(now);
-        accounts[1]!.modelRateLimits = { "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 } };
-        accounts[2]!.modelRateLimits = { "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 } };
+        accounts[1]!.modelRateLimits = { "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS } };
+        accounts[2]!.modelRateLimits = { "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS } };
 
         // Available is now just [a], index should clamp to 0
         const next = pickByMode("round-robin", accounts, "claude-sonnet-4-5");
@@ -746,7 +747,7 @@ describe("selection", () => {
           createAccount({
             email: "a@example.com",
             modelRateLimits: {
-              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + 60000 },
+              "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
             },
           }),
         ];
@@ -779,7 +780,7 @@ describe("selection", () => {
           createRefreshState({
             email: "a@example.com",
             claudePercentage: 50,
-            claudeResetTime: new Date(Date.now() + 3600000).toISOString(),
+            claudeResetTime: new Date(Date.now() + ONE_HOUR_MS).toISOString(),
           }),
         ]);
 

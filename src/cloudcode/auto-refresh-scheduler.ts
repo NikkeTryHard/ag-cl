@@ -259,7 +259,7 @@ async function performRefresh(): Promise<void> {
 
     // Get ALL OAuth accounts, not just the first one
     const accounts = accountManager.getAllAccounts();
-    const oauthAccounts = accounts.filter((a: { source: string; refreshToken?: string }) => a.source === "oauth" && a.refreshToken);
+    const oauthAccounts = accounts.filter((a) => a.source === "oauth" && a.refreshToken);
 
     if (oauthAccounts.length === 0) {
       logger.warn("[AutoRefresh] No OAuth accounts available for quota refresh");

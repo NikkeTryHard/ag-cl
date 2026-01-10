@@ -55,7 +55,7 @@ function getPlatformUserAgent(): string {
 }
 
 // Cloud Code API endpoints (in fallback order)
-const ANTIGRAVITY_ENDPOINT_DAILY = "https://daily-cloudcode-pa.sandbox.googleapis.com";
+const ANTIGRAVITY_ENDPOINT_DAILY = "https://daily-cloudcode-pa.googleapis.com";
 const ANTIGRAVITY_ENDPOINT_PROD = "https://cloudcode-pa.googleapis.com";
 
 // Endpoint fallback order (daily → prod)

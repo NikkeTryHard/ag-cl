@@ -23,7 +23,7 @@ Antigravity is Google's **Unified Gateway API** for accessing multiple AI models
 
 | Environment            | URL                                                    | Status         |
 | ---------------------- | ------------------------------------------------------ | -------------- |
-| **Daily (Sandbox)**    | `https://daily-cloudcode-pa.sandbox.googleapis.com`    | ✅ Active      |
+| **Daily**              | `https://daily-cloudcode-pa.googleapis.com`            | ✅ Active      |
 | **Production**         | `https://cloudcode-pa.googleapis.com`                  | ✅ Active      |
 | **Autopush (Sandbox)** | `https://autopush-cloudcode-pa.sandbox.googleapis.com` | ❌ Unavailable |
 

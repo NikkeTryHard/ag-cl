@@ -213,7 +213,9 @@ async function checkAndUpdateAccountState(token: string, email: string): Promise
     });
 
     return { needsRefresh, reason };
-  } catch {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    getLogger().debug(`[AutoRefresh] ${email}: quota check failed - ${errorMessage}`);
     // Update state with error
     const existing = accountStates.get(email);
     accountStates.set(email, {

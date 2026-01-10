@@ -9,7 +9,7 @@ import { loadAccounts, loadDefaultAccount, saveAccounts } from "./storage.js";
 import { isAllRateLimited as checkAllRateLimited, getAvailableAccounts as getAvailable, getInvalidAccounts as getInvalid, clearExpiredLimits as clearLimits, resetAllRateLimits as resetLimits, markRateLimited as markLimited, markInvalid as markAccountInvalid, getMinWaitTimeMs as getMinWait, triggerQuotaReset as triggerReset, type QuotaResetResult } from "./rate-limits.js";
 import type { QuotaGroupKey } from "../cloudcode/quota-groups.js";
 import { getTokenForAccount as fetchToken, getProjectForAccount as fetchProject, clearProjectCache as clearProject, clearTokenCache as clearToken } from "./credentials.js";
-import { pickNext as selectNext, getCurrentStickyAccount as getSticky, shouldWaitForCurrentAccount as shouldWait, pickStickyAccount as selectSticky, pickByMode } from "./selection.js";
+import { pickNext as selectNext, getCurrentStickyAccount as getSticky, shouldWaitForCurrentAccount as shouldWait, pickStickyAccount as selectSticky, pickByMode, optimisticReset as optimisticResetForModel } from "./selection.js";
 import { getLogger } from "../utils/logger.js";
 import type { Account, AccountSettings, TokenCacheEntry, AccountManagerStatus, AccountStatus, ShouldWaitResult, SchedulingMode } from "./types.js";
 
@@ -118,6 +118,16 @@ export class AccountManager {
    */
   resetAllRateLimits(): void {
     resetLimits(this.#accounts);
+  }
+
+  /**
+   * Optimistically reset rate limits for a specific model.
+   * Used when selection fails after waiting for rate limit expiration,
+   * handling race conditions where rate limit expiration timing is off.
+   * @param modelId - Model ID to clear limits for
+   */
+  optimisticReset(modelId: string): void {
+    optimisticResetForModel(this.#accounts, modelId);
   }
 
   /**

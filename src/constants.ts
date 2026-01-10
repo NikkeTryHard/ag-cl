@@ -120,6 +120,7 @@ export const MAX_EMPTY_RETRIES = ((): number => {
 
 // Rate limit wait thresholds
 export const MAX_WAIT_BEFORE_ERROR_MS = 120000; // 2 minutes - throw error if wait exceeds this
+export const RATE_LIMIT_BUFFER_MS = 500; // Buffer after rate limit wait to handle timing race conditions
 
 // OAuth fetch timeout (prevents hanging on slow/unresponsive network after idle)
 export const OAUTH_FETCH_TIMEOUT_MS = 15000; // 15 seconds

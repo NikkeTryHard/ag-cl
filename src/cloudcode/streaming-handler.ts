@@ -6,7 +6,7 @@
  */
 
 import * as crypto from "crypto";
-import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, MAX_EMPTY_RETRIES } from "../constants.js";
+import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, MAX_EMPTY_RETRIES, RATE_LIMIT_BUFFER_MS } from "../constants.js";
 import { isRateLimitError, isAuthError, isEmptyResponseError } from "../errors.js";
 import { formatDuration, sleep, isNetworkError } from "../utils/helpers.js";
 import { getLogger } from "../utils/logger.js";
@@ -126,8 +126,19 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
         const accountCount = accountManager.getAccountCount();
         getLogger().warn(`[CloudCode] All ${accountCount} account(s) rate-limited. Waiting ${formatDuration(allWaitMs)}...`);
         await sleep(allWaitMs);
+
+        // Add buffer delay to handle timing race conditions
+        await sleep(RATE_LIMIT_BUFFER_MS);
+
         accountManager.clearExpiredLimits();
         account = accountManager.pickNext(model);
+
+        // If still no account after buffer, try optimistic reset
+        if (!account) {
+          getLogger().info(`[CloudCode] Selection failed after buffer, trying optimistic reset for ${model}`);
+          accountManager.optimisticReset(model);
+          account = accountManager.pickNext(model);
+        }
       }
 
       if (!account) {

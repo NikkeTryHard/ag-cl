@@ -15,6 +15,23 @@ import { getQuotaGroup } from "../cloudcode/quota-groups.js";
 import type { Account, OnSaveCallback, AccountSelectionResult, ShouldWaitResult, StickyAccountResult, SchedulingMode } from "./types.js";
 
 /**
+ * Optimistically reset all rate limits for a specific model.
+ * Used when selection fails after waiting for rate limit expiration,
+ * handling race conditions where rate limit expiration timing is off.
+ *
+ * @param accounts - Array of account objects
+ * @param modelId - Model ID to clear limits for
+ */
+export function optimisticReset(accounts: Account[], modelId: string): void {
+  for (const account of accounts) {
+    if (account.modelRateLimits?.[modelId]) {
+      delete account.modelRateLimits[modelId];
+    }
+  }
+  getLogger().info(`[AccountManager] Optimistic reset for model: ${modelId}`);
+}
+
+/**
  * Module-level index for round-robin rotation.
  *
  * DESIGN: This is intentionally module-level (singleton pattern) because:

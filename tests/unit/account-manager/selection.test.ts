@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { pickNext, getCurrentStickyAccount, shouldWaitForCurrentAccount, pickStickyAccount, pickByMode, resetRoundRobinIndex, getRoundRobinIndex } from "../../../src/account-manager/selection.js";
+import { pickNext, getCurrentStickyAccount, shouldWaitForCurrentAccount, pickStickyAccount, pickByMode, resetRoundRobinIndex, getRoundRobinIndex, optimisticReset } from "../../../src/account-manager/selection.js";
 import { createAccount } from "../../helpers/factories.js";
 import { ONE_MINUTE_MS, THREE_MINUTES_MS, THIRTY_MINUTES_MS, ONE_HOUR_MS } from "../../helpers/time-constants.js";
 import type { AccountRefreshState } from "../../../src/cloudcode/auto-refresh-scheduler.js";
@@ -905,6 +905,90 @@ describe("selection", () => {
 
       expect(result).not.toBeNull();
       expect(result?.email).toBe("test@example.com");
+    });
+  });
+
+  describe("optimisticReset", () => {
+    it("clears model-specific rate limits for all accounts", () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const accounts = [
+        createAccount({
+          email: "a@example.com",
+          modelRateLimits: {
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
+          },
+        }),
+        createAccount({
+          email: "b@example.com",
+          modelRateLimits: {
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
+          },
+        }),
+      ];
+
+      optimisticReset(accounts, "model-1");
+
+      expect(accounts[0]?.modelRateLimits["model-1"]).toBeUndefined();
+      expect(accounts[1]?.modelRateLimits["model-1"]).toBeUndefined();
+    });
+
+    it("only clears limits for the specified model", () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const accounts = [
+        createAccount({
+          email: "a@example.com",
+          modelRateLimits: {
+            "model-1": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
+            "model-2": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
+          },
+        }),
+      ];
+
+      optimisticReset(accounts, "model-1");
+
+      expect(accounts[0]?.modelRateLimits["model-1"]).toBeUndefined();
+      expect(accounts[0]?.modelRateLimits["model-2"]).toBeDefined();
+      expect(accounts[0]?.modelRateLimits["model-2"]?.isRateLimited).toBe(true);
+    });
+
+    it("handles accounts with no rate limits", () => {
+      const accounts = [createAccount({ email: "a@example.com" })];
+
+      // Should not throw
+      expect(() => optimisticReset(accounts, "model-1")).not.toThrow();
+    });
+
+    it("handles empty accounts array", () => {
+      expect(() => optimisticReset([], "model-1")).not.toThrow();
+    });
+
+    it("makes previously rate-limited accounts available for selection", () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const accounts = [
+        createAccount({
+          email: "a@example.com",
+          modelRateLimits: {
+            "claude-sonnet-4-5": { isRateLimited: true, resetTime: now + ONE_MINUTE_MS },
+          },
+        }),
+      ];
+
+      // Account should be unavailable before optimistic reset
+      const beforeReset = pickByMode("sticky", accounts, "claude-sonnet-4-5");
+      expect(beforeReset).toBeNull();
+
+      // Perform optimistic reset
+      optimisticReset(accounts, "claude-sonnet-4-5");
+
+      // Account should be available after optimistic reset
+      const afterReset = pickByMode("sticky", accounts, "claude-sonnet-4-5");
+      expect(afterReset?.email).toBe("a@example.com");
     });
   });
 });

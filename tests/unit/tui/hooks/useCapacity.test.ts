@@ -59,8 +59,9 @@ describe("useCapacity", () => {
   });
 
   it("returns loading state initially", () => {
-    const { result } = renderHook(() => useCapacity());
+    const { result, unmount } = renderHook(() => useCapacity());
     expect(result.current.loading).toBe(true);
+    unmount(); // Prevent state update warning from async load
   });
 
   it("returns aggregated capacity after loading", async () => {

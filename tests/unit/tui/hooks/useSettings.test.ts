@@ -41,8 +41,9 @@ describe("useSettings", () => {
   });
 
   it("returns loading state initially", () => {
-    const { result } = renderHook(() => useSettings());
+    const { result, unmount } = renderHook(() => useSettings());
     expect(result.current.loading).toBe(true);
+    unmount(); // Prevent state update warning from async load
   });
 
   it("loads settings from disk on mount", async () => {

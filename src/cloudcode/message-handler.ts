@@ -278,7 +278,7 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
 
   // Check if we should attempt fallback on 5xx exhaustion
   const decision = shouldAttemptFallback(model, all5xxErrors, fallbackEnabled);
-  if (decision.shouldFallback && decision.fallbackModel) {
+  if (decision.shouldFallback) {
     // Recursively call with fallback model (disable fallback to prevent infinite recursion)
     const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: decision.fallbackModel };
     return sendMessage(fallbackRequest, accountManager, false /* prevent infinite recursion */);

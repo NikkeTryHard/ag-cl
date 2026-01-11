@@ -11,10 +11,7 @@ import { getLogger } from "../utils/logger.js";
 /**
  * Result of a fallback decision
  */
-export interface FallbackDecision {
-  shouldFallback: boolean;
-  fallbackModel: string | null;
-}
+export type FallbackDecision = { shouldFallback: false; fallbackModel: null } | { shouldFallback: true; fallbackModel: string };
 
 /**
  * Determine if we should attempt fallback on retry exhaustion.

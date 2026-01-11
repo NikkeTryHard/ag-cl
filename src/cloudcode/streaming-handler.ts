@@ -6,7 +6,7 @@
  */
 
 import * as crypto from "crypto";
-import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, MAX_EMPTY_RETRIES, RATE_LIMIT_BUFFER_MS } from "../constants.js";
+import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, MAX_EMPTY_RETRIES, RATE_LIMIT_BUFFER_MS, RETRY_DELAY_MS } from "../constants.js";
 import { isRateLimitError, isAuthError, isEmptyResponseError } from "../errors.js";
 import { formatDuration, sleep, isNetworkError } from "../utils/helpers.js";
 import { getLogger } from "../utils/logger.js";
@@ -208,8 +208,8 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
 
             // If it's a 5xx error, wait a bit before trying the next endpoint
             if (response.status >= 500) {
-              getLogger().warn(`[CloudCode] ${response.status} stream error, waiting 1s before retry...`);
-              await sleep(1000);
+              getLogger().warn(`[CloudCode] ${response.status} stream error, waiting before retry...`);
+              await sleep(RETRY_DELAY_MS);
             }
 
             continue;
@@ -309,7 +309,7 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
 
       if (isNetworkError(err)) {
         getLogger().warn(`[CloudCode] Network error for ${account.email} (stream), trying next account... (${err.message})`);
-        await sleep(1000); // Brief pause before retry
+        await sleep(RETRY_DELAY_MS); // Brief pause before retry
         accountManager.pickNext(model); // Advance to next account
         all5xxErrors = false;
         continue;

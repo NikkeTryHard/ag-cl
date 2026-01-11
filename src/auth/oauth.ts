@@ -282,20 +282,24 @@ interface TokenResponse {
  * @returns OAuth tokens
  */
 export async function exchangeCode(code: string, verifier: string): Promise<OAuthTokens> {
-  const response = await fetch(OAUTH_CONFIG.tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+  const response = await fetchWithTimeout(
+    OAUTH_CONFIG.tokenUrl,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: OAUTH_CONFIG.clientId,
+        client_secret: OAUTH_CONFIG.clientSecret,
+        code: code,
+        code_verifier: verifier,
+        grant_type: "authorization_code",
+        redirect_uri: OAUTH_REDIRECT_URI,
+      }),
     },
-    body: new URLSearchParams({
-      client_id: OAUTH_CONFIG.clientId,
-      client_secret: OAUTH_CONFIG.clientSecret,
-      code: code,
-      code_verifier: verifier,
-      grant_type: "authorization_code",
-      redirect_uri: OAUTH_REDIRECT_URI,
-    }),
-  });
+    OAUTH_FETCH_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const error = await response.text();

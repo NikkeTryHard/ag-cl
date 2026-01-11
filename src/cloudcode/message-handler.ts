@@ -5,7 +5,7 @@
  * retry logic, and endpoint failover.
  */
 
-import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, isThinkingModel, RATE_LIMIT_BUFFER_MS } from "../constants.js";
+import { ANTIGRAVITY_ENDPOINT_FALLBACKS, MAX_RETRIES, MAX_WAIT_BEFORE_ERROR_MS, isThinkingModel, RATE_LIMIT_BUFFER_MS, RETRY_DELAY_MS } from "../constants.js";
 import { convertGoogleToAnthropic } from "../format/index.js";
 import { isRateLimitError, isAuthError } from "../errors.js";
 import { formatDuration, sleep, isNetworkError } from "../utils/helpers.js";
@@ -202,8 +202,8 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
               lastError = new Error(`API error ${response.status}: ${errorText}`);
               // If it's a 5xx error, wait a bit before trying the next endpoint
               if (response.status >= 500) {
-                getLogger().warn(`[CloudCode] ${response.status} error, waiting 1s before retry...`);
-                await sleep(1000);
+                getLogger().warn(`[CloudCode] ${response.status} error, waiting before retry...`);
+                await sleep(RETRY_DELAY_MS);
               }
               continue;
             }
@@ -266,7 +266,7 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
 
       if (isNetworkError(err)) {
         getLogger().warn(`[CloudCode] Network error for ${account.email}, trying next account... (${err.message})`);
-        await sleep(1000); // Brief pause before retry
+        await sleep(RETRY_DELAY_MS); // Brief pause before retry
         accountManager.pickNext(model); // Advance to next account
         all5xxErrors = false;
         continue;

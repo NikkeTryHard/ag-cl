@@ -1,498 +1,322 @@
 # Upstream Investigation Report
 
 > Generated: 2026-01-07
-> Updated: 2026-01-08 (quota groups verified against source)
+> Updated: 2026-01-11 (v2.0.0 release, new PRs #93-#96, new issues #88-#97, implemented fixes)
 > Upstream: [badri-s2001/antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy)
-> Stars: 1,123 | Forks: 136 | Last Updated: 2026-01-08
+> Stars: 1,331 | Forks: 168 | Last Updated: 2026-01-11
+
+---
+
+## Version Tracking
+
+| Project      | Version | Tag         | Notes                                    |
+| ------------ | ------- | ----------- | ---------------------------------------- |
+| **Upstream** | 2.0.0   | `v2.0.0`    | Major release with WebUI (PR #47)        |
+| **ag-cl**    | 1.2.2   | `ag-v1.0.0` | TypeScript rewrite, different versioning |
+
+### Upstream Release History
+
+| Version | Date       | Key Changes                                     |
+| ------- | ---------- | ----------------------------------------------- |
+| v2.0.0  | 2026-01-10 | WebUI dashboard (PR #47), 5xx fallback (PR #90) |
+| v1.2.16 | 2026-01-09 | Schema uppercase fix (PR #83), tests            |
+| v1.2.15 | 2026-01-09 | System prompt filtering (commit 4c5236d)        |
+| v1.2.14 | 2026-01-08 | Optimistic 429 reset (PR #72)                   |
+| v1.2.13 | 2026-01-08 | Daily endpoint URL fix                          |
+| v1.2.12 | 2026-01-08 | Empty response retry (PR #64)                   |
+
+### Version Compatibility Notes
+
+- Upstream uses `v*` tags; we use `ag-v*` prefix to avoid confusion
+- Our versioning is independent (TypeScript rewrite diverged at v1.0.0)
+- We track upstream via `upstream-synced` bookmark tag
+
+---
 
 ## Executive Summary
 
-The upstream repository is actively maintained with strong community engagement. There are **4 open PRs** and **6 open issues** as of this report. Key themes include:
+The upstream repository released **v2.0.0** with a major WebUI feature. There are **5 open PRs** and **6 open issues**. Key updates since last report:
 
-- Web dashboard/UI features (multiple implementations)
-- Empty response retry mechanism - **IMPLEMENTED**
-- Quota reset triggers - **IMPLEMENTED**
-- Context window reporting for Gemini models - **IMPLEMENTED**
-- WebSearch limitation - **DOCUMENTED**
-- Sticky account configuration - **ALREADY ADDRESSED** (upstream closed)
-- New bugs: idle hang (#68), tool schema conversion (#67) - **INVESTIGATING**
+### What's New in v2.0.0
+
+| Feature                     | PR/Commit | Status                         |
+| --------------------------- | --------- | ------------------------------ |
+| **Web UI Dashboard**        | PR #47    | Not implementing (we have TUI) |
+| **5xx Fallback**            | PR #90    | **IMPLEMENTED** ✅             |
+| **Schema Uppercase**        | PR #83    | **IMPLEMENTED** ✅             |
+| **Optimistic 429 Reset**    | PR #72    | **IMPLEMENTED** ✅             |
+| **System Prompt Filtering** | 4c5236d   | **IMPLEMENTED** ✅             |
+| **Daily Endpoint Fix**      | 5f6ce1b   | **IMPLEMENTED** ✅             |
+
+### Implementation Status Summary
+
+| Category                     | Count |
+| ---------------------------- | ----- |
+| Features we implemented      | 7     |
+| Features skipped (WebUI)     | 1     |
+| Open issues applicable to us | 2     |
+| New PRs to review            | 3     |
 
 ---
 
 ## Open Pull Requests
 
-### High Priority (Features)
+### New PRs (Since Last Report)
 
-| PR                                                                     | Title                                             | Author         | Created    | Status | Our Status                            |
-| ---------------------------------------------------------------------- | ------------------------------------------------- | -------------- | ---------- | ------ | ------------------------------------- |
-| [#64](https://github.com/badri-s2001/antigravity-claude-proxy/pull/64) | fix: add retry mechanism for empty API responses  | @BrunoMarc     | 2026-01-07 | OPEN   | **IMPLEMENTED**                       |
-| [#47](https://github.com/badri-s2001/antigravity-claude-proxy/pull/47) | feat: Add Web UI for account and quota management | @Wha1eChai     | 2026-01-04 | OPEN   | Not implemented (We have TUI instead) |
-| [#44](https://github.com/badri-s2001/antigravity-claude-proxy/pull/44) | feat: Add quota reset trigger system              | @shivangtanwar | 2026-01-03 | OPEN   | **IMPLEMENTED**                       |
-| [#15](https://github.com/badri-s2001/antigravity-claude-proxy/pull/15) | Map model/project 404s with context               | @jroth1111     | 2025-12-29 | OPEN   | Not implemented                       |
+| PR                                                                     | Title                                                            | Author       | Created    | Priority   |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| [#96](https://github.com/badri-s2001/antigravity-claude-proxy/pull/96) | fix: ensure stopReason is set correctly based on finishReason    | @caozhiyuan  | 2026-01-11 | **REVIEW** |
+| [#95](https://github.com/badri-s2001/antigravity-claude-proxy/pull/95) | feat(security): comprehensive security & reliability remediation | @midnightnow | 2026-01-10 | **REVIEW** |
+| [#94](https://github.com/badri-s2001/antigravity-claude-proxy/pull/94) | feat(webui): Improve connection health checks and monitoring     | @jgor20      | 2026-01-10 | WebUI only |
 
-### PR #64: Empty Response Retry Mechanism
+### Existing Open PRs
 
-**Problem**: When Claude Code sends requests with large `thinking_budget` values (e.g., 31999), the model may spend all tokens on "thinking" and return empty responses. This causes `[No response received from API]` errors, making Claude Code stop mid-conversation.
-
-**Solution**: Implements automatic retry (up to 2 times) before emitting fallback message.
-
-```mermaid
-flowchart TD
-    A[Request] --> B[Stream Response]
-    B --> C{Empty Response?}
-    C -->|No| D[Success]
-    C -->|Yes| E{Retry < 2?}
-    E -->|Yes| F[Retry Request]
-    F --> B
-    E -->|No| G[Emit Fallback Message]
-```
-
-**Testing Results** (6+ hours production):
-| Metric | Before | After |
-|--------|--------|-------|
-| Empty response errors | 49 | 2 |
-| Recovery rate | 0% | 88% |
-| Total requests processed | - | 1,884 |
-
-**Recommendation**: **HIGH PRIORITY** - This addresses a critical UX issue.
-
-**Our Status**: **IMPLEMENTED** in v1.2.2 via `src/cloudcode/streaming-handler.ts` with `MAX_EMPTY_RETRIES` constant (configurable, default 2, max 10).
+| PR                                                                     | Title                                | Author         | Created    | Our Status      |
+| ---------------------------------------------------------------------- | ------------------------------------ | -------------- | ---------- | --------------- |
+| [#44](https://github.com/badri-s2001/antigravity-claude-proxy/pull/44) | feat: Add quota reset trigger system | @shivangtanwar | 2026-01-03 | **IMPLEMENTED** |
+| [#15](https://github.com/badri-s2001/antigravity-claude-proxy/pull/15) | Map model/project 404s               | @jroth1111     | 2025-12-29 | Low priority    |
 
 ---
 
-### PR #47: Web UI for Account and Quota Management
+### PR #96: Fix stopReason Based on finishReason (NEW)
+
+**Problem**: The `stopReason` field may not be set correctly based on Google's `finishReason` response, causing protocol compatibility issues.
+
+**Our Status**: **REVIEW NEEDED** - Check if our response conversion handles all `finishReason` values correctly.
+
+---
+
+### PR #95: Security & Reliability Remediation (NEW)
+
+**Problem**: Comprehensive security improvements including input validation, error handling, and reliability fixes.
+
+**Our Status**: **REVIEW NEEDED** - May contain valuable security patterns to adopt.
+
+---
+
+## Recently Merged PRs
+
+| PR                                                                     | Title                                                | Author           | Merged     | Our Status         |
+| ---------------------------------------------------------------------- | ---------------------------------------------------- | ---------------- | ---------- | ------------------ |
+| [#93](https://github.com/badri-s2001/antigravity-claude-proxy/pull/93) | fix: refactor frontend architecture for production   | @Wha1eChai       | 2026-01-11 | WebUI only         |
+| [#90](https://github.com/badri-s2001/antigravity-claude-proxy/pull/90) | feat: fallback to alternate model on 5xx errors      | @tiagonrodrigues | 2026-01-10 | **IMPLEMENTED** ✅ |
+| [#47](https://github.com/badri-s2001/antigravity-claude-proxy/pull/47) | feat: Add Web UI for account and quota management    | @Wha1eChai       | 2026-01-10 | Not implementing   |
+| [#83](https://github.com/badri-s2001/antigravity-claude-proxy/pull/83) | fix: convert schema types to Google uppercase format | @tiagonrodrigues | 2026-01-09 | **IMPLEMENTED** ✅ |
+| [#75](https://github.com/badri-s2001/antigravity-claude-proxy/pull/75) | docs: add instructions for multiple instances        | @ahmed0magdy     | 2026-01-09 | Documentation      |
+| [#72](https://github.com/badri-s2001/antigravity-claude-proxy/pull/72) | fix: add optimistic reset for transient 429 errors   | @s21v1d9p        | 2026-01-08 | **IMPLEMENTED** ✅ |
+| [#64](https://github.com/badri-s2001/antigravity-claude-proxy/pull/64) | fix: add retry mechanism for empty API responses     | @BrunoMarc       | 2026-01-08 | **IMPLEMENTED**    |
+
+---
+
+### PR #90: 5xx Fallback to Alternate Model (MERGED - IMPLEMENTED)
+
+**Problem**: When all retries are exhausted with 5xx server errors, requests fail completely even when an alternate model family might be available.
+
+**Solution**:
+
+- Track whether all failures were 5xx errors
+- On exhaustion, attempt fallback to configured alternate model
+- Prevent infinite recursion with fallback flag
+
+**Our Implementation**:
+
+- Added `fallback-utils.ts` with `is5xxError()` and `shouldAttemptFallback()`
+- Updated `message-handler.ts` and `streaming-handler.ts`
+- Used discriminated union for type safety
+- Added comprehensive tests
+
+---
+
+### PR #83: Schema Uppercase Conversion (MERGED - IMPLEMENTED)
+
+**Problem**: `/compact` command fails with `Proto field is not repeating, cannot start list` error.
+
+**Root Cause**: JSON Schema types (`array`, `object`, `string`) sent lowercase, but Google Cloud Code API expects uppercase protobuf types (`ARRAY`, `OBJECT`, `STRING`).
+
+**Our Implementation**:
+
+- Added `toGoogleType()` function in `schema-sanitizer.ts`
+- Added Phase 5 to convert types to uppercase
+- Applied to ALL models (not just Gemini)
+- Added tests for uppercase conversion
+
+---
+
+### PR #72: Optimistic 429 Reset (MERGED - IMPLEMENTED)
+
+**Problem**: False "No accounts available" errors due to timing race conditions after rate limit expiration.
+
+**Solution**: Two-layer defense:
+
+1. 500ms buffer delay after waiting
+2. Optimistic reset that clears limiters if selection still fails
+
+**Our Implementation**:
+
+- Added `RATE_LIMIT_BUFFER_MS = 500` constant
+- Added `optimisticReset()` function in `selection.ts`
+- Applied in both handlers after buffer wait fails
+
+---
+
+### PR #47: Web UI Dashboard (MERGED - NOT IMPLEMENTING)
 
 **Features**:
 
-- Dashboard with real-time model quota visualization (Chart.js)
-- Account management (OAuth add/enable/disable/refresh/remove)
-- Live server log streaming via SSE with search and filtering
+- Dashboard with Chart.js quota visualization
+- Account management with OAuth
+- Live server log streaming via SSE
 - Settings with 4 tabs: Interface, Claude CLI, Models, Server Info
 - i18n support (EN/zh_CN)
-- Optional password protection (`WEBUI_PASSWORD` env var)
-- Minimal integration (only 5 lines added to server.js)
+- Password protection (`WEBUI_PASSWORD` env var)
+- Subscription tier detection (Free/Pro/Ultra)
 
-**Technical Stack**: Alpine.js + TailwindCSS + DaisyUI
-
-**New API Endpoints**:
-
-- `GET/POST /api/config` - Server configuration
-- `GET/POST /api/claude/config` - Claude CLI configuration
-- `POST /api/models/config` - Model alias/hidden settings
-- `GET /api/accounts` - Account list with status
-- `POST /api/accounts/:email/toggle` - Enable/disable account
-- `POST /api/accounts/:email/refresh` - Refresh account token
-- `DELETE /api/accounts/:email` - Remove account
-- `GET /api/logs` - Log history
-- `GET /api/logs/stream` - Live log streaming (SSE)
-- `GET /api/auth/url` - OAuth URL generation
-- `GET /oauth/callback` - OAuth callback handler
-
-**Recommendation**: **MEDIUM PRIORITY** - Nice-to-have but adds complexity. Consider feature flags.
-
-**Our Status**: Not implementing. We have a TUI (`npm run tui`) built with React/Ink that provides similar functionality.
-
----
-
-### PR #44: Quota Reset Trigger System
-
-**Features**:
-
-- Trigger 5-hour quota reset timer for all accounts via:
-  - API endpoint: `POST /trigger-reset`
-  - CLI command: `antigravity-claude-proxy trigger-reset`
-  - Server startup flag: `--trigger-reset` or `TRIGGER_RESET=true`
-- Enhanced `/account-limits` showing 3 separate quota reset times per quota group
-
-**Quota Groups**:
-| Group | Models |
-|-------|--------|
-| Claude | claude-sonnet-4-5, claude-sonnet-4-5-thinking, claude-opus-4-5, claude-opus-4-5-thinking, gpt-oss-120b |
-| Gemini Pro | gemini-3-pro-high, gemini-3-pro-low, gemini-2.5-pro |
-| Gemini Flash | gemini-3-flash, gemini-2.5-flash |
-
-**Recommendation**: **LOW PRIORITY** - Edge case feature.
-
-**Our Status**: **IMPLEMENTED** in v1.2.2:
-
-- API endpoint: `POST /trigger-reset` with `?group=claude|geminiPro|geminiFlash|all`
-- CLI command: `npm run trigger-reset`
-- Startup flag: `--trigger-reset` or `TRIGGER_RESET=true`
-- **Auto-refresh:** `--auto-refresh` or `AUTO_REFRESH=true` (triggers every 5 hours)
-- Enhanced `/account-limits` with per-group reset times
+**Our Status**: Not implementing - we have TUI (`npm run tui`) with similar functionality.
 
 ---
 
 ## Open Issues
 
-| Issue                                                                    | Title                                            | Author         | Created    | Type            | Our Status                  |
-| ------------------------------------------------------------------------ | ------------------------------------------------ | -------------- | ---------- | --------------- | --------------------------- |
-| [#68](https://github.com/badri-s2001/antigravity-claude-proxy/issues/68) | Bug: First request hangs after idle period       | @parkjaeuk0210 | 2026-01-08 | Bug             | **APPLICABLE** - Fix needed |
-| [#67](https://github.com/badri-s2001/antigravity-claude-proxy/issues/67) | Bug: Compaction fails with Invalid JSON payload  | @IrvanFza      | 2026-01-08 | Bug             | **MAYBE** - Needs testing   |
-| [#61](https://github.com/badri-s2001/antigravity-claude-proxy/issues/61) | Fix: Add retry mechanism for empty API responses | @BrunoMarc     | 2026-01-06 | Bug/Enhancement | **IMPLEMENTED** (PR #64)    |
-| [#53](https://github.com/badri-s2001/antigravity-claude-proxy/issues/53) | Report correct context_length for Gemini models  | @BrunoMarc     | 2026-01-04 | Feature Request | **IMPLEMENTED**             |
-| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                              | @chuanghiduoc  | 2026-01-03 | Feature Request | TUI alternative             |
-| [#27](https://github.com/badri-s2001/antigravity-claude-proxy/issues/27) | WebSearch tool - 0 results                       | @Anderson-RC   | 2025-12-31 | Bug/Limitation  | **DOCUMENTED**              |
+### New Issues (Since Last Report)
 
-### Issue #68: First Request Hangs After Idle
+| Issue                                                                    | Title                                            | Author           | Created    | Priority        |
+| ------------------------------------------------------------------------ | ------------------------------------------------ | ---------------- | ---------- | --------------- |
+| [#97](https://github.com/badri-s2001/antigravity-claude-proxy/issues/97) | [BUG] gemini-3-flash [1m] space in model name    | @user            | 2026-01-11 | Closed          |
+| [#92](https://github.com/badri-s2001/antigravity-claude-proxy/issues/92) | [BUG] Frontend issue                             | @user            | 2026-01-11 | Closed (PR #93) |
+| [#91](https://github.com/badri-s2001/antigravity-claude-proxy/issues/91) | [BUG] API Error 400 - tool use concurrency       | @KumarAnandSingh | 2026-01-10 | **INVESTIGATE** |
+| [#88](https://github.com/badri-s2001/antigravity-claude-proxy/issues/88) | Documentation: Claude 500 on large conversations | @tiagonrodrigues | 2026-01-10 | Documentation   |
 
-**Problem**: The first request after the proxy has been idle for several minutes hangs indefinitely, requiring ESC + retry.
+### Existing Open Issues
 
-**Upstream Suspected Causes**:
-
-- Connection pool going stale
-- OAuth token not refreshing properly on first request
-
-**Our Investigation**: **CONFIRMED APPLICABLE**
-
-We found the root cause in our codebase. After 5 minutes idle, token cache expires (`TOKEN_REFRESH_INTERVAL_MS = 300000`). The next request calls `refreshAccessToken` which has **NO TIMEOUT**:
-
-```typescript
-// src/auth/oauth.ts:327-339
-const response = await fetch(OAUTH_CONFIG.tokenUrl, {
-  method: "POST",
-  // NO AbortController, NO signal - can hang forever!
-});
-```
-
-Similarly, `discoverProject` in `credentials.ts:121-135` has no timeout.
-
-**Fix Required**:
-
-- Add `AbortController` with 10-15 second timeout to:
-  - `refreshAccessToken()` in `src/auth/oauth.ts`
-  - `discoverProject()` in `src/account-manager/credentials.ts`
-  - `getUserEmail()` in `src/auth/oauth.ts`
-
-**Priority**: HIGH - Affects all users after any idle period
+| Issue                                                                    | Title                                   | Author         | Created    | Our Status                 |
+| ------------------------------------------------------------------------ | --------------------------------------- | -------------- | ---------- | -------------------------- |
+| [#80](https://github.com/badri-s2001/antigravity-claude-proxy/issues/80) | [BUG] 403 error from Google API         | @UtkarshTheDev | 2026-01-09 | Needs investigation        |
+| [#70](https://github.com/badri-s2001/antigravity-claude-proxy/issues/70) | BadRequest - MCP tool schema type       | @tanm-sys      | 2026-01-08 | **LIKELY FIXED** by PR #83 |
+| [#68](https://github.com/badri-s2001/antigravity-claude-proxy/issues/68) | Bug: First request hangs after idle     | @parkjaeuk0210 | 2026-01-08 | **IMPLEMENTED** ✅         |
+| [#67](https://github.com/badri-s2001/antigravity-claude-proxy/issues/67) | Bug: Compaction fails with Invalid JSON | @IrvanFza      | 2026-01-08 | **LIKELY FIXED** by PR #83 |
+| [#39](https://github.com/badri-s2001/antigravity-claude-proxy/issues/39) | Dashboard interface                     | @chuanghiduoc  | 2026-01-03 | PR #47 addresses           |
 
 ---
 
-### Issue #67: Tool Schema Conversion Fails on Compaction
+### Issue #91: API Error 400 - Tool Use Concurrency (NEW)
 
-**Problem**: The `/compact` command fails with "Invalid JSON payload" error when hitting token limits with sub agents.
+**Problem**: 400 INVALID_ARGUMENT errors when using tool calls, possibly related to concurrent tool use.
 
-**Error**: `400 - Proto field is not repeating, cannot start list` at tool schema conversion.
-
-**Our Investigation**: **POTENTIALLY APPLICABLE - NEEDS TESTING**
-
-We found that our `cleanSchemaForGemini` preserves tuple-style items (array of schemas):
-
-```typescript
-// src/format/schema-sanitizer.ts:602-608
-if (result.items) {
-  if (Array.isArray(result.items)) {
-    result.items = result.items.map((item) => cleanSchemaForGemini(item));
-    // STILL AN ARRAY - proto may not support this!
-  }
-}
-```
-
-Google's proto format may expect `items` to be a **single schema**, not an array. The error suggests the proto field is not defined as `repeated`.
-
-**To Confirm**: Need to test with a schema containing tuple-style items (e.g., `items: [{ type: "string" }, { type: "number" }]`).
-
-**Fix If Confirmed**:
-
-```typescript
-// Flatten tuple items to single schema
-if (Array.isArray(result.items)) {
-  result.items = result.items[0]; // Use first item only
-}
-```
-
-**Priority**: MEDIUM - Only affects specific complex tool schemas
+**Our Status**: **INVESTIGATE** - May be related to schema conversion or concurrent request handling.
 
 ---
 
-### Issue #61: Empty API Response Retry (Same as PR #64)
+### Issue #68: First Request Hangs After Idle (IMPLEMENTED)
 
-Already addressed by PR #64 above.
+**Problem**: First request after idle period hangs indefinitely, requires ESC + retry.
 
-### Issue #57: Disable Sticky Accounts (CLOSED)
+**Root Cause**: OAuth fetch calls have no timeout. After token cache expires (5 min), the refresh call can hang forever on slow networks.
 
-**Request**: Option to disable sticky account behavior for reduced rate limits.
+**Our Fix**:
 
-**Context**: Sticky accounts keep requests on the same account to maintain conversation context, but this can lead to faster rate limiting on individual accounts vs round-robin distribution.
-
-**Upstream Resolution**: Issue was closed after reducing cooldown from 60s to 10s. The requester confirmed "working fine now."
-
-**Our Analysis**: Our implementation already handles this optimally:
-
-1. `pickStickyAccount` tries current account first
-2. If unavailable, immediately switches to any available account
-3. Only waits if ALL accounts are rate-limited AND wait is <= 2 minutes
-
-**Our Status**: **ALREADY ADDRESSED** - Our failover logic prioritizes switching to available accounts. No `--no-sticky` flag needed.
+- Added `fetchWithTimeout()` helper with `AbortController`
+- Applied 15-second timeout to all OAuth calls
+- Updated `refreshAccessToken()`, `discoverProject()`, `getUserEmail()`, `exchangeCode()`
 
 ---
 
-### Issue #53: Report Correct context_length for Gemini Models
+## Recently Closed Issues
 
-**Problem**: Claude Code's auto-compaction triggers frequently because it assumes 200K context window (Claude default). Gemini models support up to 1M tokens.
-
-**Current Behavior**:
-
-```json
-{
-  "id": "gemini-3-pro-high",
-  "object": "model",
-  "owned_by": "anthropic"
-}
-```
-
-**Proposed Solution**:
-
-```json
-{
-  "id": "gemini-3-pro-high",
-  "object": "model",
-  "owned_by": "anthropic",
-  "context_length": 1000000
-}
-```
-
-**Affected Models**:
-| Model | Suggested context_length |
-|-------|-------------------------|
-| gemini-3-flash | 1,000,000 |
-| gemini-3-pro-low | 1,000,000 |
-| gemini-3-pro-high | 1,000,000 |
-| gemini-2.5-pro | 1,000,000 |
-| gemini-2.5-flash | 1,000,000 |
-
-**Recommendation**: **HIGH PRIORITY** - Quick win, significant UX improvement.
-
----
-
-### Issue #39: Dashboard Interface
-
-**Request**: Visual dashboard for monitoring (referenced [cliProxyAPI-Dashboard](https://github.com/0xAstroAlpha/cliProxyAPI-Dashboard) - 74 stars).
-
-**Status**: Multiple implementations attempted:
-
-- PR #47 (WebUI by @Wha1eChai) - OPEN, most comprehensive
-- PR #46 (Dashboard by @SlasshyOverhere) - CLOSED
-- PR #43 (Dashboard by @udayvarmora07) - CLOSED
-
-**Recommendation**: Consider merging PR #47 or creating a simpler standalone solution.
-
----
-
-### Issue #27: WebSearch Tool Returns 0 Results
-
-**Status**: Known limitation (expected behavior)
-
-**Root Cause**: WebSearch is an **Anthropic-only server-side tool** that requires direct connection to Anthropic's API. When using third-party proxies (like this proxy, Bedrock, or Vertex), Claude Code hides or disables the WebSearch tool because the server-side search infrastructure is unavailable.
-
-**Solution**: Disable WebSearch in Claude Code settings and use an MCP-based search alternative.
-
-**Step 1: Disable WebSearch**
-
-Add to `~/.claude/settings.json` or `.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "deny": ["WebSearch"]
-  }
-}
-```
-
-**Step 2 (Optional): Add Brave Search MCP**
-
-```bash
-claude mcp add brave-search -s user \
-  -- env BRAVE_API_KEY=YOUR_KEY \
-  npx -y @modelcontextprotocol/server-brave-search
-```
-
-Or add to settings:
-
-```json
-{
-  "mcpServers": {
-    "brave-search": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-      "env": {
-        "BRAVE_API_KEY": "YOUR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-**Our Status**: **DOCUMENTED** - This is expected behavior, not a bug we can fix.
-
----
-
-## Recently Merged PRs (Notable)
-
-| PR                                                                     | Title                                                        | Merged     | Impact           |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------ | ---------- | ---------------- |
-| [#55](https://github.com/badri-s2001/antigravity-claude-proxy/pull/55) | fix(oauth): add UTF-8 encoding to callback HTML              | 2026-01-06 | Bug fix          |
-| [#54](https://github.com/badri-s2001/antigravity-claude-proxy/pull/54) | feat: Auto native module rebuild on Node.js version mismatch | 2026-01-06 | DX improvement   |
-| [#50](https://github.com/badri-s2001/antigravity-claude-proxy/pull/50) | feat: add --no-browser OAuth mode for headless servers       | 2026-01-04 | Feature          |
-| [#41](https://github.com/badri-s2001/antigravity-claude-proxy/pull/41) | Feature/model fallback                                       | 2026-01-03 | Feature          |
-| [#37](https://github.com/badri-s2001/antigravity-claude-proxy/pull/37) | Selective fixes: Model-specific rate limits & robustness     | 2026-01-03 | Bug fix          |
-| [#29](https://github.com/badri-s2001/antigravity-claude-proxy/pull/29) | Improve logging, rate limiting, and error handling           | 2026-01-01 | Quality          |
-| [#13](https://github.com/badri-s2001/antigravity-claude-proxy/pull/13) | Add count_tokens stub                                        | 2025-12-29 | Compatibility    |
-| [#1](https://github.com/badri-s2001/antigravity-claude-proxy/pull/1)   | Add Linux support with cross-platform detection              | 2025-12-25 | Platform support |
-
----
-
-## Closed Issues (Common Themes)
-
-### Recently Closed (Notable)
-
-| Issue | Title                                 | Resolution                        |
-| ----- | ------------------------------------- | --------------------------------- |
-| #69   | Resource has been exhausted           | Rate limit handling               |
-| #66   | Expected 429 Rate Limiting on Pro     | Normal behavior                   |
-| #63   | How to be safe from being ratelimited | Documentation                     |
-| #62   | Unable to use cc without login        | Need to re-authenticate           |
-| #58   | Dockerized version + OpenAI endpoint  | Separate fork maintained          |
-| #57   | Disable sticky accounts               | Fixed by reducing cooldown to 10s |
-| #52   | Claude thinking output abnormal       | Official Claude API issue         |
-
-### Authentication & Setup
-
-| Issue | Title                             | Resolution                      |
-| ----- | --------------------------------- | ------------------------------- |
-| #48   | 401 UNAUTHENTICATED errors        | Need Gemini Code Assist enabled |
-| #23   | Token extraction failed (Windows) | sqlite3 not in PATH             |
-| #19   | 404 error + Auth conflict         | Need to /logout first           |
-| #9    | Missing .credentials.json step    | Added to README                 |
-
-### API Errors
-
-| Issue | Title                              | Resolution                     |
-| ----- | ---------------------------------- | ------------------------------ |
-| #52   | thinking.signature: Field required | Official Claude API issue      |
-| #51   | 400 cache_control errors           | Fixed in proxy                 |
-| #33   | 404 NOT_FOUND on all models        | Gemini Code Assist not enabled |
-| #6    | Protobuf validation errors         | Fixed by schema normalizer     |
-| #5    | 500 Unknown Error                  | Transient server issues        |
-
-### Cross-Model Issues
-
-| Issue | Title                                       | Resolution                                 |
-| ----- | ------------------------------------------- | ------------------------------------------ |
-| #18   | Corrupted thought signature on model switch | Fixed by stripping incompatible signatures |
-
----
-
-## Related Projects & Features
-
-### External Dashboards
-
-| Project                                                                        | Stars | Features                       |
-| ------------------------------------------------------------------------------ | ----- | ------------------------------ |
-| [cliProxyAPI-Dashboard](https://github.com/0xAstroAlpha/cliProxyAPI-Dashboard) | 74    | Visual dashboard for CLI proxy |
-
-### Forks with Extended Features
-
-| Fork                                                                                        | Branch        | Features                            |
-| ------------------------------------------------------------------------------------------- | ------------- | ----------------------------------- |
-| [Wha1eChai/antigravity-claude-proxy](https://github.com/Wha1eChai/antigravity-claude-proxy) | feature/webui | Full Web UI implementation          |
-| [johnneerdael/antigravity-gateway](https://github.com/johnneerdael/antigravity-gateway)     | main          | Docker + OpenAI-compatible endpoint |
-
-### Community Contributions (Closed PRs Worth Reviewing)
-
-| PR  | Title                                    | Author        | Notes                      |
-| --- | ---------------------------------------- | ------------- | -------------------------- |
-| #56 | TypeScript migration, Docker support     | @NikkeTryHard | Different TS approach      |
-| #35 | Network error handling, OpenAI endpoints | @M2noa        | OpenAI compat was excluded |
-| #30 | Schema flattening for Protobuf           | @Sahaj33-op   | Alternative approach       |
+| Issue | Title                                   | Closed     | Resolution                        |
+| ----- | --------------------------------------- | ---------- | --------------------------------- |
+| #97   | gemini-3-flash [1m] space in model name | 2026-01-11 | User error                        |
+| #92   | Frontend issue                          | 2026-01-11 | Fixed by PR #93                   |
+| #89   | Auto-run antigravity if not running     | 2026-01-10 | Won't implement                   |
+| #87   | Claude 500 on large conversations       | 2026-01-10 | Documentation                     |
+| #85   | OpenAI Tool Calling for AI IDEs         | 2026-01-10 | Won't implement - use CLIProxyAPI |
+| #84   | Google increased rate limits            | 2026-01-10 | Won't bypass limits               |
+| #82   | /compact schema transformation error    | 2026-01-09 | Fixed by PR #83                   |
+| #81   | Allow setting different port            | 2026-01-09 | Already works via PORT env        |
+| #78   | 429 RESOURCE_EXHAUSTED on launch        | 2026-01-09 | Expected behavior                 |
+| #76   | Filter internal system prompt           | 2026-01-09 | Discussed, we implemented         |
+| #74   | Permission denied error                 | 2026-01-09 | Account-specific                  |
 
 ---
 
 ## Feature Gap Analysis
 
+### Features We Implemented (From Upstream)
+
+| Feature                     | Upstream Source           | Our Implementation                     | Status      |
+| --------------------------- | ------------------------- | -------------------------------------- | ----------- |
+| Schema uppercase conversion | PR #83                    | `schema-sanitizer.ts` Phase 5          | ✅ Complete |
+| OAuth timeout               | Issue #68                 | `fetchWithTimeout()` helper            | ✅ Complete |
+| Optimistic 429 reset        | PR #72                    | `selection.ts` + buffer delay          | ✅ Complete |
+| Daily endpoint fix          | commit 5f6ce1b            | `constants.ts`                         | ✅ Complete |
+| Enum stringification        | Issue #70                 | `schema-sanitizer.ts` Phase 4b         | ✅ Complete |
+| System prompt filtering     | Issue #76, commit 4c5236d | `request-builder.ts` [ignore] tags     | ✅ Complete |
+| 5xx fallback                | PR #90                    | `fallback-utils.ts` + handlers         | ✅ Complete |
+| Empty response retry        | PR #64                    | `streaming-handler.ts`                 | ✅ Complete |
+| Quota reset trigger         | PR #44                    | `/trigger-reset` endpoint              | ✅ Complete |
+| --no-browser OAuth          | PR #50                    | `npm run accounts:add -- --no-browser` | ✅ Complete |
+
 ### Features We Have That Upstream Lacks
 
-| Feature                   | Our Implementation                | Status   |
-| ------------------------- | --------------------------------- | -------- |
-| TypeScript codebase       | Full TypeScript                   | Complete |
-| Comprehensive test suite  | Unit, fuzz, contract, chaos, etc. | Complete |
-| SQLite quota snapshots    | quota-storage.ts                  | Complete |
-| Burn rate calculation     | burn-rate.ts                      | Complete |
-| Colored capacity renderer | capacity-renderer.ts              | Complete |
+| Feature                  | Our Implementation                | Notes                |
+| ------------------------ | --------------------------------- | -------------------- |
+| TypeScript codebase      | Full TypeScript                   | Type safety          |
+| Comprehensive test suite | Unit, fuzz, contract, chaos, etc. | 1,767 tests          |
+| SQLite quota snapshots   | `quota-storage.ts`                | Persistent storage   |
+| Burn rate calculation    | `burn-rate.ts`                    | Usage analytics      |
+| TUI interface            | React/Ink                         | Alternative to WebUI |
+| Discriminated unions     | `FallbackDecision` type           | Better type safety   |
 
-### Features Upstream Has That We Should Consider
+### Features Upstream Has That We Skip
 
-| Feature                    | Upstream Location | Priority | Our Status                  |
-| -------------------------- | ----------------- | -------- | --------------------------- |
-| Native module auto-rebuild | PR #54            | LOW      | Not needed (TypeScript)     |
-| --no-browser OAuth         | PR #50            | MEDIUM   | **IMPLEMENTED**             |
-| Empty response retry       | PR #64            | HIGH     | **IMPLEMENTED**             |
-| Gemini context_length      | Issue #53         | HIGH     | **IMPLEMENTED**             |
-| Web UI                     | PR #47            | LOW      | TUI alternative implemented |
-| Disable sticky accounts    | Issue #57         | MEDIUM   | **ALREADY ADDRESSED**       |
-| Quota reset trigger        | PR #44            | LOW      | **IMPLEMENTED**             |
-| Map 404s with context      | PR #15            | LOW      | Partial (we warn in logs)   |
-| Idle hang fix              | Issue #68         | HIGH     | **APPLICABLE** - Fix needed |
-| Tool schema conversion fix | Issue #67         | MEDIUM   | **MAYBE** - Needs testing   |
+| Feature                          | Reason                      |
+| -------------------------------- | --------------------------- |
+| Web UI Dashboard                 | We have TUI alternative     |
+| Alpine.js + TailwindCSS frontend | Not needed                  |
+| Native module auto-rebuild       | Not applicable (TypeScript) |
+| Usage history JSON               | We use SQLite               |
 
 ---
 
 ## Recommendations
 
-### Completed (v1.2.2)
+### Completed ✅
 
-1. **Empty Response Retry** (from PR #64) - **DONE**
-   - Implemented in `streaming-handler.ts`
-   - Configurable via `MAX_EMPTY_RETRIES` env var (default 2, max 10)
-   - Emits fallback message after retries exhausted
-
-2. **Quota Reset Trigger** (from PR #44) - **DONE**
-   - API: `POST /trigger-reset?group=claude|geminiPro|geminiFlash|all`
-   - CLI: `npm run trigger-reset`
-   - Startup: `--trigger-reset` flag
-
-3. **Gemini context_window** (from Issue #53) - **DONE**
-   - Added `context_window: 1000000` to Gemini models in `/v1/models` response
-   - Prevents Claude Code from triggering unnecessary auto-compaction
-   - Implemented in `src/cloudcode/model-api.ts`
-
-4. **WebSearch limitation** (from Issue #27) - **DOCUMENTED**
-   - WebSearch is Anthropic-only, doesn't work on proxies
-   - Documented workaround: deny in settings.json + use Brave Search MCP
-
-5. **Sticky account optimization** (from Issue #57) - **ALREADY ADDRESSED**
-   - Our `pickStickyAccount` logic already prioritizes switching to available accounts
-   - No additional `--no-sticky` flag needed
+1. **Schema Uppercase Conversion** (PR #83) - Done
+2. **OAuth Timeout** (Issue #68) - Done
+3. **Optimistic 429 Reset** (PR #72) - Done
+4. **Enum Stringification** (Issue #70) - Done
+5. **System Prompt Filtering** (Issue #76) - Done
+6. **5xx Fallback** (PR #90) - Done
+7. **Daily Endpoint Fix** - Done
 
 ### Action Required
 
-1. **Idle Hang Fix** (Issue #68) - **HIGH PRIORITY**
-   - Add `AbortController` with 10-15s timeout to OAuth fetch calls
-   - Files: `src/auth/oauth.ts`, `src/account-manager/credentials.ts`
-   - Effort: ~1 hour
-
-2. **Schema Tuple Items** (Issue #67) - **NEEDS TESTING FIRST**
-   - Test with tuple-style items schema to confirm if we're affected
-   - If affected: Flatten tuple items to single schema
-   - Effort: ~1-2 hours (including testing)
-
-### Low Priority (Future)
-
-3. **Map 404s with context** (PR #15)
-   - We already warn in logs about Gemini Code Assist
-   - Could add better error response to client
+1. **PR #96: stopReason Fix** - **REVIEW**
+   - Check if our response conversion handles all `finishReason` values
    - Effort: ~30 min
 
-4. **Consider lightweight dashboard**
-   - We have TUI, but web UI could be useful for remote monitoring
-   - Lower priority since TUI exists
+2. **PR #95: Security Remediation** - **REVIEW**
+   - Review for applicable security patterns
+   - Effort: ~1 hour
+
+3. **Issue #91: Tool Concurrency Bug** - **INVESTIGATE**
+   - May affect our implementation
+   - Effort: ~1 hour
+
+### Low Priority
+
+4. **PR #15: Map 404s with context**
+   - We already warn in logs
+   - Could improve error messages
 
 ---
 
 ## Sync Status
 
 ```
-Current upstream bookmark: (run npm run upstream:status to check)
+Current bookmark: upstream-synced
+Upstream HEAD: a06cd30 (v2.0.0+)
+Commits since bookmark: 47
 ```
 
 **Commands**:
@@ -503,3 +327,25 @@ npm run upstream:log        # Show new commits since last bookmark
 npm run upstream:diff       # File-level summary of changes
 npm run upstream:mark       # Update bookmark after review
 ```
+
+---
+
+## Changelog
+
+### 2026-01-11
+
+- Added Version Tracking section
+- Updated for v2.0.0 release
+- Added new PRs #93-#96
+- Added new issues #88-#97
+- Marked implemented features: 5xx fallback, schema uppercase, OAuth timeout, optimistic reset, system prompt filtering
+
+### 2026-01-10
+
+- Added PR #83 (schema uppercase)
+- Added issues #80-#85
+- Marked PR #72, #64 as implemented
+
+### 2026-01-07
+
+- Initial report generation

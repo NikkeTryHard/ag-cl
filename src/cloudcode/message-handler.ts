@@ -14,6 +14,7 @@ import { parseResetTime } from "./rate-limit-parser.js";
 import { buildCloudCodeRequest, buildHeaders } from "./request-builder.js";
 import { parseThinkingSSEResponse } from "./sse-parser.js";
 import { getFallbackModel } from "../fallback-config.js";
+import { is5xxError, shouldAttemptFallback } from "./fallback-utils.js";
 import type { AnthropicRequest, AnthropicResponse } from "../format/types.js";
 
 // Re-export types
@@ -256,8 +257,8 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
         continue;
       }
       // Non-rate-limit error: throw immediately
-      // UNLESS it's a 500 error, then we treat it as a "soft" failure for this account and try the next one
-      if (err.message.includes("API error 5") || err.message.includes("500") || err.message.includes("503")) {
+      // UNLESS it's a 5xx error, then we treat it as a "soft" failure for this account and try the next one
+      if (is5xxError(err)) {
         getLogger().warn(`[CloudCode] Account ${account.email} failed with 5xx error, trying next...`);
         accountManager.pickNext(model); // Force advance to next account
         continue;
@@ -276,14 +277,11 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
   }
 
   // Check if we should attempt fallback on 5xx exhaustion
-  if (all5xxErrors && fallbackEnabled) {
-    const fallbackModel = getFallbackModel(model);
-    if (fallbackModel) {
-      getLogger().info(`[CloudCode] All retries exhausted for ${model} with 5xx errors. Attempting fallback to ${fallbackModel}`);
-      // Recursively call with fallback model (disable fallback to prevent infinite recursion)
-      const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: fallbackModel };
-      return sendMessage(fallbackRequest, accountManager, false);
-    }
+  const decision = shouldAttemptFallback(model, all5xxErrors, fallbackEnabled);
+  if (decision.shouldFallback && decision.fallbackModel) {
+    // Recursively call with fallback model (disable fallback to prevent infinite recursion)
+    const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: decision.fallbackModel };
+    return sendMessage(fallbackRequest, accountManager, false);
   }
 
   throw new Error("Max retries exceeded");

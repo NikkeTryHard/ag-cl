@@ -49,6 +49,7 @@ function createMockAccountManager(overrides: Partial<AccountManagerInterface> = 
     clearExpiredLimits: vi.fn(() => 0),
     pickNext: vi.fn(() => defaultAccount),
     markRateLimited: vi.fn(),
+    optimisticReset: vi.fn(),
     getTokenForAccount: vi.fn(() => Promise.resolve("mock-access-token")),
     getProjectForAccount: vi.fn(() => Promise.resolve("mock-project-id")),
     clearTokenCache: vi.fn(),
@@ -355,6 +356,77 @@ describe("cloudcode/message-handler", () => {
       const result = await sendMessage(basicRequest, accountManager);
 
       expect(result).toBeDefined();
+    });
+
+    describe("optimistic reset for race conditions", () => {
+      it("recovers via optimistic reset when rate limit expires during buffer wait", async () => {
+        // This test verifies the race condition handling in lines 128-139 of message-handler.ts
+        // Scenario: Rate limit expired during buffer wait, first pickNext returns null, optimisticReset recovers
+        const account: Account = { email: "recovered@test.com" };
+        let pickStickyCallCount = 0;
+        let pickNextCallCount = 0;
+
+        const accountManager = createMockAccountManager({
+          getAccountCount: vi.fn(() => 1),
+          pickStickyAccount: vi.fn(() => {
+            pickStickyCallCount++;
+            // First call: no account available, trigger all-rate-limited path
+            if (pickStickyCallCount === 1) return { account: null, waitMs: 0 };
+            // After recovery, return the account
+            return { account, waitMs: 0 };
+          }),
+          isAllRateLimited: vi.fn(() => pickStickyCallCount === 1),
+          getMinWaitTimeMs: vi.fn(() => 10), // Very short wait (10ms)
+          pickNext: vi.fn(() => {
+            pickNextCallCount++;
+            // First call after clearExpiredLimits: null (simulating timing race)
+            if (pickNextCallCount === 1) return null;
+            // Second call after optimisticReset: return account
+            return account;
+          }),
+          optimisticReset: vi.fn(),
+        });
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              candidates: [{ content: { parts: [{ text: "Recovered via optimistic reset" }], role: "model" } }],
+            }),
+        });
+
+        const result = await sendMessage(basicRequest, accountManager);
+
+        expect(result).toBeDefined();
+        // Verify optimisticReset was called exactly once
+        expect(accountManager.optimisticReset).toHaveBeenCalledTimes(1);
+        expect(accountManager.optimisticReset).toHaveBeenCalledWith(basicRequest.model);
+        // Verify pickNext was called twice (once before and once after optimisticReset)
+        expect(accountManager.pickNext).toHaveBeenCalledTimes(2);
+      });
+
+      it("throws error when optimistic reset also fails to find account", async () => {
+        // This test verifies that when even optimisticReset can't find an account, we error appropriately
+        let pickStickyCallCount = 0;
+
+        const accountManager = createMockAccountManager({
+          getAccountCount: vi.fn(() => 1),
+          pickStickyAccount: vi.fn(() => {
+            pickStickyCallCount++;
+            // Always return no account
+            return { account: null, waitMs: 0 };
+          }),
+          isAllRateLimited: vi.fn(() => pickStickyCallCount === 1),
+          getMinWaitTimeMs: vi.fn(() => 10), // Very short wait
+          pickNext: vi.fn(() => null), // Always return null - even after optimisticReset
+          optimisticReset: vi.fn(),
+        });
+
+        await expect(sendMessage(basicRequest, accountManager, false)).rejects.toThrow("No accounts available");
+
+        // Verify optimisticReset was still called
+        expect(accountManager.optimisticReset).toHaveBeenCalledTimes(1);
+      });
     });
 
     it("handles 429 error from endpoint and marks account rate-limited", async () => {

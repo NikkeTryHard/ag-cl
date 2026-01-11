@@ -42,9 +42,15 @@ export function shouldAttemptFallback(model: string, all5xxErrors: boolean, fall
 /**
  * Check if an error is a 5xx server error.
  *
+ * Uses word boundary matching to avoid false positives (e.g., "port 5000").
+ * Matches patterns like "500", "503", "API error 502", "HTTP 504", etc.
+ *
  * @param err - The error to check
  * @returns True if the error indicates a 5xx server error
  */
 export function is5xxError(err: Error): boolean {
-  return err.message.includes("API error 5") || err.message.includes("500") || err.message.includes("503");
+  const msg = err.message;
+  // Match 5xx status codes with word boundaries to avoid false positives
+  // Also match "API error 5" pattern for consistency with upstream
+  return /\b5\d{2}\b/.test(msg) || msg.includes("API error 5");
 }

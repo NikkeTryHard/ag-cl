@@ -91,6 +91,16 @@ describe("is5xxError", () => {
       const err = new Error("");
       expect(is5xxError(err)).toBe(false);
     });
+
+    it("returns false for port numbers containing 500", () => {
+      const err = new Error("Connection to port 5000 refused");
+      expect(is5xxError(err)).toBe(false);
+    });
+
+    it("returns false for large numbers containing 500", () => {
+      const err = new Error("Request ID: 15003456");
+      expect(is5xxError(err)).toBe(false);
+    });
   });
 });
 

@@ -1,7 +1,7 @@
 # Upstream Investigation Report
 
 > Generated: 2026-01-07
-> Updated: 2026-01-10 (v2.0.0 release, detailed PR/issue investigation, stopReason bug analysis)
+> Updated: 2026-01-10 (deep investigation: PR comments, closed issues, code comparison)
 > Upstream: [badri-s2001/antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy)
 > Stars: 1,331 | Forks: 168 | Last Updated: 2026-01-11
 
@@ -37,15 +37,24 @@
 
 The upstream repository released **v2.0.0** with a major WebUI feature. There are **5 open PRs** and **6 open issues**. Key finding from investigation:
 
-### Critical Finding: stopReason Bug (PR #96)
+### Critical Finding: stopReason Bug (PR #96 - CLOSED)
 
-Our `sse-streamer.ts` has the **same bug as upstream**. When a tool call is made:
+**UPDATE**: PR #96 was **closed without merging**. Maintainer acknowledged the bug but noted the proposed fix is incomplete:
 
-1. Line 291 sets `stopReason = "tool_use"`
-2. Lines 329-335 override it to `"end_turn"` when `finishReason === "STOP"`
-3. Claude Code gets wrong signal, breaking multi-turn tool conversations
+> "The issue you identified is correct... However, `stopReason` is initialized to `'end_turn'` at line 30, so it's always truthy. The condition `!stopReason` will always be `false`."
 
-**Fix required**: Add `&& !stopReason` check before line 329.
+**Correct Fix** (from maintainer):
+
+1. Initialize `stopReason = null` (not `"end_turn"`)
+2. Then `!stopReason` check works correctly
+3. Must also handle `MAX_TOKENS` priority over `tool_use`
+
+**Our Bug Location**: `src/cloudcode/sse-streamer.ts`:
+
+- Line 144: `stopReason = "end_turn"` (same issue)
+- Need to initialize to `null` for the fix to work
+
+**Fix required**: Initialize `stopReason` to `null`, add `&& !stopReason` check.
 
 ### What's New in v2.0.0
 
@@ -60,13 +69,13 @@ Our `sse-streamer.ts` has the **same bug as upstream**. When a tool call is made
 
 ### Implementation Status Summary
 
-| Category                   | Count |
-| -------------------------- | ----- |
-| Features we implemented    | 8     |
-| Features skipped (WebUI)   | 1     |
-| Bugs affecting us (PR #96) | 1     |
-| Open issues to monitor     | 1     |
-| PRs pending merge (#95)    | 1     |
+| Category                     | Count |
+| ---------------------------- | ----- |
+| Features we implemented      | 11    |
+| Features skipped (WebUI)     | 1     |
+| Bugs affecting us (PR #96)   | 1     |
+| Open issues to monitor       | 2     |
+| Closed PRs with unfixed bugs | 2     |
 
 ---
 
@@ -302,6 +311,34 @@ if (firstCandidate?.finishReason) {
 | #76   | Filter internal system prompt           | 2026-01-09 | Discussed, we implemented         |
 | #74   | Permission denied error                 | 2026-01-09 | Account-specific                  |
 
+### Notable Closed Issues (Deep Dive)
+
+#### Issue #53: 1M Context Window for Gemini
+
+**Problem**: Claude Code auto-compacts frequently because it assumes 200K context window.
+
+**Solution**: Use `[1m]` suffix in model names (e.g., `gemini-3-pro-high [1m]`).
+
+**Our Status**: Already documented in our README. Claude Code recognizes the suffix.
+
+#### Issue #57: Sticky Account Cooldown
+
+**Problem**: Users complained about 60-second wait when sticky account is rate-limited.
+
+**Solution**: Reduced `DEFAULT_COOLDOWN_MS` from 60s to 10s.
+
+**Our Status**: Already at 10 seconds in `constants.ts`.
+
+#### Issue #61: Empty Response Retry
+
+**Problem**: Frequent `[No response received from API]` errors stopping Claude Code mid-conversation.
+
+**Root Cause**: Large `thinking_budget` (31999) causes model to think too long and return empty.
+
+**Solution**: Added `EmptyResponseError` and retry mechanism (up to 2 retries).
+
+**Our Status**: **IMPLEMENTED** - We have `EmptyResponseError` in `errors.ts` and retry logic.
+
 ---
 
 ## Feature Gap Analysis
@@ -340,6 +377,53 @@ if (firstCandidate?.finishReason) {
 | Alpine.js + TailwindCSS frontend | Not needed                  |
 | Native module auto-rebuild       | Not applicable (TypeScript) |
 | Usage history JSON               | We use SQLite               |
+| NativeModuleError class          | Not applicable (TypeScript) |
+
+---
+
+## Code Structure Comparison
+
+### File Structure
+
+| Upstream (JavaScript)              | Our Project (TypeScript)           | Notes               |
+| ---------------------------------- | ---------------------------------- | ------------------- |
+| `src/cloudcode/sse-streamer.js`    | `src/cloudcode/sse-streamer.ts`    | Same structure      |
+| `src/cloudcode/session-manager.js` | `src/cloudcode/session-manager.ts` | Same logic          |
+| `src/format/signature-cache.js`    | `src/format/signature-cache.ts`    | Same API            |
+| `src/format/schema-sanitizer.js`   | `src/format/schema-sanitizer.ts`   | Same phases         |
+| `src/format/thinking-utils.js`     | `src/format/thinking-utils.ts`     | Same functions      |
+| `src/errors.js`                    | `src/errors.ts`                    | Same error classes  |
+| `src/fallback-config.js`           | `src/cloudcode/fallback-utils.ts`  | Different approach  |
+| `src/webui/index.js`               | N/A                                | We have TUI instead |
+
+### Error Classes Comparison
+
+| Error Class          | Upstream | Us  | Notes                          |
+| -------------------- | -------- | --- | ------------------------------ |
+| `AntigravityError`   | ✅       | ✅  | Base class                     |
+| `RateLimitError`     | ✅       | ✅  | Same structure                 |
+| `AuthError`          | ✅       | ✅  | Same structure                 |
+| `NoAccountsError`    | ✅       | ✅  | Same structure                 |
+| `MaxRetriesError`    | ✅       | ✅  | Same structure                 |
+| `ApiError`           | ✅       | ✅  | Same structure                 |
+| `EmptyResponseError` | ✅       | ✅  | Same structure                 |
+| `NativeModuleError`  | ✅       | ❌  | Not needed (no native modules) |
+
+### Key Functions Comparison
+
+| Function                       | Upstream | Us  | Notes              |
+| ------------------------------ | -------- | --- | ------------------ |
+| `deriveSessionId()`            | ✅       | ✅  | Same logic         |
+| `cacheSignature()`             | ✅       | ✅  | Same API           |
+| `getCachedSignature()`         | ✅       | ✅  | Same API           |
+| `cacheThinkingSignature()`     | ✅       | ✅  | Same API           |
+| `getCachedSignatureFamily()`   | ✅       | ✅  | Same API           |
+| `stripInvalidThinkingBlocks()` | ✅       | ✅  | Same logic         |
+| `closeToolLoopForThinking()`   | ✅       | ✅  | Same logic         |
+| `parseResetTime()`             | ✅       | ✅  | Same parsing logic |
+| `isRateLimitError()`           | ✅       | ✅  | Same detection     |
+| `isAuthError()`                | ✅       | ✅  | Same detection     |
+| `isEmptyResponseError()`       | ✅       | ✅  | Same detection     |
 
 ---
 
@@ -355,28 +439,41 @@ if (firstCandidate?.finishReason) {
 6. **5xx Fallback** (PR #90) - Done
 7. **Daily Endpoint Fix** - Done
 8. **UTF-8 Charset in OAuth** (commit df9b935) - Already implemented
+9. **10s Cooldown** (Issue #57) - Already at 10 seconds
+10. **Empty Response Retry** (Issue #61) - Already implemented
+11. **Cross-Model Signature Handling** (PR #42) - Already implemented via `stripInvalidThinkingBlocks()`
 
 ### Action Required
 
 1. **PR #96: stopReason Override Bug** - **HIGH PRIORITY**
-   - Our `sse-streamer.ts` has the same bug (lines 329-335)
-   - `stopReason = "tool_use"` gets overwritten to `"end_turn"`
-   - Breaks multi-turn tool conversations
-   - **Fix**: Add `&& !stopReason` check before setting stopReason
-
-2. **Issue #91: Tool Concurrency** - **MONITOR**
-   - No reports from our users yet
-   - Watch for similar issues if users try parallel tool calls
+   - Our `sse-streamer.ts` has the same bug
+   - Initialize `stopReason = null` (not `"end_turn"`)
+   - Add `&& !stopReason` check before setting stopReason
+   - Consider `MAX_TOKENS` priority over `tool_use`
+   - Breaks multi-turn tool conversations if not fixed
 
 ### Monitor
 
-3. **PR #95: Security Remediation** - **PENDING MERGE**
-   - Contains valuable patterns: prototype pollution, error sanitization, proactive refresh
-   - Consider adopting if/when merged
+2. **Issue #91: Tool Concurrency** - **MONITORING**
+   - No reports from our users yet
+   - Watch for 400 errors with parallel tool calls
+
+3. **PR #95: Security Remediation** - **CLOSED (not merged)**
+   - Was closed without merging
+   - Contains good patterns we could adopt independently:
+     - Prototype pollution protection
+     - Error sanitization
+     - Proactive token refresh
+     - Security headers
+
+4. **PR #79: Image Interleaving Bug** - **MONITORING**
+   - Multiple `tool_result` with images cause 400 errors
+   - Not yet fixed upstream (PR was closed without proper solution)
+   - Watch for similar issues with our users
 
 ### Low Priority
 
-4. **PR #15: Map 404s with context**
+5. **PR #15: Map 404s with context**
    - We already warn in logs
    - Could improve error messages
 
@@ -402,6 +499,18 @@ npm run upstream:mark       # Update bookmark after review
 ---
 
 ## Changelog
+
+### 2026-01-10 (deep investigation)
+
+- **PR #96 update**: Closed without merging - maintainer identified fix is incomplete
+  - Must initialize `stopReason = null` (not `"end_turn"`) for `!stopReason` check to work
+  - Must handle `MAX_TOKENS` priority over `tool_use`
+- **PR #95 update**: Also closed without merging
+- **PR #79**: Image interleaving bug - closed without proper fix, still an issue
+- Analyzed 30+ closed issues for patterns and insights
+- Confirmed we already have: 10s cooldown, empty response retry, cross-model handling
+- Added 3 more items to completed list (now 11 total)
+- Added PR #79 to monitoring list
 
 ### 2026-01-10 (continued)
 

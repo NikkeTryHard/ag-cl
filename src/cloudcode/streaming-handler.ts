@@ -153,7 +153,7 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
             getLogger().warn(`[CloudCode] All accounts exhausted for ${model}. Attempting fallback to ${fallbackModel} (streaming)`);
             // Retry with fallback model
             const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: fallbackModel };
-            yield* sendMessageStream(fallbackRequest, accountManager, false); // Disable fallback for recursive call
+            yield* sendMessageStream(fallbackRequest, accountManager, false /* prevent infinite recursion */);
             return;
           }
         }
@@ -324,7 +324,7 @@ export async function* sendMessageStream(anthropicRequest: AnthropicRequest, acc
   if (decision.shouldFallback && decision.fallbackModel) {
     // Recursively call with fallback model (disable fallback to prevent infinite recursion)
     const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: decision.fallbackModel };
-    yield* sendMessageStream(fallbackRequest, accountManager, false);
+    yield* sendMessageStream(fallbackRequest, accountManager, false /* prevent infinite recursion */);
     return;
   }
 

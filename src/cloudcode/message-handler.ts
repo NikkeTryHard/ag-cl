@@ -147,7 +147,7 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
             getLogger().warn(`[CloudCode] All accounts exhausted for ${model}. Attempting fallback to ${fallbackModel}`);
             // Retry with fallback model
             const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: fallbackModel };
-            return await sendMessage(fallbackRequest, accountManager, false); // Disable fallback for recursive call
+            return await sendMessage(fallbackRequest, accountManager, false /* prevent infinite recursion */);
           }
         }
         throw new Error("No accounts available");
@@ -281,7 +281,7 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
   if (decision.shouldFallback && decision.fallbackModel) {
     // Recursively call with fallback model (disable fallback to prevent infinite recursion)
     const fallbackRequest: AnthropicRequest = { ...anthropicRequest, model: decision.fallbackModel };
-    return sendMessage(fallbackRequest, accountManager, false);
+    return sendMessage(fallbackRequest, accountManager, false /* prevent infinite recursion */);
   }
 
   throw new Error("Max retries exceeded");

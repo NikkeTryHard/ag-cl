@@ -93,7 +93,6 @@ export async function sendMessage(anthropicRequest: AnthropicRequest, accountMan
   const maxAttempts = Math.max(MAX_RETRIES, accountManager.getAccountCount() + 1);
 
   // Track if all failures were 5xx errors (for fallback on exhaustion)
-
   let all5xxErrors = true;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

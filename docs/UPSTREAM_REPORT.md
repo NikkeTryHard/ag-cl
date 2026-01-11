@@ -1,7 +1,7 @@
 # Upstream Investigation Report
 
 > Generated: 2026-01-07
-> Updated: 2026-01-11 (v2.0.0 release, new PRs #93-#96, new issues #88-#97, implemented fixes)
+> Updated: 2026-01-10 (v2.0.0 release, detailed PR/issue investigation, stopReason bug analysis)
 > Upstream: [badri-s2001/antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy)
 > Stars: 1,331 | Forks: 168 | Last Updated: 2026-01-11
 
@@ -35,7 +35,17 @@
 
 ## Executive Summary
 
-The upstream repository released **v2.0.0** with a major WebUI feature. There are **5 open PRs** and **6 open issues**. Key updates since last report:
+The upstream repository released **v2.0.0** with a major WebUI feature. There are **5 open PRs** and **6 open issues**. Key finding from investigation:
+
+### Critical Finding: stopReason Bug (PR #96)
+
+Our `sse-streamer.ts` has the **same bug as upstream**. When a tool call is made:
+
+1. Line 291 sets `stopReason = "tool_use"`
+2. Lines 329-335 override it to `"end_turn"` when `finishReason === "STOP"`
+3. Claude Code gets wrong signal, breaking multi-turn tool conversations
+
+**Fix required**: Add `&& !stopReason` check before line 329.
 
 ### What's New in v2.0.0
 
@@ -50,12 +60,13 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 
 ### Implementation Status Summary
 
-| Category                     | Count |
-| ---------------------------- | ----- |
-| Features we implemented      | 7     |
-| Features skipped (WebUI)     | 1     |
-| Open issues applicable to us | 2     |
-| New PRs to review            | 3     |
+| Category                   | Count |
+| -------------------------- | ----- |
+| Features we implemented    | 8     |
+| Features skipped (WebUI)   | 1     |
+| Bugs affecting us (PR #96) | 1     |
+| Open issues to monitor     | 1     |
+| PRs pending merge (#95)    | 1     |
 
 ---
 
@@ -78,19 +89,63 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 
 ---
 
-### PR #96: Fix stopReason Based on finishReason (NEW)
+### PR #96: Fix stopReason Based on finishReason (NEW - APPLIES TO US)
 
-**Problem**: The `stopReason` field may not be set correctly based on Google's `finishReason` response, causing protocol compatibility issues.
+**Problem**: The `stopReason` field is incorrectly overridden when `finishReason === "STOP"`. If `stopReason` was set to `"tool_use"` earlier (line 291), it gets overwritten to `"end_turn"` (line 333).
 
-**Our Status**: **REVIEW NEEDED** - Check if our response conversion handles all `finishReason` values correctly.
+**Impact**: Breaks multi-turn tool conversations. Claude Code expects `stopReason: "tool_use"` to know it should wait for tool results.
+
+**Upstream Fix** (PR #96):
+
+```javascript
+// Before: if (firstCandidate.finishReason) {
+// After:
+if (firstCandidate.finishReason && !stopReason) {
+```
+
+**Our Bug Location**: `src/cloudcode/sse-streamer.ts` lines 329-335:
+
+```typescript
+// Line 291 sets: stopReason = "tool_use"
+// But lines 329-335 can override it:
+if (firstCandidate?.finishReason) {
+  if (firstCandidate.finishReason === "MAX_TOKENS") {
+    stopReason = "max_tokens";
+  } else if (firstCandidate.finishReason === "STOP") {
+    stopReason = "end_turn"; // BUG: Overwrites "tool_use"!
+  }
+}
+```
+
+**Our Status**: **FIX REQUIRED** - Same bug exists in our codebase.
 
 ---
 
-### PR #95: Security & Reliability Remediation (NEW)
+### PR #95: Security & Reliability Remediation (NEW - NOT MERGED YET)
 
 **Problem**: Comprehensive security improvements including input validation, error handling, and reliability fixes.
 
-**Our Status**: **REVIEW NEEDED** - May contain valuable security patterns to adopt.
+**Key Features**:
+
+1. **Input Validation**: Strict validation for `/v1/messages` with model whitelisting
+2. **Prototype Pollution Protection**: Blocks `__proto__`, `constructor`, `prototype` keys
+3. **Error Sanitization**: Masks sensitive data (emails, tokens, paths) in errors
+4. **Security Headers**: CSP, X-Frame-Options, X-Content-Type-Options
+5. **Proactive Token Refresh**: Refreshes tokens 5 min before expiry
+6. **Graceful Shutdown**: Tracks in-flight requests before shutdown
+
+**Our Assessment**:
+
+| Feature                 | Our Status                 |
+| ----------------------- | -------------------------- |
+| Input validation        | Partial (TypeScript types) |
+| Prototype pollution     | Not implemented            |
+| Error sanitization      | Not implemented            |
+| Security headers        | Not implemented            |
+| Proactive token refresh | Not implemented            |
+| Graceful shutdown       | Not implemented            |
+
+**Our Status**: **MONITOR** - Not merged yet. Consider adopting security patterns if merged.
 
 ---
 
@@ -198,11 +253,22 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 
 ---
 
-### Issue #91: API Error 400 - Tool Use Concurrency (NEW)
+### Issue #91: API Error 400 - Tool Use Concurrency (OPEN)
 
-**Problem**: 400 INVALID_ARGUMENT errors when using tool calls, possibly related to concurrent tool use.
+**Problem**: 400 INVALID_ARGUMENT errors when using parallel tool calls (multiple screenshots, agents, simultaneous Read/Bash operations).
 
-**Our Status**: **INVESTIGATE** - May be related to schema conversion or concurrent request handling.
+**Error Message**: `API Error: 400 due to tool use concurrency issues. Run /rewind to recover.`
+
+**Suspected Root Causes**:
+
+1. **Tool ID handling**: `functionCall.id` only added for Claude models, but parallel tool result matching may be inconsistent
+2. **Session ID collision**: `deriveSessionId()` creates single ID per message, may conflict with parallel calls
+3. **SSE demultiplexing**: Stream parser may not correctly handle events from multiple parallel executions
+4. **Signature cache conflicts**: Parallel tool calls may overwrite cached signatures
+
+**Workaround**: Users can process operations sequentially instead of in parallel.
+
+**Our Status**: **MONITOR** - No reports from our users yet. May share same issues if they use parallel tool calls.
 
 ---
 
@@ -288,20 +354,25 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 5. **System Prompt Filtering** (Issue #76) - Done
 6. **5xx Fallback** (PR #90) - Done
 7. **Daily Endpoint Fix** - Done
+8. **UTF-8 Charset in OAuth** (commit df9b935) - Already implemented
 
 ### Action Required
 
-1. **PR #96: stopReason Fix** - **REVIEW**
-   - Check if our response conversion handles all `finishReason` values
-   - Effort: ~30 min
+1. **PR #96: stopReason Override Bug** - **HIGH PRIORITY**
+   - Our `sse-streamer.ts` has the same bug (lines 329-335)
+   - `stopReason = "tool_use"` gets overwritten to `"end_turn"`
+   - Breaks multi-turn tool conversations
+   - **Fix**: Add `&& !stopReason` check before setting stopReason
 
-2. **PR #95: Security Remediation** - **REVIEW**
-   - Review for applicable security patterns
-   - Effort: ~1 hour
+2. **Issue #91: Tool Concurrency** - **MONITOR**
+   - No reports from our users yet
+   - Watch for similar issues if users try parallel tool calls
 
-3. **Issue #91: Tool Concurrency Bug** - **INVESTIGATE**
-   - May affect our implementation
-   - Effort: ~1 hour
+### Monitor
+
+3. **PR #95: Security Remediation** - **PENDING MERGE**
+   - Contains valuable patterns: prototype pollution, error sanitization, proactive refresh
+   - Consider adopting if/when merged
 
 ### Low Priority
 
@@ -331,6 +402,15 @@ npm run upstream:mark       # Update bookmark after review
 ---
 
 ## Changelog
+
+### 2026-01-10 (continued)
+
+- Deep investigation of PR #96 - **confirmed same bug in our `sse-streamer.ts`**
+- Analyzed PR #95 security features (not merged yet)
+- Investigated Issue #91 tool concurrency - documented suspected causes
+- Confirmed UTF-8 charset already implemented in our oauth.ts
+- Confirmed cooldown already at 10 seconds (matching upstream)
+- Updated all recommendations with priority levels
 
 ### 2026-01-11
 

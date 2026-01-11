@@ -455,7 +455,7 @@ export function pickByMode(mode: SchedulingMode, accounts: Account[], modelId: s
     if (result instanceof Promise) {
       result.catch((err: unknown) => {
         // Log but don't fail selection - use the logger
-        getLogger().error("Failed to save after account selection:", err);
+        getLogger().error({ error: err instanceof Error ? err.message : String(err) }, "Failed to save after account selection");
       });
     }
   }

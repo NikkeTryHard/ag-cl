@@ -510,10 +510,10 @@ describe("streamSSEResponse", () => {
       });
     });
 
-    it("sets stop_reason based on finishReason even with function calls", async () => {
-      // Note: Current implementation has finishReason check AFTER tool_use detection,
-      // so finishReason="STOP" will override tool_use to end_turn.
-      // This test documents actual behavior.
+    it("preserves tool_use stop_reason when finishReason is STOP (fix from upstream 325acdb)", async () => {
+      // Bug fix: tool_use stop_reason should NOT be overwritten by finishReason="STOP"
+      // This was a bug that broke multi-turn tool conversations.
+      // Fix: Initialize stopReason to null, only set from finishReason if not already set.
       const chunks = [
         sseData({
           candidates: [
@@ -538,8 +538,8 @@ describe("streamSSEResponse", () => {
       const events = await collectEvents(response, "gemini-3-flash");
 
       const messageDelta = events.find((e) => e.type === "message_delta") as Extract<AnthropicSSEEvent, { type: "message_delta" }>;
-      // finishReason "STOP" currently overrides the tool_use stop_reason to end_turn
-      expect(messageDelta.delta.stop_reason).toBe("end_turn");
+      // tool_use should be preserved - finishReason="STOP" should NOT override it
+      expect(messageDelta.delta.stop_reason).toBe("tool_use");
     });
 
     it("sets stop_reason to tool_use when finishReason is not STOP or MAX_TOKENS", async () => {

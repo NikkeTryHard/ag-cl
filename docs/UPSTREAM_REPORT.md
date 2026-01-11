@@ -1,7 +1,7 @@
 # Upstream Investigation Report
 
 > Generated: 2026-01-07
-> Updated: 2026-01-10 (deep investigation: PR comments, closed issues, code comparison)
+> Updated: 2026-01-11 (v2.0.1 release, stopReason fix merged)
 > Upstream: [badri-s2001/antigravity-claude-proxy](https://github.com/badri-s2001/antigravity-claude-proxy)
 > Stars: 1,331 | Forks: 168 | Last Updated: 2026-01-11
 
@@ -11,13 +11,14 @@
 
 | Project      | Version | Tag         | Notes                                    |
 | ------------ | ------- | ----------- | ---------------------------------------- |
-| **Upstream** | 2.0.0   | `v2.0.0`    | Major release with WebUI (PR #47)        |
+| **Upstream** | 2.0.1   | `v2.0.1`    | stopReason fix (325acdb), WebUI health   |
 | **ag-cl**    | 1.2.2   | `ag-v1.0.0` | TypeScript rewrite, different versioning |
 
 ### Upstream Release History
 
 | Version | Date       | Key Changes                                     |
 | ------- | ---------- | ----------------------------------------------- |
+| v2.0.1  | 2026-01-11 | stopReason fix (325acdb), WebUI health (PR #94) |
 | v2.0.0  | 2026-01-10 | WebUI dashboard (PR #47), 5xx fallback (PR #90) |
 | v1.2.16 | 2026-01-09 | Schema uppercase fix (PR #83), tests            |
 | v1.2.15 | 2026-01-09 | System prompt filtering (commit 4c5236d)        |
@@ -35,31 +36,38 @@
 
 ## Executive Summary
 
-The upstream repository released **v2.0.0** with a major WebUI feature. There are **5 open PRs** and **6 open issues**. Key finding from investigation:
+The upstream repository released **v2.0.1** with the critical stopReason fix. There are **4 open PRs** and **6 open issues**. Key finding from investigation:
 
-### Critical Finding: stopReason Bug (PR #96 - CLOSED)
+### Critical Finding: stopReason Bug (FIXED in v2.0.1)
 
-**UPDATE**: PR #96 was **closed without merging**. Maintainer acknowledged the bug but noted the proposed fix is incomplete:
-
-> "The issue you identified is correct... However, `stopReason` is initialized to `'end_turn'` at line 30, so it's always truthy. The condition `!stopReason` will always be `false`."
-
-**Correct Fix** (from maintainer):
+**UPDATE**: The maintainer fixed this bug in commit `325acdb` (v2.0.1). The fix:
 
 1. Initialize `stopReason = null` (not `"end_turn"`)
-2. Then `!stopReason` check works correctly
-3. Must also handle `MAX_TOKENS` priority over `tool_use`
+2. Add `&& !stopReason` check before setting from finishReason
+3. Use `stopReason || 'end_turn'` when emitting message_delta
+
+**Commit message**:
+
+> fix: preserve tool_use stop reason from being overwritten by finishReason
+>
+> When a tool call is made, stopReason is set to 'tool_use'. However, when
+> finishReason: STOP arrives later, it was overwriting stopReason back to
+> 'end_turn', breaking multi-turn tool conversations in clients like OpenCode.
 
 **Our Bug Location**: `src/cloudcode/sse-streamer.ts`:
 
-- Line 144: `stopReason = "end_turn"` (same issue)
-- Need to initialize to `null` for the fix to work
+- Line 144: `stopReason = "end_turn"` → needs to be `null`
+- Lines 328-335: Missing `&& !stopReason` check
+- Line 364: `stopReason` → needs to be `stopReason || "end_turn"`
 
-**Fix required**: Initialize `stopReason` to `null`, add `&& !stopReason` check.
+**Status**: **IMPLEMENTED** ✅ - Same fix applied to our `sse-streamer.ts`.
 
-### What's New in v2.0.0
+### What's New in v2.0.1
 
 | Feature                     | PR/Commit | Status                         |
 | --------------------------- | --------- | ------------------------------ |
+| **stopReason fix**          | 325acdb   | **IMPLEMENTED** ✅             |
+| **WebUI health checks**     | PR #94    | Not implementing (we have TUI) |
 | **Web UI Dashboard**        | PR #47    | Not implementing (we have TUI) |
 | **5xx Fallback**            | PR #90    | **IMPLEMENTED** ✅             |
 | **Schema Uppercase**        | PR #83    | **IMPLEMENTED** ✅             |
@@ -71,11 +79,11 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 
 | Category                     | Count |
 | ---------------------------- | ----- |
-| Features we implemented      | 11    |
+| Features we implemented      | 12    |
 | Features skipped (WebUI)     | 1     |
-| Bugs affecting us (PR #96)   | 1     |
+| Bugs fixed (stopReason)      | 1     |
 | Open issues to monitor       | 2     |
-| Closed PRs with unfixed bugs | 2     |
+| Closed PRs with unfixed bugs | 1     |
 
 ---
 
@@ -85,9 +93,7 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 
 | PR                                                                     | Title                                                            | Author       | Created    | Priority   |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- |
-| [#96](https://github.com/badri-s2001/antigravity-claude-proxy/pull/96) | fix: ensure stopReason is set correctly based on finishReason    | @caozhiyuan  | 2026-01-11 | **REVIEW** |
 | [#95](https://github.com/badri-s2001/antigravity-claude-proxy/pull/95) | feat(security): comprehensive security & reliability remediation | @midnightnow | 2026-01-10 | **REVIEW** |
-| [#94](https://github.com/badri-s2001/antigravity-claude-proxy/pull/94) | feat(webui): Improve connection health checks and monitoring     | @jgor20      | 2026-01-10 | WebUI only |
 
 ### Existing Open PRs
 
@@ -98,35 +104,24 @@ The upstream repository released **v2.0.0** with a major WebUI feature. There ar
 
 ---
 
-### PR #96: Fix stopReason Based on finishReason (NEW - APPLIES TO US)
+### PR #96: stopReason Bug (MERGED via commit 325acdb)
 
-**Problem**: The `stopReason` field is incorrectly overridden when `finishReason === "STOP"`. If `stopReason` was set to `"tool_use"` earlier (line 291), it gets overwritten to `"end_turn"` (line 333).
+**Status**: The original PR was closed, but maintainer fixed the bug directly in commit `325acdb`.
 
-**Impact**: Breaks multi-turn tool conversations. Claude Code expects `stopReason: "tool_use"` to know it should wait for tool results.
+**The Fix** (from upstream commit):
 
-**Upstream Fix** (PR #96):
+```diff
+-let stopReason = 'end_turn';
++let stopReason = null;
 
-```javascript
-// Before: if (firstCandidate.finishReason) {
-// After:
-if (firstCandidate.finishReason && !stopReason) {
+-if (firstCandidate.finishReason) {
++if (firstCandidate.finishReason && !stopReason) {
+
+-delta: { stop_reason: stopReason, stop_sequence: null },
++delta: { stop_reason: stopReason || 'end_turn', stop_sequence: null },
 ```
 
-**Our Bug Location**: `src/cloudcode/sse-streamer.ts` lines 329-335:
-
-```typescript
-// Line 291 sets: stopReason = "tool_use"
-// But lines 329-335 can override it:
-if (firstCandidate?.finishReason) {
-  if (firstCandidate.finishReason === "MAX_TOKENS") {
-    stopReason = "max_tokens";
-  } else if (firstCandidate.finishReason === "STOP") {
-    stopReason = "end_turn"; // BUG: Overwrites "tool_use"!
-  }
-}
-```
-
-**Our Status**: **FIX REQUIRED** - Same bug exists in our codebase.
+**Our Status**: **IMPLEMENTED** ✅ - Same fix applied to our `sse-streamer.ts`.
 
 ---
 
@@ -162,6 +157,8 @@ if (firstCandidate?.finishReason) {
 
 | PR                                                                     | Title                                                | Author           | Merged     | Our Status         |
 | ---------------------------------------------------------------------- | ---------------------------------------------------- | ---------------- | ---------- | ------------------ |
+| N/A                                                                    | fix: preserve tool_use stop reason (commit 325acdb)  | @badri-s2001     | 2026-01-11 | **IMPLEMENTED** ✅ |
+| [#94](https://github.com/badri-s2001/antigravity-claude-proxy/pull/94) | feat(webui): Improve connection health checks        | @jgor20          | 2026-01-11 | WebUI only         |
 | [#93](https://github.com/badri-s2001/antigravity-claude-proxy/pull/93) | fix: refactor frontend architecture for production   | @Wha1eChai       | 2026-01-11 | WebUI only         |
 | [#90](https://github.com/badri-s2001/antigravity-claude-proxy/pull/90) | feat: fallback to alternate model on 5xx errors      | @tiagonrodrigues | 2026-01-10 | **IMPLEMENTED** ✅ |
 | [#47](https://github.com/badri-s2001/antigravity-claude-proxy/pull/47) | feat: Add Web UI for account and quota management    | @Wha1eChai       | 2026-01-10 | Not implementing   |
@@ -618,23 +615,15 @@ PORT=8081 npm start
 9. **10s Cooldown** (Issue #57) - Already at 10 seconds
 10. **Empty Response Retry** (Issue #61) - Already implemented
 11. **Cross-Model Signature Handling** (PR #42) - Already implemented via `stripInvalidThinkingBlocks()`
-
-### Action Required
-
-1. **PR #96: stopReason Override Bug** - **HIGH PRIORITY**
-   - Our `sse-streamer.ts` has the same bug
-   - Initialize `stopReason = null` (not `"end_turn"`)
-   - Add `&& !stopReason` check before setting stopReason
-   - Consider `MAX_TOKENS` priority over `tool_use`
-   - Breaks multi-turn tool conversations if not fixed
+12. **stopReason Fix** (commit 325acdb) - Done
 
 ### Monitor
 
-2. **Issue #91: Tool Concurrency** - **MONITORING**
+1. **Issue #91: Tool Concurrency** - **MONITORING**
    - No reports from our users yet
    - Watch for 400 errors with parallel tool calls
 
-3. **PR #95: Security Remediation** - **CLOSED (not merged)**
+2. **PR #95: Security Remediation** - **CLOSED (not merged)**
    - Was closed without merging
    - Contains good patterns we could adopt independently:
      - Prototype pollution protection
@@ -642,7 +631,7 @@ PORT=8081 npm start
      - Proactive token refresh
      - Security headers
 
-4. **PR #79: Image Interleaving Bug** - **MONITORING**
+3. **PR #79: Image Interleaving Bug** - **MONITORING**
    - Multiple `tool_result` with images cause 400 errors
    - Not yet fixed upstream (PR was closed without proper solution)
    - Watch for similar issues with our users
@@ -659,7 +648,7 @@ PORT=8081 npm start
 
 ```
 Current bookmark: upstream-synced
-Upstream HEAD: a06cd30 (v2.0.0+)
+Upstream HEAD: 1142f3e (v2.0.1)
 Commits since bookmark: 47
 ```
 
@@ -675,6 +664,18 @@ npm run upstream:mark       # Update bookmark after review
 ---
 
 ## Changelog
+
+### 2026-01-11 (v2.0.1 + stopReason fix)
+
+- **v2.0.1 Released**: Upstream released v2.0.1 with critical stopReason fix
+- **stopReason Bug FIXED**: Implemented fix from upstream commit 325acdb
+  - Changed `let stopReason = "end_turn"` to `let stopReason: string | null = null`
+  - Added `&& !stopReason` check in finish reason handling
+  - Changed final `stopReason` to `stopReason || "end_turn"`
+- **PR #94 Merged**: WebUI health checks (not applicable to us)
+- Updated test to verify tool_use is preserved when finishReason is STOP
+- Updated all "FIX REQUIRED" markers to "IMPLEMENTED"
+- Now 12 features implemented from upstream
 
 ### 2026-01-10 (community insights)
 

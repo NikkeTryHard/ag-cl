@@ -504,6 +504,105 @@ if (firstCandidate?.finishReason) {
 
 ---
 
+## Known Limitations
+
+These are inherent limitations of the Cloud Code API, not bugs in the proxy:
+
+### WebSearch Tool (Issue #27)
+
+**Problem**: Claude Code's WebSearch tool always returns 0 results.
+
+**Cause**: WebSearch uses Anthropic's internal APIs, not the proxied endpoint. The proxy cannot intercept or replace this functionality.
+
+**Status**: **NOT FIXABLE** - Inherent to Claude Code architecture.
+
+**Workaround**: Use external search tools or MCP-based web search.
+
+### Skills/Plugins Persistence (Issue #34)
+
+**Problem**: Installed skills disappear after closing Claude Code.
+
+**Cause**: Claude Code session state issue, not proxy-related.
+
+**Status**: **NOT PROXY ISSUE** - Claude Code behavior.
+
+**Workaround**: Clear cache and reinstall, or persist skills manually.
+
+### Image Processing (Issue #22)
+
+**Problem**: Claude Code unable to process images with some models.
+
+**Cause**: Image handling varies between model families. Gemini and Claude have different image format requirements.
+
+**Status**: **MOSTLY WORKS** - Basic image processing works, edge cases may fail.
+
+### Account Suspension Risk (Issue #59)
+
+**Question**: Can Google ban accounts for using this proxy?
+
+**Answer from maintainer**: "I don't think Google will ban, but for safety create a burner account and add it to your family plan."
+
+**Recommendation**: Use separate/burner accounts, respect rate limits, don't abuse the service.
+
+### Proto Field Errors (Issue #6)
+
+**Problem**: `Proto field is not repeating, cannot start list` errors.
+
+**Cause**: Tool schema types sent as lowercase instead of uppercase.
+
+**Status**: **FIXED** in PR #83 - Schema uppercase conversion implemented.
+
+### Cross-Model Resume (Issue #18)
+
+**Problem**: "Corrupted thought signature" error when switching from Claude to Gemini mid-conversation.
+
+**Cause**: Gemini requires thought signatures that Claude doesn't generate. Signatures are model-family specific.
+
+**Status**: **FIXED** in v1.2.6 - `stripInvalidThinkingBlocks()` and `closeToolLoopForThinking()` handle this.
+
+---
+
+## Community Insights
+
+Tips and workarounds from community discussions:
+
+### 1M Context Window (Issue #53)
+
+Use `[1m]` suffix in model names to tell Claude Code the model has 1M context:
+
+```
+gemini-3-pro-high [1m]
+gemini-3-flash [1m]
+```
+
+This prevents excessive auto-compaction.
+
+### VPN Location Matters (Issue #59)
+
+Some users report better results with US-based VPNs vs other regions. Japan VPN caused 429 errors for one user while US worked fine.
+
+### Export Before Model Switch (Issue #18)
+
+Use `/export` to copy message history before switching model families. Paste into new chat to preserve context.
+
+### Multiple Claude Code Instances (Issue #75)
+
+Run multiple instances on different ports:
+
+```bash
+# Terminal 1
+PORT=8080 npm start
+
+# Terminal 2
+PORT=8081 npm start
+```
+
+### Rate Limit Recovery (Issue #78)
+
+429 errors on launch are expected if you exhausted quota in previous session. Wait for reset or use different model.
+
+---
+
 ## Recommendations
 
 ### Completed ✅
@@ -576,6 +675,14 @@ npm run upstream:mark       # Update bookmark after review
 ---
 
 ## Changelog
+
+### 2026-01-10 (community insights)
+
+- Added Known Limitations section (5 items: WebSearch, Skills, Images, Bans, Proto)
+- Added Community Insights section (5 tips from issue discussions)
+- Added Cross-Model Resume documentation (Issue #18 - fixed)
+- Analyzed 50+ closed issues for patterns
+- VPN location, 1M context, export workarounds documented
 
 ### 2026-01-10 (exhaustive investigation)
 

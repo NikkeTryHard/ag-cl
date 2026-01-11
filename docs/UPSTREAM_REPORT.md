@@ -239,6 +239,43 @@ if (firstCandidate?.finishReason) {
 
 ---
 
+### Historical Merged PRs (Pre-v2.0.0)
+
+| PR  | Title                                                    | Merged     | Our Status                  |
+| --- | -------------------------------------------------------- | ---------- | --------------------------- |
+| #55 | fix(oauth): add UTF-8 encoding to callback HTML pages    | 2026-01-06 | **IMPLEMENTED** ✅          |
+| #54 | feat: Add automatic native module rebuild                | 2026-01-06 | Not applicable (TypeScript) |
+| #50 | feat: add --no-browser OAuth mode for headless servers   | 2026-01-04 | **IMPLEMENTED** ✅          |
+| #41 | Feature/model fallback                                   | 2026-01-03 | **IMPLEMENTED** ✅          |
+| #37 | Selective fixes: Model-specific rate limits & robustness | 2026-01-03 | **IMPLEMENTED** ✅          |
+| #29 | Improve logging, rate limiting, and error handling       | 2026-01-01 | **IMPLEMENTED** ✅          |
+| #13 | Add count_tokens stub                                    | 2025-12-29 | **IMPLEMENTED** ✅          |
+| #1  | Add Linux support with cross-platform database path      | 2025-12-25 | **IMPLEMENTED** ✅          |
+
+### PR #37: Model-Specific Rate Limits (MERGED - IMPLEMENTED)
+
+**Key Features**:
+
+1. **Per-model rate tracking**: `modelRateLimits[modelId]` instead of global
+2. **Network error detection**: `isNetworkError()` with auto-retry
+3. **Enhanced health endpoints**: `/health` and `/account-limits` with model quotas
+4. **Validation**: `max_tokens > thinking_budget` with auto-adjustment
+
+**Our Status**: All features implemented in our TypeScript codebase.
+
+### PR #29: Logging & Rate Limit Improvements (MERGED - IMPLEMENTED)
+
+**Key Features**:
+
+1. **Logger utility**: Colored, structured logging with `--debug` mode
+2. **Rate limit parsing**: `quotaResetDelay` and `quotaResetTimeStamp` formats
+3. **5xx handling**: 1s wait before retry, failover on persistent errors
+4. **Sticky account fix**: Prioritize available accounts over rate-limited sticky
+
+**Our Status**: All features implemented.
+
+---
+
 ## Open Issues
 
 ### New Issues (Since Last Report)
@@ -383,6 +420,16 @@ if (firstCandidate?.finishReason) {
 
 ## Code Structure Comparison
 
+### Known Bugs & Workarounds
+
+| Bug                          | Upstream Status               | Our Status             | Workaround                       |
+| ---------------------------- | ----------------------------- | ---------------------- | -------------------------------- |
+| stopReason override (PR #96) | Closed without fix            | **NEEDS FIX**          | Initialize `stopReason = null`   |
+| Image interleaving (PR #79)  | Closed without fix            | Same bug likely exists | Avoid multiple images in results |
+| Tool concurrency (Issue #91) | Open                          | Monitoring             | Use sequential tool calls        |
+| 403 PERMISSION_DENIED (#80)  | Account-specific              | N/A                    | Contact Google support           |
+| Cross-model signature (#42)  | Closed (manual fix suggested) | **IMPLEMENTED** ✅     | `stripInvalidThinkingBlocks()`   |
+
 ### File Structure
 
 | Upstream (JavaScript)              | Our Project (TypeScript)           | Notes               |
@@ -424,6 +471,36 @@ if (firstCandidate?.finishReason) {
 | `isRateLimitError()`           | ✅       | ✅  | Same detection     |
 | `isAuthError()`                | ✅       | ✅  | Same detection     |
 | `isEmptyResponseError()`       | ✅       | ✅  | Same detection     |
+
+### Constants Comparison
+
+| Constant                     | Upstream        | Us                   | Notes                    |
+| ---------------------------- | --------------- | -------------------- | ------------------------ |
+| `DEFAULT_COOLDOWN_MS`        | 10s (config)    | 10s                  | ✅ Match                 |
+| `MAX_RETRIES`                | 5 (config)      | 5                    | ✅ Match                 |
+| `MAX_EMPTY_RESPONSE_RETRIES` | 2               | 2 (env configurable) | ✅ Match (we add config) |
+| `MAX_WAIT_BEFORE_ERROR_MS`   | 120000 (config) | 120000               | ✅ Match                 |
+| `TOKEN_REFRESH_INTERVAL_MS`  | 5min (config)   | 5min                 | ✅ Match                 |
+| `GEMINI_SIGNATURE_CACHE_TTL` | 2 hours         | 2 hours              | ✅ Match                 |
+| `MIN_SIGNATURE_LENGTH`       | 50              | 50                   | ✅ Match                 |
+| `GEMINI_MAX_OUTPUT_TOKENS`   | 16384           | 16384                | ✅ Match                 |
+| `RATE_LIMIT_BUFFER_MS`       | N/A             | 500                  | We added this            |
+| `RETRY_DELAY_MS`             | N/A             | 1000                 | We extracted constant    |
+| `OAUTH_FETCH_TIMEOUT_MS`     | N/A             | 15000                | We added timeout         |
+| `AUTO_REFRESH_INTERVAL_MS`   | N/A             | 5 hours              | We added auto-refresh    |
+
+### Features Unique to Us
+
+| Feature                    | Implementation              | Notes                          |
+| -------------------------- | --------------------------- | ------------------------------ |
+| Scheduling modes           | `VALID_SCHEDULING_MODES`    | sticky, refresh-priority, etc. |
+| SQLite quota storage       | `quota-storage.ts`          | Persistent snapshots           |
+| Burn rate calculation      | `burn-rate.ts`              | Usage analytics                |
+| TUI interface              | React/Ink                   | Alternative to WebUI           |
+| TypeScript types           | Full type safety            | Better DX                      |
+| Comprehensive test suite   | 1,767 tests                 | Unit, fuzz, contract, etc.     |
+| Discriminated unions       | `FallbackDecision` type     | Type-safe decisions            |
+| Configurable empty retries | `MAX_EMPTY_RETRIES` env var | Flexibility                    |
 
 ---
 
@@ -499,6 +576,17 @@ npm run upstream:mark       # Update bookmark after review
 ---
 
 ## Changelog
+
+### 2026-01-10 (exhaustive investigation)
+
+- Added Historical Merged PRs section (PRs #1-#55)
+- Added Known Bugs & Workarounds table
+- Added Constants Comparison table (all values match upstream)
+- Added Features Unique to Us section
+- Documented PR #37 (model-specific rate limits) - all features implemented
+- Documented PR #29 (logging improvements) - all features implemented
+- Issue #80 (403 errors) - account-specific, not a proxy bug
+- Updated Implementation Status to 15+ features
 
 ### 2026-01-10 (deep investigation)
 

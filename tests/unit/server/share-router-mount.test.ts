@@ -28,34 +28,35 @@ describe("Share router mounting", () => {
     config.auth.enabled = false; // Disable auth for test
 
     app.use(express.json());
-    app.use(
-      "/share",
-      createShareRouter({
-        getConfig: () => config,
-        getQuotaData: () => ({
-          accounts: [],
-          claudeCapacity: {
-            family: "claude" as const,
-            totalPercentage: 80,
-            accountCount: 1,
-            status: "stable" as const,
-            hoursToExhaustion: null,
-            ratePerHour: null,
-          },
-          geminiCapacity: {
-            family: "gemini" as const,
-            totalPercentage: 60,
-            accountCount: 1,
-            status: "stable" as const,
-            hoursToExhaustion: null,
-            ratePerHour: null,
-          },
-        }),
+    const handle = createShareRouter({
+      getConfig: () => config,
+      getQuotaData: () => ({
+        accounts: [],
+        claudeCapacity: {
+          family: "claude" as const,
+          totalPercentage: 80,
+          accountCount: 1,
+          status: "stable" as const,
+          hoursToExhaustion: null,
+          ratePerHour: null,
+        },
+        geminiCapacity: {
+          family: "gemini" as const,
+          totalPercentage: 60,
+          accountCount: 1,
+          status: "stable" as const,
+          hoursToExhaustion: null,
+          ratePerHour: null,
+        },
       }),
-    );
+    });
+    app.use("/share", handle.router);
 
     const res = await request(app).get("/share/status");
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("ok");
+
+    // Cleanup interval
+    handle.cleanup();
   });
 });

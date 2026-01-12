@@ -127,9 +127,10 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
   const copyUrl = useCallback(() => {
     if (!hostState.tunnelUrl) return;
 
-    clipboard.write(hostState.tunnelUrl).catch((error: Error) => {
+    clipboard.write(hostState.tunnelUrl).catch((error: unknown) => {
       // Silently fail - clipboard not critical
-      console.error("Failed to copy to clipboard:", error.message);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Failed to copy to clipboard:", message);
     });
   }, [hostState.tunnelUrl]);
 

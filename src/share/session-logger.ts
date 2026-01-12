@@ -48,11 +48,18 @@ export class SessionLogger {
   }
 
   /**
-   * Log multiple entries
+   * Log multiple entries in a single write
    */
   async logAll(entries: SessionLogEntry[]): Promise<void> {
-    for (const entry of entries) {
-      await this.log(entry);
-    }
+    if (entries.length === 0) return;
+
+    const lines = entries.map((entry) => {
+      const duration = entry.disconnectedAt ? entry.disconnectedAt - entry.connectedAt : Date.now() - entry.connectedAt;
+
+      return [formatTimestamp(entry.disconnectedAt ?? Date.now()), entry.nickname ?? entry.keyMasked, `key=${entry.keyMasked}`, `duration=${formatDuration(duration)}`, `polls=${entry.pollCount}`, `connected=${formatTimestamp(entry.connectedAt)}`].join(" | ");
+    });
+
+    await mkdir(dirname(this.logPath), { recursive: true });
+    await appendFile(this.logPath, lines.join("\n") + "\n", "utf-8");
   }
 }

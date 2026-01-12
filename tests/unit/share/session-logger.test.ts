@@ -100,4 +100,17 @@ describe("SessionLogger", () => {
     const content = await readFile(nestedPath, "utf-8");
     expect(content).toContain("test");
   });
+
+  it("batches multiple entries into single write", async () => {
+    const entries: SessionLogEntry[] = [
+      { clientId: "1", keyMasked: "key1", nickname: null, connectedAt: 1000, disconnectedAt: 2000, pollCount: 5 },
+      { clientId: "2", keyMasked: "key2", nickname: "user", connectedAt: 3000, disconnectedAt: 4000, pollCount: 10 },
+    ];
+
+    await logger.logAll(entries);
+
+    const content = await readFile(logPath, "utf-8");
+    const lines = content.trim().split("\n");
+    expect(lines).toHaveLength(2);
+  });
 });

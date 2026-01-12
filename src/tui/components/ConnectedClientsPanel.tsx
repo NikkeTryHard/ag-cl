@@ -7,19 +7,11 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { ConnectedClient } from "../../share/types.js";
+import { formatTimeAgo } from "../utils/formatTimeAgo.js";
 
 export interface ConnectedClientsPanelProps {
   clients: ConnectedClient[];
   maxClients: number;
-}
-
-function formatTimeAgo(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return `${String(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${String(minutes)}m`;
-  const hours = Math.floor(minutes / 60);
-  return `${String(hours)}h`;
 }
 
 export function ConnectedClientsPanel({ clients, maxClients }: ConnectedClientsPanelProps): React.ReactElement {
@@ -39,7 +31,7 @@ export function ConnectedClientsPanel({ clients, maxClients }: ConnectedClientsP
           <Box key={client.id} marginBottom={0}>
             <Text color="cyan">{client.nickname ?? client.key}</Text>
             <Text dimColor> — connected </Text>
-            <Text>{formatTimeAgo(client.connectedAt)}</Text>
+            <Text>{formatTimeAgo(client.connectedAt, true)}</Text>
             <Text dimColor> ago</Text>
             <Text dimColor> • </Text>
             <Text dimColor>{client.pollCount} polls</Text>

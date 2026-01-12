@@ -131,6 +131,7 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
   }, [hostState.tunnelUrl]);
 
   // Connect to remote (client mode)
+  // Note: This sets initial state. Use useShareClient hook for actual HTTP polling.
   const connectTo = useCallback((url: string, _apiKey: string, _nickname?: string) => {
     setMode("client");
     setClientState((prev) => ({
@@ -139,8 +140,6 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
       remoteUrl: url,
       error: null,
     }));
-
-    // TODO: Implement actual connection logic in Task 12
   }, []);
 
   // Disconnect from remote
@@ -155,6 +154,9 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
       lastPollAt: null,
     });
   }, []);
+
+  // Note: For full client mode functionality (polling, reconnection),
+  // integrate useShareClient hook at the component level (e.g., in app.tsx)
 
   // Update config
   const updateConfig = useCallback(

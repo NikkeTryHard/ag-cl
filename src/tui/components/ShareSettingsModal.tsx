@@ -67,6 +67,25 @@ export function ShareSettingsModal({ config, onUpdate, onClose }: ShareSettingsM
           visibility: { ...config.visibility, [key]: !config.visibility[key] },
         });
       }
+    } else {
+      // Limits are numeric values - cycle through predefined options
+      if (selectedIndex === 0) {
+        // Cycle max clients: 1 -> 3 -> 5 -> 10 -> 1
+        const options = [1, 3, 5, 10];
+        const currentIdx = options.indexOf(config.limits.maxClients);
+        const nextIdx = (currentIdx + 1) % options.length;
+        await onUpdate({
+          limits: { ...config.limits, maxClients: options[nextIdx] },
+        });
+      } else if (selectedIndex === 1) {
+        // Cycle poll interval: 5 -> 10 -> 30 -> 60 -> 5
+        const options = [5, 10, 30, 60];
+        const currentIdx = options.indexOf(config.limits.pollIntervalSeconds);
+        const nextIdx = (currentIdx + 1) % options.length;
+        await onUpdate({
+          limits: { ...config.limits, pollIntervalSeconds: options[nextIdx] },
+        });
+      }
     }
   }, [activeSection, selectedIndex, config, onUpdate]);
 

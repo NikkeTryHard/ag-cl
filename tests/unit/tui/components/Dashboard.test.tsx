@@ -56,4 +56,57 @@ describe("Dashboard", () => {
     expect(output).toContain("No accounts configured");
     expect(output).toContain("[a]");
   });
+
+  describe("share mode display", () => {
+    const baseProps = {
+      version: "1.0.0",
+      serverState: { running: true, port: 8080 },
+      claudeCapacity: { family: "claude" as const, totalPercentage: 100, accountCount: 1, status: "stable" as const, hoursToExhaustion: null, ratePerHour: null },
+      geminiCapacity: { family: "gemini" as const, totalPercentage: 100, accountCount: 1, status: "stable" as const, hoursToExhaustion: null, ratePerHour: null },
+      accountCount: 1,
+    };
+
+    it("shows [S]hare [C]onnect hotkeys in normal mode", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareMode="normal" />);
+      const output = lastFrame();
+      expect(output).toContain("[S]");
+      expect(output).toContain("hare");
+      expect(output).toContain("[C]");
+      expect(output).toContain("onnect");
+    });
+
+    it("shows Starting tunnel... when shareStarting is true", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareMode="normal" shareStarting={true} />);
+      const output = lastFrame();
+      expect(output).toContain("Starting tunnel...");
+    });
+
+    it("shows Sharing active in host mode", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareMode="host" />);
+      const output = lastFrame();
+      expect(output).toContain("Sharing active");
+      expect(output).toContain("[D]");
+      expect(output).toContain("[Y]");
+    });
+
+    it("shows Connected to remote in client mode", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareMode="client" />);
+      const output = lastFrame();
+      expect(output).toContain("Connected to remote");
+      expect(output).toContain("[D]");
+    });
+
+    it("does not show [Y]copy in client mode", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareMode="client" />);
+      const output = lastFrame();
+      expect(output).not.toContain("[Y]");
+    });
+
+    it("does not show [S]hare [C]onnect in host mode", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareMode="host" />);
+      const output = lastFrame();
+      expect(output).not.toContain("[S]");
+      expect(output).not.toContain("[C]onnect");
+    });
+  });
 });

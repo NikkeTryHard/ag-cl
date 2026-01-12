@@ -17,15 +17,19 @@ vi.mock("../../../src/cloudcode/auto-refresh-scheduler.js", () => ({
 import { getAccountRefreshStates } from "../../../src/cloudcode/auto-refresh-scheduler.js";
 const mockGetAccountRefreshStates = vi.mocked(getAccountRefreshStates);
 
+// Fixed base time for deterministic tests - avoids flakiness from Date.now() variations
+const BASE_TIME = 1700000000000; // Fixed timestamp for test reproducibility
+
 /**
- * Helper to create an AccountRefreshState for testing
+ * Helper to create an AccountRefreshState for testing.
+ * Uses BASE_TIME for deterministic values instead of Date.now().
  */
 function createRefreshState(overrides: Partial<AccountRefreshState> = {}): AccountRefreshState {
   return {
     email: "test@example.com",
-    lastChecked: Date.now(),
+    lastChecked: BASE_TIME,
     lastTriggered: null,
-    fetchedAt: Date.now(),
+    fetchedAt: BASE_TIME,
     claudePercentage: 100,
     geminiProPercentage: 100,
     geminiFlashPercentage: 100,
@@ -47,13 +51,18 @@ function createRefreshState(overrides: Partial<AccountRefreshState> = {}): Accou
 describe("selection", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Set a fixed time for deterministic test behavior - prevents race conditions
+    // from different Date.now() values between test setup and assertions
+    vi.setSystemTime(BASE_TIME);
     mockGetAccountRefreshStates.mockReturnValue([]);
     resetRoundRobinIndex();
   });
 
   afterEach(() => {
+    // Reset round-robin index explicitly to ensure clean state for next test
+    resetRoundRobinIndex();
     vi.useRealTimers();
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("pickNext", () => {

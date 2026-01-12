@@ -108,5 +108,12 @@ describe("Dashboard", () => {
       expect(output).not.toContain("[S]");
       expect(output).not.toContain("[C]onnect");
     });
+
+    it("shows error message when shareError is provided", () => {
+      const { lastFrame } = render(<Dashboard {...baseProps} shareError="cloudflared is not installed" />);
+      const output = lastFrame();
+      expect(output).toContain("Error:");
+      expect(output).toContain("cloudflared is not installed");
+    });
   });
 });

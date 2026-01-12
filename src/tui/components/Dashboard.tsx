@@ -24,6 +24,7 @@ interface DashboardProps {
   lastAutoRefresh?: number | null;
   shareMode?: "normal" | "host" | "client";
   shareStarting?: boolean;
+  shareError?: string | null;
 }
 
 // ASCII banner letters from "Impossible" figlet font
@@ -64,7 +65,7 @@ function Banner(): React.ReactElement {
   );
 }
 
-export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing, autoRefreshRunning, lastAutoRefresh, shareMode = "normal", shareStarting = false }: DashboardProps): React.ReactElement {
+export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing, autoRefreshRunning, lastAutoRefresh, shareMode = "normal", shareStarting = false, shareError = null }: DashboardProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const barWidth = Math.max(20, Math.min(50, width - 40));
 
@@ -108,6 +109,11 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
       )}
 
       {/* Share mode status */}
+      {shareError && (
+        <Box marginTop={1}>
+          <Text color="red">Error: {shareError}</Text>
+        </Box>
+      )}
       {shareStarting && (
         <Box marginTop={1}>
           <Text color="yellow">Starting tunnel...</Text>

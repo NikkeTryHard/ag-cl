@@ -326,7 +326,7 @@ function App(): React.ReactElement {
   return (
     <Box flexDirection="column">
       {shareState.mode !== "normal" && <ShareStatusBar mode={shareState.mode} tunnelUrl={shareState.hostState.tunnelUrl} clientCount={shareState.hostState.connectedClients.length} remoteUrl={shareState.clientState.remoteUrl} hostNickname={shareState.clientState.hostNickname} reconnecting={shareState.clientState.reconnecting} copied={copiedFeedback} />}
-      <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} shareMode={shareState.mode} shareStarting={shareStarting} />
+      <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} shareMode={shareState.mode} shareStarting={shareStarting} shareError={shareState.error} />
       {shareState.mode === "host" && <ConnectedClientsPanel clients={shareState.hostState.connectedClients} maxClients={shareState.config.limits.maxClients} />}
     </Box>
   );

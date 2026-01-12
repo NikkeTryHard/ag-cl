@@ -15,22 +15,22 @@ export interface SessionHistoryPanelProps {
 
 function formatTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) return `${String(seconds)}s ago`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${String(minutes)}m ago`;
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return `${String(hours)}h ago`;
 }
 
 function formatDuration(start: number, end: number | null): string {
   const duration = (end ?? Date.now()) - start;
   const seconds = Math.floor(duration / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return `${String(seconds)}s`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return `${String(minutes)}m`;
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  return remainingMinutes > 0 ? `${String(hours)}h ${String(remainingMinutes)}m` : `${String(hours)}h`;
 }
 
 export function SessionHistoryPanel({ sessions, maxDisplay = 10 }: SessionHistoryPanelProps): React.ReactElement {
@@ -48,7 +48,7 @@ export function SessionHistoryPanel({ sessions, maxDisplay = 10 }: SessionHistor
         <Text dimColor>No session history</Text>
       ) : (
         sortedSessions.map((session, index) => (
-          <Box key={session.clientId + index} marginBottom={0}>
+          <Box key={`${session.clientId}-${String(index)}`} marginBottom={0}>
             <Text color="cyan">{session.nickname ?? session.keyMasked}</Text>
             <Text dimColor> — </Text>
             <Text>{formatDuration(session.connectedAt, session.disconnectedAt)}</Text>

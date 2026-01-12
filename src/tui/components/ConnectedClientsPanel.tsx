@@ -15,11 +15,11 @@ export interface ConnectedClientsPanelProps {
 
 function formatTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return `${String(seconds)}s`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return `${String(minutes)}m`;
   const hours = Math.floor(minutes / 60);
-  return `${hours}h`;
+  return `${String(hours)}h`;
 }
 
 export function ConnectedClientsPanel({ clients, maxClients }: ConnectedClientsPanelProps): React.ReactElement {

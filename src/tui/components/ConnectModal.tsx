@@ -52,17 +52,33 @@ export function ConnectModal({ onConnect, onClose, error, connecting = false }: 
     }
 
     if (key.backspace || key.delete) {
-      if (activeField === "url") setUrl((prev) => prev.slice(0, -1));
-      else if (activeField === "apiKey") setApiKey((prev) => prev.slice(0, -1));
-      else if (activeField === "nickname") setNickname((prev) => prev.slice(0, -1));
+      switch (activeField) {
+        case "url":
+          setUrl((prev) => prev.slice(0, -1));
+          break;
+        case "apiKey":
+          setApiKey((prev) => prev.slice(0, -1));
+          break;
+        case "nickname":
+          setNickname((prev) => prev.slice(0, -1));
+          break;
+      }
       return;
     }
 
     // Regular character input
     if (input && !key.ctrl && !key.meta) {
-      if (activeField === "url") setUrl((prev) => prev + input);
-      else if (activeField === "apiKey") setApiKey((prev) => prev + input);
-      else if (activeField === "nickname") setNickname((prev) => prev + input);
+      switch (activeField) {
+        case "url":
+          setUrl((prev) => prev + input);
+          break;
+        case "apiKey":
+          setApiKey((prev) => prev + input);
+          break;
+        case "nickname":
+          setNickname((prev) => prev + input);
+          break;
+      }
     }
   });
 

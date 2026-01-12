@@ -42,31 +42,28 @@ export function ShareStatusBar({ mode, tunnelUrl, clientCount = 0, remoteUrl, ho
     );
   }
 
-  if (mode === "client") {
-    const displayName = hostNickname ?? remoteUrl?.replace("https://", "") ?? "remote";
+  // At this point, mode must be "client" since we returned for "normal" and "host"
+  const displayName = hostNickname ?? remoteUrl?.replace("https://", "") ?? "remote";
 
-    return (
-      <Box>
-        <Text bold color="blue">
-          {reconnecting ? " RECONNECTING " : " CONNECTED "}
-        </Text>
-        <Text dimColor> | </Text>
-        <Text>viewing {displayName}'s quotas</Text>
-        {reconnecting && (
-          <>
-            <Text dimColor> | </Text>
-            <Text color="yellow">*</Text>
-          </>
-        )}
-        {!reconnecting && (
-          <>
-            <Text dimColor> | </Text>
-            <Text color="green">* Live</Text>
-          </>
-        )}
-      </Box>
-    );
-  }
-
-  return null;
+  return (
+    <Box>
+      <Text bold color="blue">
+        {reconnecting ? " RECONNECTING " : " CONNECTED "}
+      </Text>
+      <Text dimColor> | </Text>
+      <Text>viewing {displayName}'s quotas</Text>
+      {reconnecting && (
+        <>
+          <Text dimColor> | </Text>
+          <Text color="yellow">*</Text>
+        </>
+      )}
+      {!reconnecting && (
+        <>
+          <Text dimColor> | </Text>
+          <Text color="green">* Live</Text>
+        </>
+      )}
+    </Box>
+  );
 }

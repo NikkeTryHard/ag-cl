@@ -61,8 +61,8 @@ export function ShareSettingsModal({ config, onUpdate, onClose }: ShareSettingsM
       }
     } else if (activeSection === "visibility") {
       const keys: (keyof typeof config.visibility)[] = ["showAccountEmails", "showIndividualAccounts", "showModelBreakdown", "showBurnRate"];
-      const key = keys[selectedIndex];
-      if (key) {
+      const key = keys[selectedIndex] as keyof typeof config.visibility | undefined;
+      if (key !== undefined) {
         await onUpdate({
           visibility: { ...config.visibility, [key]: !config.visibility[key] },
         });

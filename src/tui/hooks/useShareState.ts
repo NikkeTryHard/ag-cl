@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { exec } from "child_process";
 import { TunnelManager, checkCloudflaredInstalled } from "../../share/tunnel.js";
 import { loadShareConfig, saveShareConfig, getDefaultShareConfig } from "../../share/config-storage.js";
 import { SHARE_CONFIG_PATH } from "../../constants.js";
@@ -124,10 +125,29 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
 
   // Copy URL to clipboard
   const copyUrl = useCallback(() => {
-    if (hostState.tunnelUrl) {
-      // In Node.js environment, we'll emit an event for the TUI to handle
-      // The actual clipboard copy happens in the component
+    if (!hostState.tunnelUrl) return;
+
+    const url = hostState.tunnelUrl;
+    // Escape any potential shell metacharacters by removing quotes
+    const safeUrl = url.replace(/"/g, "");
+    const platform = process.platform;
+
+    let command: string;
+    if (platform === "darwin") {
+      command = `echo "${safeUrl}" | pbcopy`;
+    } else if (platform === "win32") {
+      command = `echo "${safeUrl}" | clip`;
+    } else {
+      // Linux - try xclip, fall back to xsel
+      command = `echo "${safeUrl}" | xclip -selection clipboard 2>/dev/null || echo "${safeUrl}" | xsel --clipboard`;
     }
+
+    exec(command, (error) => {
+      if (error) {
+        // Silently fail - clipboard not critical
+        console.error("Failed to copy to clipboard:", error.message);
+      }
+    });
   }, [hostState.tunnelUrl]);
 
   // Connect to remote (client mode)

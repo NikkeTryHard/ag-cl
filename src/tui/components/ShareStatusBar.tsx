@@ -15,9 +15,10 @@ export interface ShareStatusBarProps {
   remoteUrl?: string | null;
   hostNickname?: string | null;
   reconnecting?: boolean;
+  copied?: boolean;
 }
 
-export function ShareStatusBar({ mode, tunnelUrl, clientCount = 0, remoteUrl, hostNickname, reconnecting = false }: ShareStatusBarProps): React.ReactElement | null {
+export function ShareStatusBar({ mode, tunnelUrl, clientCount = 0, remoteUrl, hostNickname, reconnecting = false, copied = false }: ShareStatusBarProps): React.ReactElement | null {
   if (mode === "normal") {
     return null;
   }
@@ -37,7 +38,7 @@ export function ShareStatusBar({ mode, tunnelUrl, clientCount = 0, remoteUrl, ho
           {clientCount} client{clientCount !== 1 ? "s" : ""}
         </Text>
         <Text dimColor> | </Text>
-        <Text dimColor>[Y] Copy</Text>
+        {copied ? <Text color="green"> Copied!</Text> : <Text dimColor>[Y] Copy</Text>}
       </Box>
     );
   }

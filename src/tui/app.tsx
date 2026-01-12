@@ -41,6 +41,7 @@ function App(): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
+  const [copiedFeedback, setCopiedFeedback] = useState(false);
 
   // Use a ref to track modal state for the input handler
   // This ensures the handler always sees the latest modal state
@@ -177,6 +178,10 @@ function App(): React.ReactElement {
       // Copy URL (only in host mode with valid URL)
       if (shareState.mode === "host" && shareState.hostState.tunnelUrl) {
         shareState.copyUrl();
+        setCopiedFeedback(true);
+        setTimeout(() => {
+          setCopiedFeedback(false);
+        }, 2000);
       }
       return;
     }
@@ -297,7 +302,7 @@ function App(): React.ReactElement {
   // Dashboard view with share status
   return (
     <Box flexDirection="column">
-      {shareState.mode !== "normal" && <ShareStatusBar mode={shareState.mode} tunnelUrl={shareState.hostState.tunnelUrl} clientCount={shareState.hostState.connectedClients.length} remoteUrl={shareState.clientState.remoteUrl} hostNickname={shareState.clientState.hostNickname} reconnecting={shareState.clientState.reconnecting} />}
+      {shareState.mode !== "normal" && <ShareStatusBar mode={shareState.mode} tunnelUrl={shareState.hostState.tunnelUrl} clientCount={shareState.hostState.connectedClients.length} remoteUrl={shareState.clientState.remoteUrl} hostNickname={shareState.clientState.hostNickname} reconnecting={shareState.clientState.reconnecting} copied={copiedFeedback} />}
       <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} />
       {shareState.mode === "host" && <ConnectedClientsPanel clients={shareState.hostState.connectedClients} maxClients={shareState.config.limits.maxClients} />}
     </Box>

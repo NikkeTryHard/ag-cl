@@ -15,11 +15,16 @@ import { AddAccountModal } from "./components/AddAccountModal.js";
 import { ServerLogsModal } from "./components/ServerLogsModal.js";
 import { PortInputModal } from "./components/PortInputModal.js";
 import { SettingsModal } from "./components/SettingsModal.js";
+import { ShareStatusBar } from "./components/ShareStatusBar.js";
+import { ConnectModal } from "./components/ConnectModal.js";
+import { ShareSettingsModal } from "./components/ShareSettingsModal.js";
+import { ConnectedClientsPanel } from "./components/ConnectedClientsPanel.js";
 import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
 import { useCommands } from "./hooks/useCommands.js";
 import { useSettings } from "./hooks/useSettings.js";
 import { useAutoRefresh } from "./hooks/useAutoRefresh.js";
+import { useShareState } from "./hooks/useShareState.js";
 import { createLogBufferDestination } from "./hooks/useLogBuffer.js";
 import { isDemoMode, getDemoAccounts, getDemoClaudeCapacity, getDemoGeminiCapacity, initDemoLogs } from "./demo.js";
 import { initLogger } from "../utils/logger.js";
@@ -57,6 +62,9 @@ function App(): React.ReactElement {
 
   // Auto-refresh scheduler (tied to app lifecycle, not server)
   const autoRefreshState = useAutoRefresh({ settings, demoMode });
+
+  // Share mode state
+  const shareState = useShareState({ port: serverState.port });
 
   const realCapacity = useCapacity();
 
@@ -136,6 +144,43 @@ function App(): React.ReactElement {
       return;
     }
 
+    // Share mode shortcuts (uppercase = shift held)
+    if (input === "S") {
+      // Toggle sharing
+      if (shareState.mode === "host") {
+        shareState.stopSharing();
+      } else if (shareState.mode === "normal" && serverState.running) {
+        void shareState.startSharing();
+      }
+      return;
+    }
+
+    if (input === "C") {
+      // Open connect modal (only in normal mode)
+      if (shareState.mode === "normal") {
+        setModal({ type: "connect" });
+      }
+      return;
+    }
+
+    if (input === "D") {
+      // Disconnect
+      if (shareState.mode === "client") {
+        shareState.disconnect();
+      } else if (shareState.mode === "host") {
+        shareState.stopSharing();
+      }
+      return;
+    }
+
+    if (input === "Y" || input === "y") {
+      // Copy URL (only in host mode with valid URL)
+      if (shareState.mode === "host" && shareState.hostState.tunnelUrl) {
+        shareState.copyUrl();
+      }
+      return;
+    }
+
     // Quick shortcuts
     if (input === "a") {
       setModal({ type: "accounts" });
@@ -153,8 +198,10 @@ function App(): React.ReactElement {
       setModal({ type: "change-port" });
     } else if (input === "o") {
       setModal({ type: "settings" });
-    } else if (input === "?" || input === "h") {
-      // ? or h opens command palette for help
+    } else if (input === "?") {
+      setModal({ type: "share-settings" });
+    } else if (input === "h") {
+      // h opens command palette for help
       modalControls.open("command-palette");
     }
   });
@@ -229,8 +276,32 @@ function App(): React.ReactElement {
     return <CommandPalette commands={commands} onSelect={handleSelectCommand} onClose={modalControls.close} />;
   }
 
-  // Dashboard view
-  return <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} />;
+  if (modal.type === "share-settings") {
+    return <ShareSettingsModal config={shareState.config} onUpdate={shareState.updateConfig} onClose={modalControls.close} />;
+  }
+
+  if (modal.type === "connect") {
+    return (
+      <ConnectModal
+        onConnect={async (url, apiKey, nickname) => {
+          await shareState.connectTo(url, apiKey, nickname);
+          modalControls.close();
+        }}
+        onClose={modalControls.close}
+        error={shareState.error}
+        connecting={shareState.clientState.reconnecting}
+      />
+    );
+  }
+
+  // Dashboard view with share status
+  return (
+    <Box flexDirection="column">
+      {shareState.mode !== "normal" && <ShareStatusBar mode={shareState.mode} tunnelUrl={shareState.hostState.tunnelUrl} clientCount={shareState.hostState.connectedClients.length} remoteUrl={shareState.clientState.remoteUrl} hostNickname={shareState.clientState.hostNickname} reconnecting={shareState.clientState.reconnecting} />}
+      <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} />
+      {shareState.mode === "host" && <ConnectedClientsPanel clients={shareState.hostState.connectedClients} maxClients={shareState.config.limits.maxClients} />}
+    </Box>
+  );
 }
 
 export function startTUI(): void {

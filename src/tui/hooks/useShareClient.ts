@@ -161,7 +161,9 @@ export function useShareClient(): UseShareClientResult {
           "x-api-key": apiKeyRef.current ?? "",
           "x-client-id": clientId,
         },
-      }).catch(() => {});
+      }).catch(() => {
+        // Intentionally ignoring disconnect errors - fire and forget
+      });
     }
 
     setConnected(false);

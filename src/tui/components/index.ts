@@ -8,3 +8,4 @@ export { Dashboard } from "./Dashboard.js";
 export { SettingsModal } from "./SettingsModal.js";
 export { ShareStatusBar } from "./ShareStatusBar.js";
 export { StatusIndicator } from "./StatusIndicator.js";
+export { ConnectedClientsPanel } from "./ConnectedClientsPanel.js";

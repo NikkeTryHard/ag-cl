@@ -83,6 +83,15 @@ export const DEFAULT_PORT = 8080;
 // Multi-account configuration
 export const ACCOUNT_CONFIG_PATH = join(homedir(), ".config/antigravity-proxy/accounts.json");
 
+// Share mode configuration
+export const SHARE_CONFIG_PATH = join(homedir(), ".config/ag-cl/share-config.json");
+export const SHARE_SESSION_LOG_PATH = join(homedir(), ".config/ag-cl/share-sessions.log");
+
+// Share mode defaults
+export const DEFAULT_SHARE_POLL_INTERVAL_SECONDS = 10;
+export const DEFAULT_SHARE_MAX_CLIENTS = 5;
+export const SHARE_CLIENT_TIMEOUT_MS = 60000; // 1 minute without poll = disconnected
+
 // Antigravity app database path (for legacy single-account token extraction)
 // Uses platform-specific path detection
 export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();

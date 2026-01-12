@@ -17,8 +17,8 @@ export interface MountShareRouterOptions extends ShareRouterOptions {
  */
 export function mountShareRouter(options: MountShareRouterOptions): void {
   const { app, basePath = "/share", ...routerOptions } = options;
-  const router = createShareRouter(routerOptions);
-  app.use(basePath, router);
+  const handle = createShareRouter(routerOptions);
+  app.use(basePath, handle.router);
 }
 
 /**

@@ -30,7 +30,7 @@ export interface ShareRouterHandle {
 /**
  * Create share router with endpoints for quota sharing
  */
-export function createShareRouter(options: ShareRouterOptions): Router {
+export function createShareRouter(options: ShareRouterOptions): ShareRouterHandle {
   const router = Router();
   const { getConfig, getQuotaData } = options;
 
@@ -42,13 +42,9 @@ export function createShareRouter(options: ShareRouterOptions): Router {
     tracker.cleanupStaleClients();
   }, 30000);
 
-  // Store cleanup function on router for testing
-  (router as Router & { _cleanup?: () => void })._cleanup = () => {
+  const cleanup = (): void => {
     clearInterval(cleanupInterval);
   };
-
-  // Store tracker on router for access
-  (router as Router & { _tracker?: ClientTracker })._tracker = tracker;
 
   // Auth middleware for all routes
   router.use(createShareAuthMiddleware(getConfig));
@@ -132,17 +128,6 @@ export function createShareRouter(options: ShareRouterOptions): Router {
       maxClients: getConfig().limits.maxClients,
     });
   });
-
-  return router;
-}
-
-/**
- * Create share router with handle for cleanup
- */
-export function createShareRouterWithHandle(options: ShareRouterOptions): ShareRouterHandle {
-  const router = createShareRouter(options);
-  const tracker = (router as Router & { _tracker?: ClientTracker })._tracker!;
-  const cleanup = (router as Router & { _cleanup?: () => void })._cleanup!;
 
   return { router, tracker, cleanup };
 }

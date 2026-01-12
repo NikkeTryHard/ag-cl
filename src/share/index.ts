@@ -27,7 +27,7 @@ export { ClientTracker } from "./client-tracker.js";
 export type { RegisterResult } from "./client-tracker.js";
 
 // Router
-export { createShareRouter, createShareRouterWithHandle } from "./router.js";
+export { createShareRouter } from "./router.js";
 export type { ShareRouterOptions, ShareRouterHandle } from "./router.js";
 
 // Tunnel

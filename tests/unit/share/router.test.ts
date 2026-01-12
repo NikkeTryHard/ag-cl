@@ -4,13 +4,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import request from "supertest";
 import express from "express";
-import { createShareRouter } from "../../../src/share/router.js";
+import { createShareRouter, type ShareRouterHandle } from "../../../src/share/router.js";
 import { getDefaultShareConfig } from "../../../src/share/config-storage.js";
 import type { ShareConfig } from "../../../src/share/types.js";
 
 describe("Share router", () => {
   let app: express.Application;
   let config: ShareConfig;
+  let handle: ShareRouterHandle;
 
   const mockQuotaProvider = () => ({
     accounts: [],
@@ -39,16 +40,15 @@ describe("Share router", () => {
 
     app = express();
     app.use(express.json());
-    app.use(
-      "/share",
-      createShareRouter({
-        getConfig: () => config,
-        getQuotaData: mockQuotaProvider,
-      }),
-    );
+    handle = createShareRouter({
+      getConfig: () => config,
+      getQuotaData: mockQuotaProvider,
+    });
+    app.use("/share", handle.router);
   });
 
   afterEach(() => {
+    handle.cleanup();
     vi.useRealTimers();
   });
 
@@ -109,13 +109,11 @@ describe("Share router", () => {
 
       const limitedApp = express();
       limitedApp.use(express.json());
-      limitedApp.use(
-        "/share",
-        createShareRouter({
-          getConfig: () => limitedConfig,
-          getQuotaData: mockQuotaProvider,
-        }),
-      );
+      const limitedHandle = createShareRouter({
+        getConfig: () => limitedConfig,
+        getQuotaData: mockQuotaProvider,
+      });
+      limitedApp.use("/share", limitedHandle.router);
 
       // Register first client
       await request(limitedApp).post("/share/register").send({ nickname: "client-1" });
@@ -125,6 +123,9 @@ describe("Share router", () => {
 
       expect(res.status).toBe(503);
       expect(res.body.error).toContain("max clients");
+
+      // Cleanup to prevent interval leaks
+      limitedHandle.cleanup();
     });
   });
 

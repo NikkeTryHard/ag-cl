@@ -22,6 +22,8 @@ interface DashboardProps {
   refreshing: boolean;
   autoRefreshRunning?: boolean;
   lastAutoRefresh?: number | null;
+  shareMode?: "normal" | "host" | "client";
+  shareStarting?: boolean;
 }
 
 // ASCII banner letters from "Impossible" figlet font
@@ -62,7 +64,7 @@ function Banner(): React.ReactElement {
   );
 }
 
-export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing, autoRefreshRunning, lastAutoRefresh }: DashboardProps): React.ReactElement {
+export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity, accountCount, refreshing, autoRefreshRunning, lastAutoRefresh, shareMode = "normal", shareStarting = false }: DashboardProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const barWidth = Math.max(20, Math.min(50, width - 40));
 
@@ -105,6 +107,25 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
         </Box>
       )}
 
+      {/* Share mode status */}
+      {shareStarting && (
+        <Box marginTop={1}>
+          <Text color="yellow">Starting tunnel...</Text>
+        </Box>
+      )}
+      {shareMode === "host" && !shareStarting && (
+        <Box marginTop={1}>
+          <Text color="green">Sharing active</Text>
+          <Text dimColor> - [D] to stop</Text>
+        </Box>
+      )}
+      {shareMode === "client" && (
+        <Box marginTop={1}>
+          <Text color="blue">Connected to remote</Text>
+          <Text dimColor> - [D] to disconnect</Text>
+        </Box>
+      )}
+
       {/* Hotkey hints */}
       <Box marginTop={2}>
         <Text color="cyan">[a]</Text>
@@ -123,6 +144,15 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
         <Text dimColor>uit </Text>
         <Text color="cyan">[?]</Text>
         <Text dimColor> help</Text>
+        {shareMode === "normal" && (
+          <>
+            <Text dimColor> | </Text>
+            <Text color="magenta">[S]</Text>
+            <Text dimColor>hare </Text>
+            <Text color="magenta">[C]</Text>
+            <Text dimColor>onnect</Text>
+          </>
+        )}
       </Box>
     </Box>
   );

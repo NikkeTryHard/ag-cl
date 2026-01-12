@@ -82,6 +82,13 @@ function App(): React.ReactElement {
     }
   }, [shareState.mode]);
 
+  // Clear shareStarting on error
+  useEffect(() => {
+    if (shareState.error) {
+      setShareStarting(false);
+    }
+  }, [shareState.error]);
+
   const realCapacity = useCapacity();
 
   // Use demo data if in demo mode

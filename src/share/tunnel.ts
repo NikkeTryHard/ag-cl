@@ -7,6 +7,14 @@
 import { spawn, type ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 
+const BASE_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+
+function calculateBackoff(attempt: number): number {
+  const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, attempt);
+  return Math.min(delay, MAX_RECONNECT_DELAY_MS);
+}
+
 /**
  * Check if cloudflared is installed
  */
@@ -14,8 +22,12 @@ export async function checkCloudflaredInstalled(): Promise<boolean> {
   return new Promise((resolve) => {
     const proc = spawn("cloudflared", ["--version"]);
 
-    proc.on("error", () => { resolve(false); });
-    proc.on("close", (code) => { resolve(code === 0); });
+    proc.on("error", () => {
+      resolve(false);
+    });
+    proc.on("close", (code) => {
+      resolve(code === 0);
+    });
   });
 }
 
@@ -83,9 +95,12 @@ export class TunnelManager extends EventEmitter {
 
       // Auto-reconnect on unexpected close
       if (code !== 0 && this.reconnectAttempts < this.maxReconnectAttempts) {
+        const delay = calculateBackoff(this.reconnectAttempts);
         this.reconnectAttempts++;
         this.emit("reconnecting");
-        setTimeout(() => { this.start(); }, 5000);
+        setTimeout(() => {
+          this.start();
+        }, delay);
       }
     });
   }

@@ -36,3 +36,7 @@ export type { TunnelEvents } from "./tunnel.js";
 
 // Session logger
 export { SessionLogger } from "./session-logger.js";
+
+// Server integration
+export { mountShareRouter, isShareModeEnabled } from "./server-integration.js";
+export type { MountShareRouterOptions } from "./server-integration.js";

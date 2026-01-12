@@ -8,7 +8,7 @@ import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 
 export interface ConnectModalProps {
-  onConnect: (url: string, apiKey: string, nickname?: string) => Promise<void>;
+  onConnect: (url: string, apiKey: string, nickname?: string) => void;
   onClose: () => void;
   error?: string | null;
   connecting?: boolean;
@@ -46,7 +46,7 @@ export function ConnectModal({ onConnect, onClose, error, connecting = false }: 
 
     if (key.return) {
       if (url && apiKey) {
-        void onConnect(url, apiKey, nickname || undefined);
+        onConnect(url, apiKey, nickname || undefined);
       }
       return;
     }

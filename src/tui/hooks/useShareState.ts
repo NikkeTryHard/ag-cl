@@ -22,12 +22,12 @@ export interface UseShareStateResult {
   cloudflaredInstalled: boolean | null;
 
   // Host actions
-  startSharing: () => Promise<void>;
+  startSharing: () => void;
   stopSharing: () => void;
   copyUrl: () => void;
 
   // Client actions
-  connectTo: (url: string, apiKey: string, nickname?: string) => Promise<void>;
+  connectTo: (url: string, apiKey: string, nickname?: string) => void;
   disconnect: () => void;
 
   // Config actions
@@ -82,7 +82,7 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
   }, []);
 
   // Start sharing (host mode)
-  const startSharing = useCallback(async () => {
+  const startSharing = useCallback(() => {
     if (!cloudflaredInstalled) {
       setError("cloudflared is not installed");
       return;
@@ -131,7 +131,7 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
   }, [hostState.tunnelUrl]);
 
   // Connect to remote (client mode)
-  const connectTo = useCallback(async (url: string, _apiKey: string, _nickname?: string) => {
+  const connectTo = useCallback((url: string, _apiKey: string, _nickname?: string) => {
     setMode("client");
     setClientState((prev) => ({
       ...prev,

@@ -150,7 +150,7 @@ function App(): React.ReactElement {
       if (shareState.mode === "host") {
         shareState.stopSharing();
       } else if (shareState.mode === "normal" && serverState.running) {
-        void shareState.startSharing();
+        shareState.startSharing();
       }
       return;
     }
@@ -283,8 +283,8 @@ function App(): React.ReactElement {
   if (modal.type === "connect") {
     return (
       <ConnectModal
-        onConnect={async (url, apiKey, nickname) => {
-          await shareState.connectTo(url, apiKey, nickname);
+        onConnect={(url, apiKey, nickname) => {
+          shareState.connectTo(url, apiKey, nickname);
           modalControls.close();
         }}
         onClose={modalControls.close}

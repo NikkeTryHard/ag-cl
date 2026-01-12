@@ -42,6 +42,7 @@ function App(): React.ReactElement {
   const { stdout } = useStdout();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const [copiedFeedback, setCopiedFeedback] = useState(false);
+  const [shareStarting, setShareStarting] = useState(false);
 
   // Use a ref to track modal state for the input handler
   // This ensures the handler always sees the latest modal state
@@ -66,6 +67,20 @@ function App(): React.ReactElement {
 
   // Share mode state
   const shareState = useShareState({ port: serverState.port });
+
+  // Clear shareStarting when tunnel URL arrives
+  useEffect(() => {
+    if (shareState.hostState.tunnelUrl) {
+      setShareStarting(false);
+    }
+  }, [shareState.hostState.tunnelUrl]);
+
+  // Clear shareStarting when mode returns to normal (e.g., error or stop)
+  useEffect(() => {
+    if (shareState.mode === "normal") {
+      setShareStarting(false);
+    }
+  }, [shareState.mode]);
 
   const realCapacity = useCapacity();
 
@@ -151,6 +166,7 @@ function App(): React.ReactElement {
       if (shareState.mode === "host") {
         shareState.stopSharing();
       } else if (shareState.mode === "normal" && serverState.running) {
+        setShareStarting(true);
         shareState.startSharing();
       }
       return;
@@ -303,7 +319,7 @@ function App(): React.ReactElement {
   return (
     <Box flexDirection="column">
       {shareState.mode !== "normal" && <ShareStatusBar mode={shareState.mode} tunnelUrl={shareState.hostState.tunnelUrl} clientCount={shareState.hostState.connectedClients.length} remoteUrl={shareState.clientState.remoteUrl} hostNickname={shareState.clientState.hostNickname} reconnecting={shareState.clientState.reconnecting} copied={copiedFeedback} />}
-      <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} />
+      <Dashboard version={VERSION} serverState={serverState} claudeCapacity={claudeCapacity} geminiCapacity={geminiCapacity} accountCount={accountCount} refreshing={refreshing} autoRefreshRunning={autoRefreshState.isRunning} lastAutoRefresh={autoRefreshState.lastRefreshTime} shareMode={shareState.mode} shareStarting={shareStarting} />
       {shareState.mode === "host" && <ConnectedClientsPanel clients={shareState.hostState.connectedClients} maxClients={shareState.config.limits.maxClients} />}
     </Box>
   );

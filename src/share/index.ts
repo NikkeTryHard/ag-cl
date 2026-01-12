@@ -33,3 +33,6 @@ export type { ShareRouterOptions, ShareRouterHandle } from "./router.js";
 // Tunnel
 export { TunnelManager, checkCloudflaredInstalled, getInstallInstructions } from "./tunnel.js";
 export type { TunnelEvents } from "./tunnel.js";
+
+// Session logger
+export { SessionLogger } from "./session-logger.js";

@@ -7,12 +7,15 @@
 import { spawn, type ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 
-const BASE_RECONNECT_DELAY_MS = 1000;
-const MAX_RECONNECT_DELAY_MS = 30000;
+const DEFAULT_BASE_RECONNECT_DELAY_MS = 1000;
+const DEFAULT_MAX_RECONNECT_DELAY_MS = 30000;
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
 
-function calculateBackoff(attempt: number): number {
-  const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, attempt);
-  return Math.min(delay, MAX_RECONNECT_DELAY_MS);
+export interface TunnelManagerOptions {
+  port: number;
+  maxReconnectAttempts?: number;
+  baseReconnectDelayMs?: number;
+  maxReconnectDelayMs?: number;
 }
 
 /**
@@ -61,11 +64,31 @@ export class TunnelManager extends EventEmitter {
   private process: ChildProcess | null = null;
   private url: string | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts: number;
+  private baseReconnectDelayMs: number;
+  private maxReconnectDelayMs: number;
 
-  constructor(port: number) {
+  constructor(options: TunnelManagerOptions | number) {
     super();
-    this.port = port;
+    if (typeof options === "number") {
+      this.port = options;
+      this.maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
+      this.baseReconnectDelayMs = DEFAULT_BASE_RECONNECT_DELAY_MS;
+      this.maxReconnectDelayMs = DEFAULT_MAX_RECONNECT_DELAY_MS;
+    } else {
+      this.port = options.port;
+      this.maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
+      this.baseReconnectDelayMs = options.baseReconnectDelayMs ?? DEFAULT_BASE_RECONNECT_DELAY_MS;
+      this.maxReconnectDelayMs = options.maxReconnectDelayMs ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
+    }
+  }
+
+  /**
+   * Calculate backoff delay for reconnection attempts
+   */
+  private calculateBackoff(attempt: number): number {
+    const delay = this.baseReconnectDelayMs * Math.pow(2, attempt);
+    return Math.min(delay, this.maxReconnectDelayMs);
   }
 
   /**
@@ -95,7 +118,7 @@ export class TunnelManager extends EventEmitter {
 
       // Auto-reconnect on unexpected close
       if (code !== 0 && this.reconnectAttempts < this.maxReconnectAttempts) {
-        const delay = calculateBackoff(this.reconnectAttempts);
+        const delay = this.calculateBackoff(this.reconnectAttempts);
         this.reconnectAttempts++;
         this.emit("reconnecting");
         setTimeout(() => {

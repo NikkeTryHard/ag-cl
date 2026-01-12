@@ -99,4 +99,21 @@ describe("TunnelManager", () => {
       expect(mockProcess.kill).toHaveBeenCalled();
     });
   });
+
+  describe("TunnelManager configuration", () => {
+    it("accepts port as number for backward compatibility", () => {
+      const tunnel = new TunnelManager(3000);
+      expect(tunnel).toBeDefined();
+    });
+
+    it("accepts options object with custom values", () => {
+      const tunnel = new TunnelManager({
+        port: 3000,
+        maxReconnectAttempts: 10,
+        baseReconnectDelayMs: 500,
+        maxReconnectDelayMs: 60000,
+      });
+      expect(tunnel).toBeDefined();
+    });
+  });
 });

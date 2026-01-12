@@ -361,7 +361,7 @@ export async function* streamSSEResponse(response: ReadableResponse, originalMod
   // Emit message_delta and message_stop
   yield {
     type: "message_delta",
-    delta: { stop_reason: stopReason || "end_turn", stop_sequence: null },
+    delta: { stop_reason: stopReason ?? "end_turn", stop_sequence: null },
     usage: {
       output_tokens: outputTokens,
       cache_read_input_tokens: cacheReadTokens,

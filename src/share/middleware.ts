@@ -27,7 +27,7 @@ export function createShareAuthMiddleware(getConfig: () => ShareConfig): (req: R
     const config = getConfig();
 
     // Get API key from header or query param
-    const apiKey = (req.headers["x-api-key"] as string | undefined) || (req.query?.key as string | undefined);
+    const apiKey = (req.headers["x-api-key"] as string | undefined) ?? (req.query?.key as string | undefined);
 
     const result = validateApiKey(config, apiKey);
 

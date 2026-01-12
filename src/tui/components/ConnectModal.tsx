@@ -16,11 +16,21 @@ export interface ConnectModalProps {
 
 type InputField = "url" | "apiKey" | "nickname";
 
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function ConnectModal({ onConnect, onClose, error, connecting = false }: ConnectModalProps): React.ReactElement {
   const [activeField, setActiveField] = useState<InputField>("url");
   const [url, setUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [nickname, setNickname] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const fields: InputField[] = ["url", "apiKey", "nickname"];
 
@@ -45,13 +55,25 @@ export function ConnectModal({ onConnect, onClose, error, connecting = false }: 
     }
 
     if (key.return) {
-      if (url && apiKey) {
-        onConnect(url, apiKey, nickname || undefined);
+      if (!url) {
+        setValidationError("URL is required");
+        return;
       }
+      if (!isValidUrl(url)) {
+        setValidationError("Invalid URL format (must start with http:// or https://)");
+        return;
+      }
+      if (!apiKey) {
+        setValidationError("API Key is required");
+        return;
+      }
+      setValidationError(null);
+      onConnect(url, apiKey, nickname || undefined);
       return;
     }
 
     if (key.backspace || key.delete) {
+      setValidationError(null);
       switch (activeField) {
         case "url":
           setUrl((prev) => prev.slice(0, -1));
@@ -68,6 +90,7 @@ export function ConnectModal({ onConnect, onClose, error, connecting = false }: 
 
     // Regular character input
     if (input && !key.ctrl && !key.meta) {
+      setValidationError(null);
       switch (activeField) {
         case "url":
           setUrl((prev) => prev + input);
@@ -118,6 +141,14 @@ export function ConnectModal({ onConnect, onClose, error, connecting = false }: 
       {connecting && (
         <Box marginBottom={1}>
           <Text color="yellow">Connecting...</Text>
+        </Box>
+      )}
+
+      {validationError && (
+        <Box marginBottom={1}>
+          <Text color="yellow">
+            {"\u26A0"} {validationError}
+          </Text>
         </Box>
       )}
 

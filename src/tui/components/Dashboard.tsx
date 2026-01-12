@@ -153,6 +153,20 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
             <Text dimColor>onnect</Text>
           </>
         )}
+        {shareMode !== "normal" && (
+          <>
+            <Text dimColor> | </Text>
+            <Text color="magenta">[D]</Text>
+            <Text dimColor>isconnect</Text>
+            {shareMode === "host" && (
+              <>
+                <Text dimColor> </Text>
+                <Text color="magenta">[Y]</Text>
+                <Text dimColor>copy</Text>
+              </>
+            )}
+          </>
+        )}
       </Box>
     </Box>
   );

@@ -96,7 +96,9 @@ export function useAutoRefresh(options: UseAutoRefreshOptions): UseAutoRefreshRe
       void syncLastRefreshTime();
     }, 30000);
 
-    return () => { clearInterval(interval); };
+    return (): void => {
+      clearInterval(interval);
+    };
   }, [isRunning, demoMode]);
 
   return {

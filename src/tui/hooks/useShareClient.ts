@@ -178,8 +178,8 @@ export function useShareClient(): UseShareClientResult {
   }, [clientId]);
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
+  useEffect((): (() => void) => {
+    return (): void => {
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
       }

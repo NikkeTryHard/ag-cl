@@ -68,7 +68,7 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
 
   // Load config on mount
   useEffect(() => {
-    const init = async () => {
+    const init = async (): Promise<void> => {
       try {
         const [cfg, installed] = await Promise.all([loadShareConfig(SHARE_CONFIG_PATH), checkCloudflaredInstalled()]);
         setConfig(cfg);
@@ -197,8 +197,8 @@ export function useShareState(options: UseShareStateOptions): UseShareStateResul
   );
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
+  useEffect((): (() => void) => {
+    return (): void => {
       tunnelRef.current?.stop();
     };
   }, []);

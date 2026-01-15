@@ -27,6 +27,8 @@ export interface UnifiedOptionsModalProps {
   onUpdateSettings: (partial: Partial<AccountSettings>) => Promise<void>;
   onUpdateShareConfig: (partial: Partial<ShareConfig>) => Promise<void>;
   onClose: () => void;
+  onOpenMasterKey?: () => void;
+  onOpenFriendKeys?: () => void;
 }
 
 // Menu item IDs for each setting
@@ -86,7 +88,7 @@ function cycleValue<T>(current: T, options: readonly T[]): T {
   return options[(idx + 1) % options.length];
 }
 
-export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, onUpdateShareConfig, onClose }: UnifiedOptionsModalProps): React.ReactElement {
+export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, onUpdateShareConfig, onClose, onOpenMasterKey, onOpenFriendKeys }: UnifiedOptionsModalProps): React.ReactElement {
   const { width, height } = useTerminalSize();
   const [editingPort, setEditingPort] = useState(false);
   const [portValue, setPortValue] = useState(String(settings.defaultPort ?? DEFAULTS.defaultPort));
@@ -118,8 +120,8 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
       { id: "header-auth", type: "header", label: "Share Authentication" },
       { id: "authEnabled", type: "selectable", label: "Enabled", value: shareConfig.auth.enabled ? "Y" : "N" },
       { id: "authMode", type: "selectable", label: "Mode", value: shareConfig.auth.mode },
-      { id: "masterKey", type: "disabled", label: "Master Key", value: shareConfig.auth.masterKey ? "set" : "not set" },
-      { id: "friendKeys", type: "disabled", label: "Friend Keys", value: String(shareConfig.auth.friendKeys.length) },
+      { id: "masterKey", type: "selectable", label: "Master Key", value: shareConfig.auth.masterKey ? "set" : "not set" },
+      { id: "friendKeys", type: "selectable", label: "Friend Keys", value: String(shareConfig.auth.friendKeys.length) },
 
       // Share Visibility
       { id: "header-visibility", type: "header", label: "Share Visibility" },
@@ -226,6 +228,18 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
           await handleShareSave({
             auth: { ...shareConfig.auth, mode: newMode },
           });
+          break;
+        }
+        case "masterKey": {
+          if (onOpenMasterKey) {
+            onOpenMasterKey();
+          }
+          break;
+        }
+        case "friendKeys": {
+          if (onOpenFriendKeys) {
+            onOpenFriendKeys();
+          }
           break;
         }
 

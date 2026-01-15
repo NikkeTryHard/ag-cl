@@ -138,18 +138,14 @@ export function Dashboard({ version, serverState, claudeCapacity, geminiCapacity
         <Text dimColor>ccounts </Text>
         <Text color="cyan">[s]</Text>
         <Text dimColor>erver </Text>
-        <Text color="cyan">[p]</Text>
-        <Text dimColor>ort </Text>
-        <Text color="cyan">[o]</Text>
-        <Text dimColor>ptions </Text>
-        <Text color="cyan">[r]</Text>
-        <Text dimColor>efresh </Text>
         <Text color="cyan">[l]</Text>
         <Text dimColor>ogs </Text>
+        <Text color="cyan">[r]</Text>
+        <Text dimColor>efresh </Text>
+        <Text color="cyan">[o]</Text>
+        <Text dimColor>ptions </Text>
         <Text color="cyan">[q]</Text>
-        <Text dimColor>uit </Text>
-        <Text color="cyan">[?]</Text>
-        <Text dimColor> help</Text>
+        <Text dimColor>uit</Text>
         {shareMode === "normal" && (
           <>
             <Text dimColor> | </Text>

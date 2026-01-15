@@ -38,15 +38,16 @@ describe("Dashboard", () => {
     expect(output).toContain("account");
   });
 
-  it("renders hotkey hints including refresh and help", () => {
+  it("renders hotkey hints", () => {
     const { lastFrame } = render(<Dashboard version="1.0.0" serverState={{ running: true, port: 8080 }} claudeCapacity={{ family: "claude", totalPercentage: 100, accountCount: 1, status: "stable", hoursToExhaustion: null, ratePerHour: null }} geminiCapacity={{ family: "gemini", totalPercentage: 100, accountCount: 1, status: "stable", hoursToExhaustion: null, ratePerHour: null }} accountCount={1} />);
 
     const output = lastFrame();
     expect(output).toContain("[a]");
-    expect(output).toContain("[p]");
+    expect(output).toContain("[s]");
+    expect(output).toContain("[l]");
     expect(output).toContain("[r]");
+    expect(output).toContain("[o]");
     expect(output).toContain("[q]");
-    expect(output).toContain("[?]");
   });
 
   it("shows first-run message when no accounts configured", () => {

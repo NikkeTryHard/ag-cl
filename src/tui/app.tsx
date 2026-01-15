@@ -14,10 +14,9 @@ import { AccountListModal } from "./components/AccountListModal.js";
 import { AddAccountModal } from "./components/AddAccountModal.js";
 import { ServerLogsModal } from "./components/ServerLogsModal.js";
 import { PortInputModal } from "./components/PortInputModal.js";
-import { SettingsModal } from "./components/SettingsModal.js";
+import { UnifiedOptionsModal } from "./components/UnifiedOptionsModal.js";
 import { ShareStatusBar } from "./components/ShareStatusBar.js";
 import { ConnectModal } from "./components/ConnectModal.js";
-import { ShareSettingsModal } from "./components/ShareSettingsModal.js";
 import { ConnectedClientsPanel } from "./components/ConnectedClientsPanel.js";
 import { useCapacity } from "./hooks/useCapacity.js";
 import { useServerState } from "./hooks/useServerState.js";
@@ -224,10 +223,8 @@ function App(): React.ReactElement {
       void refresh();
     } else if (input === "p") {
       setModal({ type: "change-port" });
-    } else if (input === "o") {
+    } else if (input === "o" || input === "?") {
       setModal({ type: "settings" });
-    } else if (input === "?") {
-      setModal({ type: "share-settings" });
     } else if (input === "h") {
       // h opens command palette for help
       modalControls.open("command-palette");
@@ -297,15 +294,11 @@ function App(): React.ReactElement {
   }
 
   if (modal.type === "settings") {
-    return <SettingsModal settings={settings} onUpdateSettings={updateSettings} onClose={modalControls.close} />;
+    return <UnifiedOptionsModal settings={settings} shareConfig={shareState.config} onUpdateSettings={updateSettings} onUpdateShareConfig={shareState.updateConfig} onClose={modalControls.close} />;
   }
 
   if (modal.type === "command-palette") {
     return <CommandPalette commands={commands} onSelect={handleSelectCommand} onClose={modalControls.close} />;
-  }
-
-  if (modal.type === "share-settings") {
-    return <ShareSettingsModal config={shareState.config} onUpdate={shareState.updateConfig} onClose={modalControls.close} />;
   }
 
   if (modal.type === "connect") {

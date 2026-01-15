@@ -41,7 +41,7 @@ export interface AggregatedCapacity {
 
 /** UI modal state */
 export interface ModalState {
-  type: "none" | "command-palette" | "accounts" | "add-account" | "logs" | "change-port" | "settings" | "share-settings" | "connect";
+  type: "none" | "command-palette" | "accounts" | "add-account" | "logs" | "change-port" | "settings" | "connect";
 }
 
 /** Command for command palette */

@@ -15,6 +15,8 @@ import { AddAccountModal } from "./components/AddAccountModal.js";
 import { ServerLogsModal } from "./components/ServerLogsModal.js";
 import { PortInputModal } from "./components/PortInputModal.js";
 import { UnifiedOptionsModal } from "./components/UnifiedOptionsModal.js";
+import { MasterKeyModal } from "./components/MasterKeyModal.js";
+import { FriendKeyListModal } from "./components/FriendKeyListModal.js";
 import { ShareStatusBar } from "./components/ShareStatusBar.js";
 import { ConnectModal } from "./components/ConnectModal.js";
 import { ConnectedClientsPanel } from "./components/ConnectedClientsPanel.js";
@@ -27,6 +29,8 @@ import { useShareState } from "./hooks/useShareState.js";
 import { createLogBufferDestination } from "./hooks/useLogBuffer.js";
 import { isDemoMode, getDemoAccounts, getDemoClaudeCapacity, getDemoGeminiCapacity, initDemoLogs } from "./demo.js";
 import { initLogger } from "../utils/logger.js";
+import { generateApiKey, generateFriendKey } from "../share/api-key.js";
+import clipboard from "clipboardy";
 import type { ModalState, Command } from "./types.js";
 
 // Get version from package.json
@@ -41,6 +45,7 @@ function App(): React.ReactElement {
   const { stdout } = useStdout();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const [copiedFeedback, setCopiedFeedback] = useState(false);
+  const [keyCopiedFeedback, setKeyCopiedFeedback] = useState(false);
   const [shareStarting, setShareStarting] = useState(false);
 
   // Use a ref to track modal state for the input handler
@@ -87,6 +92,72 @@ function App(): React.ReactElement {
       setShareStarting(false);
     }
   }, [shareState.error]);
+
+  // Master key handlers
+  const handleMasterKeyRegenerate = useCallback(async () => {
+    const newKey = generateApiKey();
+    await shareState.updateConfig({
+      auth: { ...shareState.config.auth, masterKey: newKey },
+    });
+  }, [shareState]);
+
+  const handleMasterKeyCopy = useCallback(() => {
+    if (shareState.config.auth.masterKey) {
+      clipboard.write(shareState.config.auth.masterKey).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Failed to copy to clipboard:", message);
+      });
+      setKeyCopiedFeedback(true);
+      setTimeout(() => {
+        setKeyCopiedFeedback(false);
+      }, 2000);
+    }
+  }, [shareState.config.auth.masterKey]);
+
+  // Friend key handlers
+  const handleAddFriendKey = useCallback(
+    async (nickname: string | null) => {
+      const newKey = generateFriendKey(nickname);
+      await shareState.updateConfig({
+        auth: {
+          ...shareState.config.auth,
+          friendKeys: [...shareState.config.auth.friendKeys, newKey],
+        },
+      });
+    },
+    [shareState],
+  );
+
+  const handleRevokeFriendKey = useCallback(
+    async (key: string) => {
+      const updatedKeys = shareState.config.auth.friendKeys.map((fk) => (fk.key === key ? { ...fk, revoked: true } : fk));
+      await shareState.updateConfig({
+        auth: { ...shareState.config.auth, friendKeys: updatedKeys },
+      });
+    },
+    [shareState],
+  );
+
+  const handleDeleteFriendKey = useCallback(
+    async (key: string) => {
+      const updatedKeys = shareState.config.auth.friendKeys.filter((fk) => fk.key !== key);
+      await shareState.updateConfig({
+        auth: { ...shareState.config.auth, friendKeys: updatedKeys },
+      });
+    },
+    [shareState],
+  );
+
+  const handleCopyFriendKey = useCallback((key: string) => {
+    clipboard.write(key).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Failed to copy to clipboard:", message);
+    });
+    setKeyCopiedFeedback(true);
+    setTimeout(() => {
+      setKeyCopiedFeedback(false);
+    }, 2000);
+  }, []);
 
   const realCapacity = useCapacity();
 
@@ -294,7 +365,29 @@ function App(): React.ReactElement {
   }
 
   if (modal.type === "settings") {
-    return <UnifiedOptionsModal settings={settings} shareConfig={shareState.config} onUpdateSettings={updateSettings} onUpdateShareConfig={shareState.updateConfig} onClose={modalControls.close} />;
+    return (
+      <UnifiedOptionsModal
+        settings={settings}
+        shareConfig={shareState.config}
+        onUpdateSettings={updateSettings}
+        onUpdateShareConfig={shareState.updateConfig}
+        onClose={modalControls.close}
+        onOpenMasterKey={() => {
+          setModal({ type: "master-key" });
+        }}
+        onOpenFriendKeys={() => {
+          setModal({ type: "friend-keys" });
+        }}
+      />
+    );
+  }
+
+  if (modal.type === "master-key") {
+    return <MasterKeyModal masterKey={shareState.config.auth.masterKey} onClose={modalControls.close} onRegenerate={() => void handleMasterKeyRegenerate()} onCopy={handleMasterKeyCopy} copied={keyCopiedFeedback} />;
+  }
+
+  if (modal.type === "friend-keys") {
+    return <FriendKeyListModal friendKeys={shareState.config.auth.friendKeys} onClose={modalControls.close} onAdd={(nickname) => void handleAddFriendKey(nickname)} onRevoke={(key) => void handleRevokeFriendKey(key)} onDelete={(key) => void handleDeleteFriendKey(key)} onCopy={handleCopyFriendKey} copied={keyCopiedFeedback} />;
   }
 
   if (modal.type === "command-palette") {

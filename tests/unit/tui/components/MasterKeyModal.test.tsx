@@ -48,4 +48,49 @@ describe("MasterKeyModal", () => {
 
     expect(lastFrame()).toContain("Copied!");
   });
+
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it("calls onCopy when 'y' is pressed", async () => {
+    const { stdin } = render(<MasterKeyModal masterKey="test-key" onClose={mockOnClose} onRegenerate={mockOnRegenerate} onCopy={mockOnCopy} />);
+
+    await delay(10);
+    stdin.write("y");
+    await delay(50);
+    expect(mockOnCopy).toHaveBeenCalled();
+  });
+
+  it("calls onRegenerate when 'r' is pressed", async () => {
+    const { stdin } = render(<MasterKeyModal masterKey="test-key" onClose={mockOnClose} onRegenerate={mockOnRegenerate} onCopy={mockOnCopy} />);
+
+    await delay(10);
+    stdin.write("r");
+    await delay(50);
+    expect(mockOnRegenerate).toHaveBeenCalled();
+  });
+
+  it("calls onClose when ESC is pressed", async () => {
+    const { stdin } = render(<MasterKeyModal masterKey="test-key" onClose={mockOnClose} onRegenerate={mockOnRegenerate} onCopy={mockOnCopy} />);
+
+    await delay(10);
+    stdin.write("\u001b"); // ESC
+    await delay(50);
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it("does not call onCopy when 'y' is pressed and masterKey is null", async () => {
+    const { stdin } = render(
+      <MasterKeyModal
+        masterKey={null}
+        onClose={mockOnClose}
+        onRegenerate={mockOnRegenerate}
+        onCopy={mockOnCopy}
+      />,
+    );
+
+    await delay(10);
+    stdin.write("y");
+    await delay(50);
+    expect(mockOnCopy).not.toHaveBeenCalled();
+  });
 });

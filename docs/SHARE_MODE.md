@@ -55,6 +55,7 @@ In the Friend Keys modal:
 - `R` - Revoke selected key (key still exists but won't work)
 - `D` - Delete selected key permanently
 - `Up/Down` - Navigate between keys
+- `ESC` - Close modal (or return to list if in Add mode)
 
 ### Key Storage
 

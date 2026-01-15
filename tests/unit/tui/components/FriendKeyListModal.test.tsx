@@ -194,4 +194,25 @@ describe("FriendKeyListModal", () => {
     await delay(50);
     expect(mockOnRevoke).not.toHaveBeenCalled();
   });
+
+  it("navigates to second key with down arrow", async () => {
+    const { stdin } = render(
+      <FriendKeyListModal
+        friendKeys={sampleKeys}
+        onClose={mockOnClose}
+        onAdd={mockOnAdd}
+        onRevoke={mockOnRevoke}
+        onDelete={mockOnDelete}
+        onCopy={mockOnCopy}
+      />,
+    );
+
+    await delay(10);
+    stdin.write("\u001b[B"); // Down arrow
+    await delay(50);
+    stdin.write("y"); // Copy to verify selection changed
+    await delay(50);
+    // Second key is "key-002" (Bob, revoked)
+    expect(mockOnCopy).toHaveBeenCalledWith("key-002");
+  });
 });

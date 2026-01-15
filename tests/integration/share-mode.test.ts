@@ -65,7 +65,7 @@ describe("Share mode integration", () => {
     app = express();
     app.use(express.json());
 
-    const router = createShareRouter({
+    const handle = createShareRouter({
       getConfig: () => config,
       getQuotaData: () => ({
         accounts: mockAccounts,
@@ -75,12 +75,12 @@ describe("Share mode integration", () => {
     });
 
     // Store cleanup function for afterAll
-    routerCleanup = (router as unknown as { _cleanup: () => void })._cleanup;
+    routerCleanup = handle.cleanup;
 
     // Store tracker reference for tests
-    tracker = (router as unknown as { _tracker: ClientTracker })._tracker;
+    tracker = handle.tracker;
 
-    app.use("/share", router);
+    app.use("/share", handle.router);
   });
 
   afterAll(() => {

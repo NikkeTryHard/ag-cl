@@ -131,7 +131,7 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
       // Share Limits
       { id: "header-limits", type: "header", label: "Share Limits" },
       { id: "maxClients", type: "selectable", label: "Max Clients", value: String(shareConfig.limits.maxClients) },
-      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: `${shareConfig.limits.pollIntervalSeconds}s` },
+      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: `${String(shareConfig.limits.pollIntervalSeconds)}s` },
     ];
   }, [settings, shareConfig]);
 
@@ -283,7 +283,7 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
     handleSelect: triggerSelect,
   } = useMenuNavigation({
     items: menuItems,
-    onSelect: handleSelect,
+    onSelect: (item) => void handleSelect(item),
   });
 
   /**

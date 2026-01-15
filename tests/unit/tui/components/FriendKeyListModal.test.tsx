@@ -110,4 +110,66 @@ describe("FriendKeyListModal", () => {
     await delay(50);
     expect(mockOnDelete).toHaveBeenCalledWith("key-001");
   });
+
+  it("enters add mode when 'a' is pressed", async () => {
+    const { stdin, lastFrame } = render(
+      <FriendKeyListModal
+        friendKeys={sampleKeys}
+        onClose={mockOnClose}
+        onAdd={mockOnAdd}
+        onRevoke={mockOnRevoke}
+        onDelete={mockOnDelete}
+        onCopy={mockOnCopy}
+      />,
+    );
+
+    await delay(10);
+    stdin.write("a");
+    await delay(50);
+    expect(lastFrame()).toContain("Add Friend Key");
+    expect(lastFrame()).toContain("Nickname (optional)");
+  });
+
+  it("returns to list mode when ESC pressed in add mode", async () => {
+    const { stdin, lastFrame } = render(
+      <FriendKeyListModal
+        friendKeys={sampleKeys}
+        onClose={mockOnClose}
+        onAdd={mockOnAdd}
+        onRevoke={mockOnRevoke}
+        onDelete={mockOnDelete}
+        onCopy={mockOnCopy}
+      />,
+    );
+
+    await delay(10);
+    stdin.write("a"); // Enter add mode
+    await delay(50);
+    expect(lastFrame()).toContain("Add Friend Key");
+
+    stdin.write("\u001b"); // ESC
+    await delay(50);
+    expect(lastFrame()).toContain("Friend Keys");
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it("calls onAdd when Enter is pressed in add mode", async () => {
+    const { stdin } = render(
+      <FriendKeyListModal
+        friendKeys={sampleKeys}
+        onClose={mockOnClose}
+        onAdd={mockOnAdd}
+        onRevoke={mockOnRevoke}
+        onDelete={mockOnDelete}
+        onCopy={mockOnCopy}
+      />,
+    );
+
+    await delay(10);
+    stdin.write("a"); // Enter add mode
+    await delay(50);
+    stdin.write("\r"); // Enter to confirm
+    await delay(50);
+    expect(mockOnAdd).toHaveBeenCalledWith(null); // Empty nickname becomes null
+  });
 });

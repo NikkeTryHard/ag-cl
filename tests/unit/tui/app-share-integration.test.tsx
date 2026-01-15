@@ -53,10 +53,10 @@ describe("App share integration", () => {
     expect(typeof ConnectModal).toBe("function");
   });
 
-  it("should have ShareSettingsModal component available", async () => {
-    const { ShareSettingsModal } = await import("../../../src/tui/components/ShareSettingsModal.js");
-    expect(ShareSettingsModal).toBeDefined();
-    expect(typeof ShareSettingsModal).toBe("function");
+  it("should have UnifiedOptionsModal component available", async () => {
+    const { UnifiedOptionsModal } = await import("../../../src/tui/components/UnifiedOptionsModal.js");
+    expect(UnifiedOptionsModal).toBeDefined();
+    expect(typeof UnifiedOptionsModal).toBe("function");
   });
 
   it("should have ConnectedClientsPanel component available", async () => {

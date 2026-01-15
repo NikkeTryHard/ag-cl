@@ -1,0 +1,196 @@
+/**
+ * UnifiedOptionsModal Component Tests
+ * @vitest-environment jsdom
+ */
+import React from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render } from "ink-testing-library";
+import { UnifiedOptionsModal } from "../../../../src/tui/components/UnifiedOptionsModal.js";
+import type { AccountSettings } from "../../../../src/account-manager/types.js";
+import type { ShareConfig } from "../../../../src/share/types.js";
+
+// Mock useTerminalSize
+vi.mock("../../../../src/tui/hooks/useTerminalSize.js", () => ({
+  useTerminalSize: () => ({ width: 80, height: 40 }),
+}));
+
+describe("UnifiedOptionsModal", () => {
+  const defaultSettings: AccountSettings = {
+    identityMode: "full",
+    defaultPort: 8080,
+    logLevel: "info",
+    fallbackEnabled: false,
+    autoRefreshEnabled: false,
+    schedulingMode: "sticky",
+  };
+
+  const defaultShareConfig: ShareConfig = {
+    auth: {
+      enabled: true,
+      mode: "single",
+      masterKey: "test-key",
+      friendKeys: [{ key: "friend1", nickname: "Bob", revoked: false, createdAt: Date.now() }],
+    },
+    visibility: {
+      showAccountEmails: true,
+      showIndividualAccounts: false,
+      showModelBreakdown: true,
+      showBurnRate: false,
+    },
+    limits: {
+      maxClients: 5,
+      pollIntervalSeconds: 10,
+    },
+    persistence: {
+      resumeOnRestart: false,
+    },
+  };
+
+  const mockOnUpdateSettings = vi.fn().mockResolvedValue(undefined);
+  const mockOnUpdateShareConfig = vi.fn().mockResolvedValue(undefined);
+  const mockOnClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("section headers", () => {
+    it("renders all section headers", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("General Settings");
+      expect(lastFrame()).toContain("Share Authentication");
+      expect(lastFrame()).toContain("Share Visibility");
+      expect(lastFrame()).toContain("Share Limits");
+    });
+  });
+
+  describe("general settings values", () => {
+    it("renders general settings labels and values", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("Identity Mode");
+      expect(lastFrame()).toContain("[full]");
+      expect(lastFrame()).toContain("Default Port");
+      expect(lastFrame()).toContain("[8080]");
+      expect(lastFrame()).toContain("Log Level");
+      expect(lastFrame()).toContain("[info]");
+      expect(lastFrame()).toContain("Model Fallback");
+      expect(lastFrame()).toContain("[off]");
+      expect(lastFrame()).toContain("Auto Refresh");
+      expect(lastFrame()).toContain("Scheduling Mode");
+      expect(lastFrame()).toContain("[sticky]");
+    });
+  });
+
+  describe("share settings values", () => {
+    it("renders share settings labels and values", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      // Auth section
+      expect(lastFrame()).toContain("Enabled");
+      expect(lastFrame()).toContain("[Y]");
+      expect(lastFrame()).toContain("Mode");
+      expect(lastFrame()).toContain("[single]");
+
+      // Visibility section
+      expect(lastFrame()).toContain("Show Emails");
+      expect(lastFrame()).toContain("Show Accounts");
+      expect(lastFrame()).toContain("Show Models");
+      expect(lastFrame()).toContain("Show Burn Rate");
+
+      // Limits section
+      expect(lastFrame()).toContain("Max Clients");
+      expect(lastFrame()).toContain("[5]");
+      expect(lastFrame()).toContain("Poll Interval");
+      expect(lastFrame()).toContain("[10s]");
+    });
+  });
+
+  describe("disabled items", () => {
+    it("renders Master Key and Friend Keys as disabled items", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("Master Key");
+      expect(lastFrame()).toContain("[set]");
+      expect(lastFrame()).toContain("Friend Keys");
+      expect(lastFrame()).toContain("[1]");
+    });
+
+    it("shows not set when masterKey is null", () => {
+      const configWithoutMasterKey: ShareConfig = {
+        ...defaultShareConfig,
+        auth: {
+          ...defaultShareConfig.auth,
+          masterKey: null,
+        },
+      };
+
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={configWithoutMasterKey} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("[not set]");
+    });
+  });
+
+  describe("navigation", () => {
+    it("starts selection at first selectable item (skipping header)", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      // The selection indicator should be on Identity Mode, not the header
+      const frame = lastFrame();
+      expect(frame).toContain(">");
+      expect(frame).toContain("Identity Mode");
+    });
+  });
+
+  describe("keyboard interactions", () => {
+    const ESCAPE = "\x1B";
+
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it("calls onClose when ESC pressed", async () => {
+      const { stdin } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      await delay(10);
+      stdin.write(ESCAPE);
+      await delay(50);
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("title and footer", () => {
+    it("renders with title Options", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("Options");
+    });
+
+    it("displays navigation hints in footer", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("ESC");
+      expect(lastFrame()).toContain("close");
+      expect(lastFrame()).toContain("Enter");
+      expect(lastFrame()).toContain("edit");
+      expect(lastFrame()).toContain("Up/Down");
+      expect(lastFrame()).toContain("navigate");
+    });
+
+    it("shows restart notice", () => {
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("Changes take effect after server restart");
+    });
+  });
+
+  describe("callbacks", () => {
+    it("accepts callback props without calling them initially", () => {
+      render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(mockOnUpdateSettings).not.toHaveBeenCalled();
+      expect(mockOnUpdateShareConfig).not.toHaveBeenCalled();
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+  });
+});

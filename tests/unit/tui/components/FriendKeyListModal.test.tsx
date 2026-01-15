@@ -172,4 +172,26 @@ describe("FriendKeyListModal", () => {
     await delay(50);
     expect(mockOnAdd).toHaveBeenCalledWith(null); // Empty nickname becomes null
   });
+
+  it("does not call onRevoke when 'r' is pressed on already revoked key", async () => {
+    const revokedOnlyKeys: FriendKey[] = [
+      { key: "key-revoked", nickname: "Revoked User", revoked: true, createdAt: Date.now() },
+    ];
+
+    const { stdin } = render(
+      <FriendKeyListModal
+        friendKeys={revokedOnlyKeys}
+        onClose={mockOnClose}
+        onAdd={mockOnAdd}
+        onRevoke={mockOnRevoke}
+        onDelete={mockOnDelete}
+        onCopy={mockOnCopy}
+      />,
+    );
+
+    await delay(10);
+    stdin.write("r");
+    await delay(50);
+    expect(mockOnRevoke).not.toHaveBeenCalled();
+  });
 });

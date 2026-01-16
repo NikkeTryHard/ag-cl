@@ -244,4 +244,58 @@ describe("useShareClient", () => {
     expect(typeof result.current.connect).toBe("function");
     expect(typeof result.current.disconnect).toBe("function");
   });
+
+  describe("polling with interval 0", () => {
+    it("should not start polling when pollInterval is 0", async () => {
+      // pollInterval of 0 means no enforced minimum - client polls once on connect
+      // but does not set up recurring interval
+      const setIntervalSpy = vi.spyOn(global, "setInterval");
+
+      // Simulate registration response with pollInterval: 0
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clientId: "test-123", pollInterval: 0 }),
+      });
+
+      // Simulate quota fetch
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ claude: {}, gemini: {}, timestamp: "" }),
+      });
+
+      const { result } = renderHook(() => useShareClient());
+      await act(async () => {
+        await result.current.connect("http://test", "key123");
+      });
+
+      // setInterval should not be called when pollInterval is 0
+      expect(setIntervalSpy).not.toHaveBeenCalled();
+      setIntervalSpy.mockRestore();
+    });
+
+    it("should start polling when pollInterval is greater than 0", async () => {
+      const setIntervalSpy = vi.spyOn(global, "setInterval");
+
+      // Simulate registration response with pollInterval: 10
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clientId: "test-123", pollInterval: 10 }),
+      });
+
+      // Simulate quota fetch
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ claude: {}, gemini: {}, timestamp: "" }),
+      });
+
+      const { result } = renderHook(() => useShareClient());
+      await act(async () => {
+        await result.current.connect("http://test", "key123");
+      });
+
+      // setInterval should be called when pollInterval > 0
+      expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
+      setIntervalSpy.mockRestore();
+    });
+  });
 });

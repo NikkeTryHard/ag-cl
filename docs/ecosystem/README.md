@@ -50,7 +50,7 @@ Enterprise-grade Go service with modular provider support. Key components:
 ```
 CLIProxyAPI/
 ├── sdk/cliproxy/
-│   ├── service.go       # Core service lifecycle (1326 lines)
+│   ├── service.go       # Core service lifecycle
 │   ├── auth/            # Authentication managers
 │   └── usage/           # Usage tracking plugins
 ├── internal/

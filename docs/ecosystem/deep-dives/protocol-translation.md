@@ -3,7 +3,7 @@
 **Pattern**: WebSocket connection manager with automatic session replacement and pending request cleanup.
 
 ```go
-// internal/wsrelay/manager.go (206 lines)
+// internal/wsrelay/manager.go
 type Manager struct {
     path      string
     upgrader  websocket.Upgrader
@@ -97,7 +97,7 @@ func (m *Manager) Stop(_ context.Context) error {
 **Pattern**: Request/response correlation over WebSocket with heartbeat keep-alive and cleanup on close.
 
 ```go
-// internal/wsrelay/session.go (189 lines)
+// internal/wsrelay/session.go
 const (
     readTimeout          = 60 * time.Second
     writeTimeout         = 10 * time.Second
@@ -242,7 +242,7 @@ func (s *session) cleanup(cause error) {
 **Pattern**: Simple message type enumeration for WebSocket RPC-style communication.
 
 ```go
-// internal/wsrelay/message.go (28 lines)
+// internal/wsrelay/message.go
 type Message struct {
     ID      string         `json:"id"`
     Type    string         `json:"type"`
@@ -833,7 +833,7 @@ func (e *AntigravityExecutor) refreshToken(ctx context.Context, auth *cliproxyau
 **Pattern**: Context-aware model routing based on token count thresholds, tool usage, and thinking mode.
 
 ```typescript
-// packages/core/src/utils/router.ts (367 lines)
+// packages/core/src/utils/router.ts
 export type RouterScenarioType = "default" | "background" | "think" | "longContext" | "webSearch";
 
 export interface RouterFallbackConfig {
@@ -1027,7 +1027,7 @@ const getProjectSpecificRouter = async (req: any, configService: ConfigService) 
 **Pattern**: Simple tiered mapping from numeric budget to semantic thinking level.
 
 ```typescript
-// packages/core/src/utils/thinking.ts (9 lines)
+// packages/core/src/utils/thinking.ts
 import { ThinkLevel } from "@/types/llm";
 
 export const getThinkLevel = (thinking_budget: number): ThinkLevel => {
@@ -1055,7 +1055,7 @@ if (request.thinking) {
 **Pattern**: Full round-trip conversion between Anthropic and OpenAI/unified format for both streaming and non-streaming.
 
 ```typescript
-// packages/core/src/transformer/anthropic.transformer.ts (1070 lines)
+// packages/core/src/transformer/anthropic.transformer.ts
 export class AnthropicTransformer implements Transformer {
   name = "Anthropic";
   endPoint = "/v1/messages";
@@ -1283,7 +1283,7 @@ private async convertOpenAIStreamToAnthropic(openaiStream: ReadableStream, conte
 **Pattern**: Unified request conversion to Gemini format with thinking budget and tool handling.
 
 ```typescript
-// packages/core/src/utils/gemini.util.ts (1045 lines)
+// packages/core/src/utils/gemini.util.ts
 export function buildRequestBody(request: UnifiedChatRequest): Record<string, any> {
   const tools = [];
 
@@ -3164,4 +3164,3 @@ export class OpenrouterTransformer implements Transformer {
 **Why This Matters**: Fixes OpenRouter's non-standard tool IDs and finish_reason handling for Claude Code compatibility.
 
 ---
-

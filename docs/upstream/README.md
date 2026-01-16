@@ -71,9 +71,9 @@ The upstream repository released **v2.0.1** with the critical stopReason fix. Th
 
 **Our Bug Location**: `src/cloudcode/sse-streamer.ts`:
 
-- Line 144: `stopReason = "end_turn"` → needs to be `null`
-- Lines 328-335: Missing `&& !stopReason` check
-- Line 364: `stopReason` → needs to be `stopReason || "end_turn"`
+- In streaming response handler: `stopReason = "end_turn"` → needs to be `null`
+- In message completion logic: Missing `&& !stopReason` check
+- In final response: `stopReason` → needs to be `stopReason || "end_turn"`
 
 **Status**: **IMPLEMENTED** ✅ - Same fix applied to our `sse-streamer.ts`.
 

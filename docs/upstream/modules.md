@@ -443,17 +443,17 @@ Upstream has a single monolithic CLI file with all account commands. We have a m
 
 ### CLI Structure Differences
 
-| Aspect            | Upstream                | Us                                    |
-| ----------------- | ----------------------- | ------------------------------------- |
-| Framework         | Raw `readline/promises` | `@clack/prompts` + Commander.js       |
-| File organization | Single file (509 lines) | Modular (12 files, 2,494 lines total) |
-| Browser opening   | `child_process.exec()`  | `open` npm package                    |
-| Server check      | Raw `net.Socket`        | `isServerRunning()` utility           |
-| UI feedback       | Console.log with emojis | `@clack/prompts` spinners/logs        |
-| Auth method       | OAuth only (inline)     | OAuth + refresh token option          |
-| `--no-browser`    | ✅                      | ✅                                    |
-| `--refresh-token` | ❌                      | ✅ **We added this**                  |
-| REFRESH_TOKEN env | ❌                      | ✅ **We added this**                  |
+| Aspect            | Upstream                | Us                              |
+| ----------------- | ----------------------- | ------------------------------- |
+| Framework         | Raw `readline/promises` | `@clack/prompts` + Commander.js |
+| File organization | Single file             | Modular (multiple files)        |
+| Browser opening   | `child_process.exec()`  | `open` npm package              |
+| Server check      | Raw `net.Socket`        | `isServerRunning()` utility     |
+| UI feedback       | Console.log with emojis | `@clack/prompts` spinners/logs  |
+| Auth method       | OAuth only (inline)     | OAuth + refresh token option    |
+| `--no-browser`    | ✅                      | ✅                              |
+| `--refresh-token` | ❌                      | ✅ **We added this**            |
+| REFRESH_TOKEN env | ❌                      | ✅ **We added this**            |
 
 ### Our CLI File Structure
 
@@ -540,7 +540,7 @@ return Math.floor(capped + jitter);
 
 ### Retry Module Deep Dive
 
-Upstream's `utils/retry.js` (162 lines) provides a complete retry framework:
+Upstream's `utils/retry.js` provides a complete retry framework:
 
 **`calculateBackoff(attempt, baseMs = 1000, maxMs = 30000)`**
 
@@ -1348,7 +1348,7 @@ export async function fetchWithTimeout(url: string, options: RequestInit, timeou
 
 ## Native Module Helper (Upstream Only)
 
-Upstream has `utils/native-module-helper.js` (163 lines) for auto-rebuilding native modules. We **don't need this** since we use TypeScript.
+Upstream has `utils/native-module-helper.js` for auto-rebuilding native modules. We **don't need this** since we use TypeScript.
 
 ### Functions
 
@@ -1389,7 +1389,7 @@ export function attemptAutoRebuild(error) {
 
 ## Claude Config Utility (Upstream Only)
 
-Upstream has `utils/claude-config.js` (112 lines) for WebUI's Claude CLI settings editor. We **skip this** since we don't have WebUI.
+Upstream has `utils/claude-config.js` for WebUI's Claude CLI settings editor. We **skip this** since we don't have WebUI.
 
 ### Functions
 
@@ -2188,4 +2188,3 @@ The following table summarizes our investigation of all 34 JavaScript files in t
 | Log history (1000 entries) | Not needed (no WebUI SSE) |
 
 ---
-

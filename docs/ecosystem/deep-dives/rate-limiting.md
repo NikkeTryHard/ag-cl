@@ -1,6 +1,6 @@
 ### 4.29 Rate Limit Backoff with Time-Window Deduplication
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:498-566`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Sophisticated rate limit handling that prevents concurrent requests from causing incorrect exponential backoff.
 
@@ -66,7 +66,7 @@ function getRateLimitBackoff(accountIndex: number, quotaKey: string, serverRetry
 
 ### 4.30 Capacity Exhausted Tiered Backoff
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:54-59, 1243-1257`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Special handling for "MODEL_CAPACITY_EXHAUSTED" errors with progressive delays.
 
@@ -357,7 +357,7 @@ export function getCachedSignature(sessionId: string, text: string): string | un
 
 ### 4.33 Account Failure Tracking with Cooldown
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:594-619`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Prevents infinite retry loops by tracking non-429 failures per account.
 
@@ -429,7 +429,7 @@ resetAccountFailureState(account.index);
 
 ### 4.34 Quota Fallback Strategy
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:1134-1155, 1284-1310`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Automatic fallback between Antigravity and Gemini CLI quotas for Gemini models.
 
@@ -502,4 +502,3 @@ function headerStyleToQuotaKey(headerStyle: HeaderStyle, family: ModelFamily): s
 ```
 
 ---
-

@@ -198,7 +198,7 @@ process.on("SIGTERM", async () => {
 
 ### Model Mapping / Alias System
 
-**Location**: `config.js` line 17, `server.js` lines 609-614, `webui/index.js` lines 442-467
+**Location**: `config.js`, `server.js`, `webui/index.js`
 
 **What it does**: Allows users to configure model aliases via WebUI or config file.
 
@@ -248,7 +248,7 @@ Upstream exposes these options via config file and WebUI settings:
 
 ### Pending OAuth Flow Management
 
-**Location**: `webui/index.js` lines 40, 534-581
+**Location**: `webui/index.js`
 
 Upstream manages pending OAuth flows for WebUI-initiated authentication:
 
@@ -322,4 +322,3 @@ npm run upstream:mark       # Update bookmark after review
 ```
 
 ---
-

@@ -1,6 +1,6 @@
 ### 4.35 Empty Response Retry Logic
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:1422-1462`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Automatic retry when API returns empty responses (common with large thinking budgets).
 
@@ -58,7 +58,7 @@ export class EmptyResponseError extends Error {
 
 ### 4.36 WSL Detection for OAuth Flow
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:100-137`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Environment detection to choose appropriate OAuth callback mechanism.
 
@@ -121,7 +121,7 @@ function shouldSkipLocalServer(): boolean {
 
 ### 4.37 Thinking Warmup Requests
 
-**Source**: `opencode-antigravity-auth/src/plugin.ts:1057-1120`
+**Source**: `opencode-antigravity-auth/src/plugin.ts`
 
 Pre-flight requests to establish thinking session before main request.
 
@@ -614,7 +614,7 @@ Example: `Read-1736589423456789012-42`
 
 ### 4.42 Non-Streaming Response Conversion with Flush Pattern
 
-**Source**: `CLIProxyAPI/internal/translator/antigravity/claude/antigravity_claude_response.go:363-520`
+**Source**: `CLIProxyAPI/internal/translator/antigravity/claude/antigravity_claude_response.go`
 
 Complete non-streaming response conversion with builder pattern for content accumulation.
 
@@ -780,7 +780,7 @@ func ConvertAntigravityResponseToClaudeNonStream(ctx context.Context, modelName 
 
 ### 4.43 Thread-Safe Model Registry with Reference Counting (CLIProxyAPI)
 
-**Location**: `internal/registry/model_registry.go` (1137 lines)
+**Location**: `internal/registry/model_registry.go`
 
 **Pattern**: Comprehensive registry managing model availability, quota tracking, and client-model associations with reference counting.
 
@@ -968,7 +968,7 @@ func (r *ModelRegistry) SetHook(hook ModelRegistryHook) {
 
 ### 4.44 Model Mapper with Regex Support (CLIProxyAPI)
 
-**Location**: `internal/api/modules/amp/model_mapping.go` (148 lines)
+**Location**: `internal/api/modules/amp/model_mapping.go`
 
 **Pattern**: Model name aliasing with exact mapping, regex rules, and hot-reload capability.
 
@@ -1205,7 +1205,7 @@ func ProcessRequest(req *Request) error {
 
 ### 4.46 Translator Pipeline with Middleware Chain (CLIProxyAPI)
 
-**Location**: `sdk/translator/pipeline.go` (107 lines)
+**Location**: `sdk/translator/pipeline.go`
 
 **Pattern**: Request/response transformation pipeline with composable middleware and format registry.
 
@@ -1266,7 +1266,7 @@ func (p *Pipeline) TranslateRequest(ctx context.Context, from, to Format, req Re
 
 ### 4.47 Translator Registry with Streaming/Non-Streaming Transforms (CLIProxyAPI)
 
-**Location**: `sdk/translator/registry.go` (143 lines)
+**Location**: `sdk/translator/registry.go`
 
 **Pattern**: Thread-safe registry for bidirectional format transformations.
 
@@ -1322,7 +1322,7 @@ func Default() *Registry { return defaultRegistry }
 
 ### 4.48 Stream Forwarder with Keep-Alive Heartbeats (CLIProxyAPI)
 
-**Location**: `sdk/api/handlers/stream_forwarder.go` (122 lines)
+**Location**: `sdk/api/handlers/stream_forwarder.go`
 
 **Pattern**: Generic SSE stream forwarder with configurable keep-alive, terminal errors, and done markers.
 
@@ -1419,7 +1419,7 @@ func (h *BaseAPIHandler) ForwardStream(c *gin.Context, flusher http.Flusher, can
 
 ### 4.49 Auth Manager with Provider Rotation and Retry (CLIProxyAPI)
 
-**Location**: `sdk/cliproxy/auth/conductor.go` (1760 lines)
+**Location**: `sdk/cliproxy/auth/conductor.go`
 
 **Pattern**: Comprehensive auth lifecycle management with provider rotation, quota backoff, and auto-refresh.
 
@@ -1524,7 +1524,7 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
 
 ### 4.50 Usage Manager with Plugin System (CLIProxyAPI)
 
-**Location**: `sdk/cliproxy/usage/manager.go` (182 lines)
+**Location**: `sdk/cliproxy/usage/manager.go`
 
 **Pattern**: Queue-based usage tracking with plugin architecture for metrics collection.
 
@@ -1602,7 +1602,7 @@ func RegisterPlugin(plugin Plugin) { DefaultManager().Register(plugin) }
 
 ### 4.51 Service Lifecycle with Hot-Reload (CLIProxyAPI)
 
-**Location**: `sdk/cliproxy/service.go` (1326 lines)
+**Location**: `sdk/cliproxy/service.go`
 
 **Pattern**: Complete service lifecycle with file watching, config hot-reload, and executor binding.
 
@@ -1700,4 +1700,3 @@ func (s *Service) wsOnConnected(channelID string) {
 **Why This Matters**: Provides complete production-ready service lifecycle with dynamic reconfiguration.
 
 ---
-

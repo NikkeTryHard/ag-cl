@@ -114,13 +114,12 @@ describe("cloudcode/quota-storage", () => {
       });
     });
 
-    it("records multiple snapshots for the same account and family", async () => {
-      recordSnapshot("account-1", "claude", 100);
-      // Small delay to ensure different timestamps
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 90);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 80);
+    it("records multiple snapshots for the same account and family", () => {
+      // Use explicit timestamps to avoid flaky timing-based tests
+      const baseTime = Date.now();
+      recordSnapshot("account-1", "claude", 100, baseTime);
+      recordSnapshot("account-1", "claude", 90, baseTime + 1000);
+      recordSnapshot("account-1", "claude", 80, baseTime + 2000);
 
       const snapshots = getSnapshots("account-1", "claude", 0);
       expect(snapshots).toHaveLength(3);

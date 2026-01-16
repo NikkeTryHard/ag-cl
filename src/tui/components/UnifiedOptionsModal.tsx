@@ -6,9 +6,7 @@
  *
  * Sections:
  * - General Settings: Identity Mode, Default Port, Log Level, Model Fallback, Auto Refresh, Scheduling Mode
- * - Share Authentication: Enabled, Mode, Master Key (disabled), Friend Keys (disabled)
- * - Share Visibility: Show Emails, Show Accounts, Show Models, Show Burn Rate
- * - Share Limits: Max Clients, Poll Interval
+ * - Share Options: Enabled, Auth Mode, Master Key, Friend Keys, Max Clients, Poll Interval, Visibility settings
  */
 
 import React, { useState, useCallback, useMemo } from "react";
@@ -41,22 +39,18 @@ type SettingId =
   | "fallbackEnabled"
   | "autoRefreshEnabled"
   | "schedulingMode"
-  // Share Authentication
-  | "header-auth"
+  // Share Options (consolidated section)
+  | "header-share"
   | "authEnabled"
   | "authMode"
   | "masterKey"
   | "friendKeys"
-  // Share Visibility
-  | "header-visibility"
+  | "maxClients"
+  | "pollIntervalSeconds"
   | "showAccountEmails"
   | "showIndividualAccounts"
   | "showModelBreakdown"
-  | "showBurnRate"
-  // Share Limits
-  | "header-limits"
-  | "maxClients"
-  | "pollIntervalSeconds";
+  | "showBurnRate";
 
 const IDENTITY_MODES: IdentityMode[] = ["full", "short", "none"];
 const LOG_LEVELS: LogLevel[] = ["silent", "error", "warn", "info", "debug", "trace"];
@@ -116,24 +110,18 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
       { id: "autoRefreshEnabled", type: "selectable", label: "Auto Refresh", value: autoRefreshEnabledValue ? "on" : "off" },
       { id: "schedulingMode", type: "selectable", label: "Scheduling Mode", value: schedulingModeValue, description: SCHEDULING_MODE_DESCRIPTIONS[schedulingModeValue] },
 
-      // Share Authentication
-      { id: "header-auth", type: "header", label: "Share Authentication" },
+      // Share Options (consolidated)
+      { id: "header-share", type: "header", label: "Share Options" },
       { id: "authEnabled", type: "selectable", label: "Enabled", value: shareConfig.auth.enabled ? "Y" : "N" },
-      { id: "authMode", type: "selectable", label: "Mode", value: shareConfig.auth.mode },
-      { id: "masterKey", type: "selectable", label: "Master Key", value: shareConfig.auth.masterKey ? "set" : "not set" },
-      { id: "friendKeys", type: "selectable", label: "Friend Keys", value: String(shareConfig.auth.friendKeys.length) },
-
-      // Share Visibility
-      { id: "header-visibility", type: "header", label: "Share Visibility" },
+      { id: "authMode", type: "selectable", label: "Auth Mode", value: shareConfig.auth.mode },
+      { id: "masterKey", type: "selectable", label: "Master Key...", value: shareConfig.auth.masterKey ? "set" : "not set" },
+      { id: "friendKeys", type: "selectable", label: "Friend Keys...", value: String(shareConfig.auth.friendKeys.length) },
+      { id: "maxClients", type: "selectable", label: "Max Clients", value: String(shareConfig.limits.maxClients) },
+      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: shareConfig.limits.pollIntervalSeconds === 0 ? "off" : `${shareConfig.limits.pollIntervalSeconds}s` },
       { id: "showAccountEmails", type: "selectable", label: "Show Emails", value: shareConfig.visibility.showAccountEmails ? "Y" : "N" },
       { id: "showIndividualAccounts", type: "selectable", label: "Show Accounts", value: shareConfig.visibility.showIndividualAccounts ? "Y" : "N" },
       { id: "showModelBreakdown", type: "selectable", label: "Show Models", value: shareConfig.visibility.showModelBreakdown ? "Y" : "N" },
       { id: "showBurnRate", type: "selectable", label: "Show Burn Rate", value: shareConfig.visibility.showBurnRate ? "Y" : "N" },
-
-      // Share Limits
-      { id: "header-limits", type: "header", label: "Share Limits" },
-      { id: "maxClients", type: "selectable", label: "Max Clients", value: String(shareConfig.limits.maxClients) },
-      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: shareConfig.limits.pollIntervalSeconds === 0 ? "off" : `${shareConfig.limits.pollIntervalSeconds}s` },
     ];
   }, [settings, shareConfig]);
 

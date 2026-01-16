@@ -59,9 +59,7 @@ describe("UnifiedOptionsModal", () => {
       const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
 
       expect(lastFrame()).toContain("General Settings");
-      expect(lastFrame()).toContain("Share Authentication");
-      expect(lastFrame()).toContain("Share Visibility");
-      expect(lastFrame()).toContain("Share Limits");
+      expect(lastFrame()).toContain("Share Options");
     });
   });
 

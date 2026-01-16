@@ -204,7 +204,7 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
           break;
         }
 
-        // Share Authentication
+        // Share Options
         case "authEnabled": {
           await handleShareSave({
             auth: { ...shareConfig.auth, enabled: !shareConfig.auth.enabled },
@@ -231,7 +231,6 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
           break;
         }
 
-        // Share Visibility
         case "showAccountEmails": {
           await handleShareSave({
             visibility: { ...shareConfig.visibility, showAccountEmails: !shareConfig.visibility.showAccountEmails },
@@ -257,7 +256,6 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
           break;
         }
 
-        // Share Limits
         case "maxClients": {
           const next = cycleValue(shareConfig.limits.maxClients, MAX_CLIENTS_OPTIONS);
           await handleShareSave({

@@ -25,7 +25,7 @@ One master key for all users:
 **To set up:**
 
 1. Open Options (`o` or `?`)
-2. Navigate to "Share Authentication"
+2. Navigate to "Share Options"
 3. Set "Enabled" to Y
 4. Set "Mode" to "single"
 5. Select "Master Key" to view/copy/regenerate
@@ -41,7 +41,7 @@ Unique keys for each user:
 **To set up:**
 
 1. Open Options (`o` or `?`)
-2. Navigate to "Share Authentication"
+2. Navigate to "Share Options"
 3. Set "Enabled" to Y
 4. Set "Mode" to "per-friend"
 5. Select "Friend Keys" to manage keys

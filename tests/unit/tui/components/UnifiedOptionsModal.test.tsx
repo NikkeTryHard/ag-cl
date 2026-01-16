@@ -258,9 +258,10 @@ describe("UnifiedOptionsModal", () => {
       // Navigate to Poll Interval (it's in the Share Options section)
       await delay(10);
 
-      // Navigate down 11 times to reach Poll Interval (12th selectable item)
-      // Order: Identity Mode (start), Default Port, Log Level, Model Fallback, Auto Refresh, Scheduling Mode,
-      //        (Share Options header - skipped), Enabled, Auth Mode, Master Key, Friend Keys, Max Clients, Poll Interval
+      // Navigate down 11 times to reach Poll Interval (12th selectable item, 0-indexed = 11)
+      // Order: Identity Mode (0), Default Port (1), Log Level (2), Model Fallback (3), Auto Refresh (4), Scheduling Mode (5),
+      //        Enabled (6), Auth Mode (7), Master Key (8), Friend Keys (9), Max Clients (10), Poll Interval (11)
+      // Note: Headers are skipped by navigation
       for (let i = 0; i < 11; i++) {
         stdin.write(DOWN);
         await delay(10);

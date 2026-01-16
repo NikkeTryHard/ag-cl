@@ -62,7 +62,7 @@ const IDENTITY_MODES: IdentityMode[] = ["full", "short", "none"];
 const LOG_LEVELS: LogLevel[] = ["silent", "error", "warn", "info", "debug", "trace"];
 const SCHEDULING_MODES: SchedulingMode[] = ["sticky", "refresh-priority", "drain-highest", "round-robin"];
 const MAX_CLIENTS_OPTIONS = [1, 3, 5, 10];
-const POLL_INTERVAL_OPTIONS = [5, 10, 30, 60];
+const POLL_INTERVAL_OPTIONS = [0, 5, 10, 30, 60];
 
 const SCHEDULING_MODE_DESCRIPTIONS: Record<SchedulingMode, string> = {
   sticky: "Stay on current account until rate-limited",
@@ -133,7 +133,7 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
       // Share Limits
       { id: "header-limits", type: "header", label: "Share Limits" },
       { id: "maxClients", type: "selectable", label: "Max Clients", value: String(shareConfig.limits.maxClients) },
-      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: `${String(shareConfig.limits.pollIntervalSeconds)}s` },
+      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: shareConfig.limits.pollIntervalSeconds === 0 ? "off" : `${shareConfig.limits.pollIntervalSeconds}s` },
     ];
   }, [settings, shareConfig]);
 

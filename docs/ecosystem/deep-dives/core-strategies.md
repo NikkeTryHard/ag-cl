@@ -94,6 +94,66 @@ fn create_warmup_response(request: &ClaudeRequest, is_stream: bool) -> Response 
 
 ---
 
+### Usage Scaling / Token Report Manipulation (Antigravity-Manager)
+
+**Source**: `src-tauri/src/proxy/mappers/claude/collector.rs` (PR #603, v3.3.27)
+
+**Problem**: Claude Code and similar clients assume a 200k token context limit. When proxying to Gemini models (which support 1M+ tokens), clients incorrectly trigger context compression, creating a "death loop" of unnecessary compression cycles.
+
+**Solution**: Report scaled token counts to trick client's compression check mechanism.
+
+**Algorithm**:
+
+```rust
+fn scale_usage(input_tokens: u32, cache_tokens: u32) -> (u32, u32) {
+    let total = input_tokens + cache_tokens;
+
+    if total <= 30_000 {
+        // Below threshold: report actual values
+        return (input_tokens, cache_tokens);
+    }
+
+    // Apply square-root scaling for large contexts
+    // 1M tokens → ~1000 (sqrt) → scaled to ~40k reported
+    let scale_factor = (total as f64).sqrt() / total as f64;
+
+    (
+        (input_tokens as f64 * scale_factor) as u32,
+        (cache_tokens as f64 * scale_factor) as u32,
+    )
+}
+```
+
+**Behavior Matrix** (values from PR #603 description):
+
+| Real Tokens | Reported Tokens | Compression |
+| ----------- | --------------- | ----------- |
+| 30,000      | 30,000          | None        |
+| 100,000     | ~31,600         | 3.2x        |
+| 500,000     | ~35,400         | 14x         |
+| 1,000,000   | ~40,000         | 25x         |
+
+> Note: The algorithm shown is illustrative. Actual implementation may use additional scaling factors to achieve the reported values.
+
+**Scope**:
+
+| Aspect                | Behavior                                               |
+| --------------------- | ------------------------------------------------------ |
+| **Target models**     | Gemini (Pro/Flash) via Claude API format               |
+| **Claude models**     | Unaffected (native format, no scaling)                 |
+| **Supported clients** | Claude Code, Cursor, Windsurf                          |
+| **Configuration**     | `enable_usage_scaling` toggle in Experimental Settings |
+| **Hot reload**        | Yes, changes apply immediately                         |
+
+**ag-cl Implementation Notes**:
+
+- Only apply when converting Gemini UsageMetadata to Claude format
+- Skip for native Claude model responses
+- Consider making threshold configurable (default: 30,000)
+- Log original vs scaled values at debug level
+
+---
+
 ### Model-Level Rate Limiting (Antigravity-Manager)
 
 **Source**: `src-tauri/src/proxy/rate_limit.rs`
@@ -5851,4 +5911,3 @@ func ApplyGeminiThinkingConfig(payload []byte, budget *int, includeThoughts *boo
 | Dynamic support | "high"                     | -1               |
 
 ---
-

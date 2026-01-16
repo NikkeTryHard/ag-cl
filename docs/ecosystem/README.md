@@ -14,14 +14,14 @@
 
 ### Deep Dives (Implementation Details)
 
-| Document                                                   | Description                              | Lines |
-| ---------------------------------------------------------- | ---------------------------------------- | ----- |
-| [Core Strategies](deep-dives/core-strategies.md)           | Warmup, dual quota, signatures, recovery | 5,854 |
-| [Rate Limiting](deep-dives/rate-limiting.md)               | Backoff, quota fallback, tiered limits   | 505   |
-| [Session & Streaming](deep-dives/session-streaming.md)     | Auth queues, token refresh, streaming    | 1,703 |
-| [Protocol Translation](deep-dives/protocol-translation.md) | SSE parsing, schema cleaning, bridging   | 3,167 |
-| [Resilience](deep-dives/resilience.md)                     | Error handling, session recovery         | 3,838 |
-| [Extensions](deep-dives/extensions.md)                     | Tokenizers, MCP, CLI utilities           | 2,548 |
+| Document                                                   | Description                              |
+| ---------------------------------------------------------- | ---------------------------------------- |
+| [Core Strategies](deep-dives/core-strategies.md)           | Warmup, dual quota, signatures, recovery |
+| [Rate Limiting](deep-dives/rate-limiting.md)               | Backoff, quota fallback, tiered limits   |
+| [Session & Streaming](deep-dives/session-streaming.md)     | Auth queues, token refresh, streaming    |
+| [Protocol Translation](deep-dives/protocol-translation.md) | SSE parsing, schema cleaning, bridging   |
+| [Resilience](deep-dives/resilience.md)                     | Error handling, session recovery         |
+| [Extensions](deep-dives/extensions.md)                     | Tokenizers, MCP, CLI utilities           |
 
 ---
 
@@ -253,16 +253,35 @@ Parses complex Google API duration formats:
 fn parse_duration_string(s: &str) -> Duration { ... }
 ```
 
+#### Usage Scaling (Experimental)
+
+Prevents clients from triggering false context compression when using Gemini's large context window:
+
+```
+Problem: Claude Code assumes 200k limit → triggers compression on Gemini's 1M context
+Solution: Report scaled token counts → sqrt(tokens) when input > 30k
+Example: 1M real tokens → reported as ~40k tokens
+```
+
+**Configuration**:
+
+- Toggle: `enable_usage_scaling` in Experimental Settings
+- Trigger: Input tokens > 30,000
+- Algorithm: Square-root scaling
+- Scope: Gemini models only (Claude models unaffected)
+- Clients: Claude Code, Cursor, Windsurf
+
 ### Adoption Candidates for ag-cl
 
-| Feature                     | Priority     | Effort | Value                    |
-| --------------------------- | ------------ | ------ | ------------------------ |
-| Warmup request interception | **Critical** | Low    | Quota savings            |
-| Model-level rate limiting   | High         | Medium | Better quota utilization |
-| Auto-stream conversion      | High         | Medium | 429 reduction            |
-| Smart exponential backoff   | Medium       | Low    | Stability                |
-| Optimistic reset strategy   | Medium       | Low    | Edge case handling       |
-| Device fingerprint binding  | Low          | High   | Account protection       |
+| Feature                         | Priority     | Effort | Value                      |
+| ------------------------------- | ------------ | ------ | -------------------------- |
+| Warmup request interception     | **Critical** | Low    | Quota savings              |
+| Model-level rate limiting       | High         | Medium | Better quota utilization   |
+| Auto-stream conversion          | High         | Medium | 429 reduction              |
+| Smart exponential backoff       | Medium       | Low    | Stability                  |
+| Optimistic reset strategy       | Medium       | Low    | Edge case handling         |
+| Usage scaling (token reporting) | High         | Low    | Prevents false compression |
+| Device fingerprint binding      | Low          | High   | Account protection         |
 
 ---
 

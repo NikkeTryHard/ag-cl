@@ -114,13 +114,12 @@ describe("cloudcode/quota-storage", () => {
       });
     });
 
-    it("records multiple snapshots for the same account and family", async () => {
-      recordSnapshot("account-1", "claude", 100);
-      // Small delay to ensure different timestamps
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 90);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 80);
+    it("records multiple snapshots for the same account and family", () => {
+      // Use explicit timestamps to avoid flaky timing-based tests
+      const baseTime = Date.now();
+      recordSnapshot("account-1", "claude", 100, baseTime);
+      recordSnapshot("account-1", "claude", 90, baseTime + 1000);
+      recordSnapshot("account-1", "claude", 80, baseTime + 2000);
 
       const snapshots = getSnapshots("account-1", "claude", 0);
       expect(snapshots).toHaveLength(3);
@@ -205,26 +204,25 @@ describe("cloudcode/quota-storage", () => {
       expect(snapshots[0].modelFamily).toBe("claude");
     });
 
-    it("filters snapshots by since timestamp", async () => {
-      recordSnapshot("account-1", "claude", 100);
-      const beforeSecond = Date.now();
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 90);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 80);
+    it("filters snapshots by since timestamp", () => {
+      // Use explicit timestamps to avoid flaky timing-based tests
+      const baseTime = Date.now();
+      recordSnapshot("account-1", "claude", 100, baseTime);
+      recordSnapshot("account-1", "claude", 90, baseTime + 1000);
+      recordSnapshot("account-1", "claude", 80, baseTime + 2000);
 
-      const snapshots = getSnapshots("account-1", "claude", beforeSecond);
+      const snapshots = getSnapshots("account-1", "claude", baseTime);
       expect(snapshots).toHaveLength(2);
-      // Should only include snapshots after beforeSecond
-      expect(snapshots.every((s) => s.recordedAt > beforeSecond)).toBe(true);
+      // Should only include snapshots after baseTime (not including baseTime itself)
+      expect(snapshots.every((s) => s.recordedAt > baseTime)).toBe(true);
     });
 
-    it("returns snapshots ordered by recordedAt descending", async () => {
-      recordSnapshot("account-1", "claude", 100);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 80);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      recordSnapshot("account-1", "claude", 60);
+    it("returns snapshots ordered by recordedAt descending", () => {
+      // Use explicit timestamps to avoid flaky timing-based tests
+      const baseTime = Date.now();
+      recordSnapshot("account-1", "claude", 100, baseTime);
+      recordSnapshot("account-1", "claude", 80, baseTime + 1000);
+      recordSnapshot("account-1", "claude", 60, baseTime + 2000);
 
       const snapshots = getSnapshots("account-1", "claude", 0);
       expect(snapshots).toHaveLength(3);
@@ -254,15 +252,12 @@ describe("cloudcode/quota-storage", () => {
   });
 
   describe("cleanOldSnapshots", () => {
-    it("removes snapshots older than specified timestamp", async () => {
-      // Record old snapshot
+    it("removes snapshots older than specified timestamp", () => {
+      // Use explicit timestamps to avoid flaky timing-based tests
       const oldTime = Date.now() - 10000; // 10 seconds ago
+      const newTime = Date.now(); // now
       recordSnapshot("account-1", "claude", 100, oldTime);
-
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      // Record new snapshot
-      recordSnapshot("account-1", "claude", 90);
+      recordSnapshot("account-1", "claude", 90, newTime);
 
       // Clean snapshots older than 5 seconds ago
       const cutoff = Date.now() - 5000;

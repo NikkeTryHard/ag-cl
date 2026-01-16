@@ -59,9 +59,7 @@ describe("UnifiedOptionsModal", () => {
       const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
 
       expect(lastFrame()).toContain("General Settings");
-      expect(lastFrame()).toContain("Share Authentication");
-      expect(lastFrame()).toContain("Share Visibility");
-      expect(lastFrame()).toContain("Share Limits");
+      expect(lastFrame()).toContain("Share Options");
     });
   });
 
@@ -107,8 +105,8 @@ describe("UnifiedOptionsModal", () => {
     });
   });
 
-  describe("disabled items", () => {
-    it("renders Master Key and Friend Keys as disabled items", () => {
+  describe("modal indicator items", () => {
+    it("renders Master Key and Friend Keys with sub-modal indicators", () => {
       const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
 
       expect(lastFrame()).toContain("Master Key");
@@ -191,6 +189,98 @@ describe("UnifiedOptionsModal", () => {
       expect(mockOnUpdateSettings).not.toHaveBeenCalled();
       expect(mockOnUpdateShareConfig).not.toHaveBeenCalled();
       expect(mockOnClose).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Tests for poll interval display logic.
+   * The component should display "off" when pollIntervalSeconds is 0,
+   * and display the value with "s" suffix otherwise.
+   */
+  describe("poll interval display", () => {
+    it("should display 'off' when pollIntervalSeconds is 0", () => {
+      // Enable fallback so [off] doesn't appear from Model Fallback
+      const settingsWithFallback: AccountSettings = {
+        ...defaultSettings,
+        fallbackEnabled: true,
+      };
+      const configWithZeroPoll: ShareConfig = {
+        ...defaultShareConfig,
+        limits: {
+          ...defaultShareConfig.limits,
+          pollIntervalSeconds: 0,
+        },
+      };
+
+      const { lastFrame } = render(<UnifiedOptionsModal settings={settingsWithFallback} shareConfig={configWithZeroPoll} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      const frame = lastFrame();
+      expect(frame).toContain("Poll Interval");
+      // Should NOT display [0s]
+      expect(frame).not.toContain("[0s]");
+      // Should display [off] for Poll Interval
+      expect(frame).toContain("[off]");
+    });
+
+    it("should display value with 's' suffix when pollIntervalSeconds > 0", () => {
+      const configWithNonZeroPoll: ShareConfig = {
+        ...defaultShareConfig,
+        limits: {
+          ...defaultShareConfig.limits,
+          pollIntervalSeconds: 30,
+        },
+      };
+
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={configWithNonZeroPoll} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("Poll Interval");
+      expect(lastFrame()).toContain("[30s]");
+    });
+  });
+
+  describe("poll interval cycling", () => {
+    it("should cycle poll interval through all options including off", async () => {
+      const ENTER = "\r";
+      const DOWN = "\x1B[B";
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      // Start with pollIntervalSeconds = 60 (last option)
+      const configWith60: ShareConfig = {
+        ...defaultShareConfig,
+        limits: {
+          ...defaultShareConfig.limits,
+          pollIntervalSeconds: 60,
+        },
+      };
+
+      const { stdin, lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={configWith60} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      // Navigate to Poll Interval (it's in the Share Options section)
+      await delay(10);
+
+      // Navigate down 11 times to reach Poll Interval (12th selectable item, 0-indexed = 11)
+      // Order: Identity Mode (0), Default Port (1), Log Level (2), Model Fallback (3), Auto Refresh (4), Scheduling Mode (5),
+      //        Enabled (6), Auth Mode (7), Master Key (8), Friend Keys (9), Max Clients (10), Poll Interval (11)
+      // Note: Headers are skipped by navigation
+      for (let i = 0; i < 11; i++) {
+        stdin.write(DOWN);
+        await delay(10);
+      }
+
+      // Verify we're on Poll Interval
+      expect(lastFrame()).toContain("Poll Interval");
+      expect(lastFrame()).toContain("[60s]");
+
+      // Press Enter to cycle to next value (should wrap to 0 = "off")
+      stdin.write(ENTER);
+      await delay(50);
+
+      // Verify onUpdateShareConfig was called with pollIntervalSeconds: 0
+      expect(mockOnUpdateShareConfig).toHaveBeenCalledWith({
+        limits: expect.objectContaining({
+          pollIntervalSeconds: 0,
+        }),
+      });
     });
   });
 });

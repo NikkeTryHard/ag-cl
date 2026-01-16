@@ -25,7 +25,7 @@ One master key for all users:
 **To set up:**
 
 1. Open Options (`o` or `?`)
-2. Navigate to "Share Authentication"
+2. Navigate to "Share Options"
 3. Set "Enabled" to Y
 4. Set "Mode" to "single"
 5. Select "Master Key" to view/copy/regenerate
@@ -41,7 +41,7 @@ Unique keys for each user:
 **To set up:**
 
 1. Open Options (`o` or `?`)
-2. Navigate to "Share Authentication"
+2. Navigate to "Share Options"
 3. Set "Enabled" to Y
 4. Set "Mode" to "per-friend"
 5. Select "Friend Keys" to manage keys
@@ -92,10 +92,10 @@ Control what information clients can see about your proxy:
 
 ## Connection Limits
 
-| Setting       | Description                             |
-| ------------- | --------------------------------------- |
-| Max Clients   | Maximum simultaneous connections (1-10) |
-| Poll Interval | How often clients refresh quota data    |
+| Setting       | Description                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Max Clients   | Maximum simultaneous connections (1-10)                                                                               |
+| Poll Interval | How often clients refresh quota data (set to "off" to disable automatic polling - clients fetch once on connect only) |
 
 ## Keyboard Shortcuts
 

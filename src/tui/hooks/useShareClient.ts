@@ -78,10 +78,15 @@ export function useShareClient(): UseShareClientResult {
     }
   }, [clientId]);
 
-  // Start polling
+  // Start polling (skip if pollInterval is 0 - means no enforced minimum)
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current);
+    }
+
+    // pollInterval of 0 means disabled - no recurring polls
+    if (pollIntervalRef.current === 0) {
+      return;
     }
 
     pollTimerRef.current = setInterval(() => {

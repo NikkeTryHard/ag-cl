@@ -92,10 +92,10 @@ Control what information clients can see about your proxy:
 
 ## Connection Limits
 
-| Setting       | Description                             |
-| ------------- | --------------------------------------- |
-| Max Clients   | Maximum simultaneous connections (1-10) |
-| Poll Interval | How often clients refresh quota data    |
+| Setting       | Description                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Max Clients   | Maximum simultaneous connections (1-10)                                                                               |
+| Poll Interval | How often clients refresh quota data (set to "off" to disable automatic polling - clients fetch once on connect only) |
 
 ## Keyboard Shortcuts
 

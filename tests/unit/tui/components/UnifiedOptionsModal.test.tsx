@@ -105,8 +105,8 @@ describe("UnifiedOptionsModal", () => {
     });
   });
 
-  describe("disabled items", () => {
-    it("renders Master Key and Friend Keys as disabled items", () => {
+  describe("modal indicator items", () => {
+    it("renders Master Key and Friend Keys with sub-modal indicators", () => {
       const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={defaultShareConfig} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
 
       expect(lastFrame()).toContain("Master Key");
@@ -235,6 +235,51 @@ describe("UnifiedOptionsModal", () => {
 
       expect(lastFrame()).toContain("Poll Interval");
       expect(lastFrame()).toContain("[30s]");
+    });
+  });
+
+  describe("poll interval cycling", () => {
+    it("should cycle poll interval through all options including off", async () => {
+      const ENTER = "\r";
+      const DOWN = "\x1B[B";
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      // Start with pollIntervalSeconds = 60 (last option)
+      const configWith60: ShareConfig = {
+        ...defaultShareConfig,
+        limits: {
+          ...defaultShareConfig.limits,
+          pollIntervalSeconds: 60,
+        },
+      };
+
+      const { stdin, lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={configWith60} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      // Navigate to Poll Interval (it's in the Share Options section)
+      await delay(10);
+
+      // Navigate down 11 times to reach Poll Interval (12th selectable item)
+      // Order: Identity Mode (start), Default Port, Log Level, Model Fallback, Auto Refresh, Scheduling Mode,
+      //        (Share Options header - skipped), Enabled, Auth Mode, Master Key, Friend Keys, Max Clients, Poll Interval
+      for (let i = 0; i < 11; i++) {
+        stdin.write(DOWN);
+        await delay(10);
+      }
+
+      // Verify we're on Poll Interval
+      expect(lastFrame()).toContain("Poll Interval");
+      expect(lastFrame()).toContain("[60s]");
+
+      // Press Enter to cycle to next value (should wrap to 0 = "off")
+      stdin.write(ENTER);
+      await delay(50);
+
+      // Verify onUpdateShareConfig was called with pollIntervalSeconds: 0
+      expect(mockOnUpdateShareConfig).toHaveBeenCalledWith({
+        limits: expect.objectContaining({
+          pollIntervalSeconds: 0,
+        }),
+      });
     });
   });
 });

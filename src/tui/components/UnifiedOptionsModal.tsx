@@ -117,7 +117,7 @@ export function UnifiedOptionsModal({ settings, shareConfig, onUpdateSettings, o
       { id: "masterKey", type: "selectable", label: "Master Key...", value: shareConfig.auth.masterKey ? "set" : "not set" },
       { id: "friendKeys", type: "selectable", label: "Friend Keys...", value: String(shareConfig.auth.friendKeys.length) },
       { id: "maxClients", type: "selectable", label: "Max Clients", value: String(shareConfig.limits.maxClients) },
-      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: shareConfig.limits.pollIntervalSeconds === 0 ? "off" : `${shareConfig.limits.pollIntervalSeconds}s` },
+      { id: "pollIntervalSeconds", type: "selectable", label: "Poll Interval", value: shareConfig.limits.pollIntervalSeconds === 0 ? "off" : `${String(shareConfig.limits.pollIntervalSeconds)}s` },
       { id: "showAccountEmails", type: "selectable", label: "Show Emails", value: shareConfig.visibility.showAccountEmails ? "Y" : "N" },
       { id: "showIndividualAccounts", type: "selectable", label: "Show Accounts", value: shareConfig.visibility.showIndividualAccounts ? "Y" : "N" },
       { id: "showModelBreakdown", type: "selectable", label: "Show Models", value: shareConfig.visibility.showModelBreakdown ? "Y" : "N" },

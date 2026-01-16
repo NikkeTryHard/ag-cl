@@ -193,4 +193,50 @@ describe("UnifiedOptionsModal", () => {
       expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * Tests for poll interval display logic.
+   * The component should display "off" when pollIntervalSeconds is 0,
+   * and display the value with "s" suffix otherwise.
+   */
+  describe("poll interval display", () => {
+    it("should display 'off' when pollIntervalSeconds is 0", () => {
+      // Enable fallback so [off] doesn't appear from Model Fallback
+      const settingsWithFallback: AccountSettings = {
+        ...defaultSettings,
+        fallbackEnabled: true,
+      };
+      const configWithZeroPoll: ShareConfig = {
+        ...defaultShareConfig,
+        limits: {
+          ...defaultShareConfig.limits,
+          pollIntervalSeconds: 0,
+        },
+      };
+
+      const { lastFrame } = render(<UnifiedOptionsModal settings={settingsWithFallback} shareConfig={configWithZeroPoll} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      const frame = lastFrame();
+      expect(frame).toContain("Poll Interval");
+      // Should NOT display [0s]
+      expect(frame).not.toContain("[0s]");
+      // Should display [off] for Poll Interval
+      expect(frame).toContain("[off]");
+    });
+
+    it("should display value with 's' suffix when pollIntervalSeconds > 0", () => {
+      const configWithNonZeroPoll: ShareConfig = {
+        ...defaultShareConfig,
+        limits: {
+          ...defaultShareConfig.limits,
+          pollIntervalSeconds: 30,
+        },
+      };
+
+      const { lastFrame } = render(<UnifiedOptionsModal settings={defaultSettings} shareConfig={configWithNonZeroPoll} onUpdateSettings={mockOnUpdateSettings} onUpdateShareConfig={mockOnUpdateShareConfig} onClose={mockOnClose} />);
+
+      expect(lastFrame()).toContain("Poll Interval");
+      expect(lastFrame()).toContain("[30s]");
+    });
+  });
 });
